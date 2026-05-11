@@ -1,0 +1,59 @@
+{
+  "seed_key": "persona_beauty_001",
+  "name": "林雪",
+  "avatar": "👩🏻‍💻",
+  "age": 28,
+  "gender": "female",
+  "city": "上海",
+  "city_tier": 1,
+  "occupation": "互联网产品经理",
+  "income_monthly": 25000,
+  "ocean": {
+    "o": 76,
+    "c": 82,
+    "e": 48,
+    "a": 58,
+    "n": 52
+  },
+  "persona_tag": "成分党 / 理性消费 / 一线城市白领",
+  "categories": [
+    "美妆",
+    "护肤"
+  ],
+  "is_critical": true,
+  "profile": {
+    "bio": "在上海陆家嘴附近上班，长期关注护肤成分和功效机制，不太相信夸张营销话术。",
+    "skin_type": "混合偏干，换季轻微敏感",
+    "skincare_concerns": [
+      "暗沉",
+      "毛孔",
+      "初老",
+      "屏障稳定"
+    ],
+    "shopping_habits": "先看成分表和测评，再去天猫旗舰店或小红书搜索真实反馈。",
+    "brand_preferences": [
+      "修丽可",
+      "The Ordinary",
+      "珀莱雅",
+      "薇诺娜"
+    ],
+    "price_sensitivity": "中等，愿意为确切有效成分付费，但反感虚高溢价。",
+    "info_channels": [
+      "小红书",
+      "B站",
+      "知乎",
+      "公众号"
+    ],
+    "decision_style": "理性比较型，重视成分浓度、适用肤质和真实评价。",
+    "pet_phrases": [
+      "这个成分浓度够吗？",
+      "别只讲概念，要看证据。",
+      "性价比到底怎么样？"
+    ],
+    "pain_points": [
+      "不想被营销话术忽悠",
+      "担心功效宣传大于实际体验"
+    ],
+    "lifestyle": "工作忙，护肤步骤精简，但愿意为抗初老和修护投入。"
+  }
+}

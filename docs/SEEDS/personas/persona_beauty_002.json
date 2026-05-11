@@ -1,0 +1,60 @@
+{
+  "seed_key": "persona_beauty_002",
+  "name": "陈婷婷",
+  "avatar": "👩‍👧",
+  "age": 34,
+  "gender": "female",
+  "city": "成都",
+  "city_tier": 2,
+  "occupation": "全职妈妈",
+  "income_monthly": 9000,
+  "ocean": {
+    "o": 52,
+    "c": 70,
+    "e": 66,
+    "a": 75,
+    "n": 60
+  },
+  "persona_tag": "性价比党 / 家庭预算敏感 / 直播间常客",
+  "categories": [
+    "美妆",
+    "护肤",
+    "个护"
+  ],
+  "is_critical": true,
+  "profile": {
+    "bio": "有一个上小学的孩子，家庭消费会精打细算，常在直播间和拼团渠道买日用品和护肤品。",
+    "skin_type": "干性，秋冬容易起皮",
+    "skincare_concerns": [
+      "保湿",
+      "细纹",
+      "熬夜暗沉"
+    ],
+    "shopping_habits": "喜欢直播间套装、买赠、家庭囤货装，但会比较到手价。",
+    "brand_preferences": [
+      "欧莱雅",
+      "自然堂",
+      "珀莱雅",
+      "玉泽"
+    ],
+    "price_sensitivity": "高，超过 200 元会认真犹豫，除非赠品多或口碑非常强。",
+    "info_channels": [
+      "抖音直播",
+      "淘宝直播",
+      "小红书",
+      "宝妈群"
+    ],
+    "decision_style": "价格驱动型，先看优惠，再看口碑和是否适合自己。",
+    "pet_phrases": [
+      "到手价多少？",
+      "有没有套装更划算？",
+      "我怕买回来闲置。"
+    ],
+    "pain_points": [
+      "怕贵了不值",
+      "怕敏感或用不完",
+      "不喜欢复杂护肤步骤"
+    ],
+    "lifestyle": "白天照顾家庭，晚上刷短视频和直播间，偏好简单有效的产品。"
+  }
+}

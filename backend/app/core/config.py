@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    app_env: str = Field(default="development", alias="APP_ENV")
+    app_name: str = Field(default="duoduo-product-testing-api", alias="APP_NAME")
+    app_version: str = Field(default="0.1.0", alias="APP_VERSION")
+    app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
+    app_port: int = Field(default=8000, alias="APP_PORT")
+    app_secret_key: str = Field(
+        default="change_me_for_local_development_only",
+        alias="APP_SECRET_KEY",
+    )
+    app_jwt_expire_days: int = Field(default=7, alias="APP_JWT_EXPIRE_DAYS")
+    database_url: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/duoduo",
+        alias="DATABASE_URL",
+    )
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+    # AI provider selection
+    ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
+
+    # 火山方舟 (Ark/Doubao) AI settings
+    ark_api_key: str = Field(default="", alias="ARK_API_KEY")
+    ark_base_url: str = Field(
+        default="https://ark.cn-beijing.volces.com/api/v3",
+        alias="ARK_BASE_URL",
+    )
+    ark_ep_doubao_seed_16: str = Field(default="", alias="ARK_EP_DOUBAO_SEED_16")
+    ark_ep_doubao_15_pro_character: str = Field(
+        default="", alias="ARK_EP_DOUBAO_15_PRO_CHARACTER"
+    )
+    ark_ep_doubao_15_lite: str = Field(default="", alias="ARK_EP_DOUBAO_15_LITE")
+    ark_ep_vision_pro: str = Field(default="", alias="ARK_EP_VISION_PRO")
+    ark_ep_embedding: str = Field(default="", alias="ARK_EP_EMBEDDING")
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Return cached application settings."""
+
+    return Settings()

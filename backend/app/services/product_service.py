@@ -1,0 +1,201 @@
+from __future__ import annotations
+
+from datetime import UTC
+from decimal import Decimal
+
+from fastapi import status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import AppException
+from app.db.models.product import Product
+from app.db.models.user import User
+from app.db.repositories.product import ProductRepository
+from app.schemas.product import (
+    ProductAiSummary,
+    ProductCreateRequest,
+    ProductListResponse,
+    ProductResponse,
+    ProductUploadUrlRequest,
+    ProductUploadUrlResponse,
+)
+from app.storage.mock_upload import create_mock_upload_url
+
+ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png"}
+MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
+
+
+class ProductService:
+    """Product use cases using mock external adapters."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+        self.products = ProductRepository(session)
+
+    def create_upload_url(self, payload: ProductUploadUrlRequest) -> ProductUploadUrlResponse:
+        """Create a mock upload URL after validating image constraints."""
+
+        if payload.mime_type not in ALLOWED_IMAGE_MIME_TYPES:
+            raise AppException(
+                code="INVALID_FILE_TYPE",
+                message="Only jpg/png images are allowed",
+                http_status=status.HTTP_400_BAD_REQUEST,
+            )
+        if payload.size_bytes > MAX_UPLOAD_SIZE_BYTES:
+            raise AppException(
+                code="FILE_TOO_LARGE",
+                message="File is larger than 5MB",
+                http_status=status.HTTP_400_BAD_REQUEST,
+            )
+        return create_mock_upload_url(filename=payload.filename, mime_type=payload.mime_type)
+
+    async def create_product(self, *, user: User, payload: ProductCreateRequest) -> ProductResponse:
+        """Create a product with mock AI understanding."""
+
+        ai_summary = self._build_mock_ai_summary(payload)
+        product = await self.products.create(
+            {
+                "user_id": user.id,
+                "name": payload.name or self._infer_name(payload.description),
+                "description": payload.description,
+                "category": "美妆",
+                "sub_category": "面霜",
+                "brand": payload.brand,
+                "price": payload.price,
+                "price_range": self._price_range(payload.price),
+                "target_channel": payload.target_channel,
+                "image_urls": [self._mock_image_url(key) for key in payload.image_object_keys],
+                "ai_summary": ai_summary.model_dump(),
+                "status": "ready",
+            }
+        )
+        await self.session.commit()
+        return self._to_response(product)
+
+    async def get_product(self, *, user: User, product_id: int) -> ProductResponse:
+        """Return one product owned by the current user."""
+
+        product = await self.products.get_by_id_and_user_id(product_id=product_id, user_id=user.id)
+        if product is None:
+            raise self._not_found(product_id)
+        return self._to_response(product)
+
+    async def reanalyze_product(self, *, user: User, product_id: int) -> ProductResponse:
+        """Refresh mock product understanding."""
+
+        product = await self.products.get_by_id_and_user_id(product_id=product_id, user_id=user.id)
+        if product is None:
+            raise self._not_found(product_id)
+        summary = self._build_mock_ai_summary_from_product(product)
+        await self.products.update(
+            product,
+            {
+                "ai_summary": summary.model_dump(),
+                "status": "ready",
+            },
+        )
+        await self.session.commit()
+        return self._to_response(product)
+
+    async def list_products(
+        self,
+        *,
+        user: User,
+        cursor: str | None,
+        limit: int,
+    ) -> ProductListResponse:
+        """Return a cursor-paginated list of the current user's products."""
+
+        offset = self._decode_cursor(cursor)
+        bounded_limit = max(1, min(limit, 100))
+        products = await self.products.list_by_user_id(
+            user_id=user.id,
+            offset=offset,
+            limit=bounded_limit + 1,
+        )
+        has_more = len(products) > bounded_limit
+        visible_products = products[:bounded_limit]
+        next_cursor = str(offset + bounded_limit) if has_more else None
+        return ProductListResponse(
+            items=[self._to_response(product) for product in visible_products],
+            next_cursor=next_cursor,
+            has_more=has_more,
+        )
+
+    def _to_response(self, product: Product) -> ProductResponse:
+        summary = product.ai_summary or self._build_mock_ai_summary_from_product(
+            product
+        ).model_dump()
+        return ProductResponse(
+            id=str(product.id),
+            name=product.name or "未命名产品",
+            description=product.description,
+            image_urls=list(product.image_urls),
+            category=product.category,
+            sub_category=product.sub_category,
+            brand=product.brand,
+            price=product.price,
+            price_range=product.price_range,
+            target_channel=product.target_channel,
+            ai_summary=ProductAiSummary(**summary),
+            status=product.status,
+            created_at=product.created_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+        )
+
+    def _build_mock_ai_summary(self, payload: ProductCreateRequest) -> ProductAiSummary:
+        ingredients = (
+            ["烟酰胺", "神经酰胺"]
+            if "烟酰胺" in payload.description
+            else ["核心成分待确认"]
+        )
+        return ProductAiSummary(
+            main_selling_points=["温和修护", "日常提亮", "适合快速测品验证"],
+            key_ingredients=ingredients,
+            suitable_skin_types=["敏感肌", "干性肌", "混合肌"],
+            target_audience="关注成分与温和修护的都市护肤用户",
+            competitive_position="中端功效护肤测试样品",
+        )
+
+    def _build_mock_ai_summary_from_product(self, product: Product) -> ProductAiSummary:
+        return ProductAiSummary(
+            main_selling_points=["重新识别后的温和修护卖点", "保湿与提亮组合"],
+            key_ingredients=["烟酰胺", "神经酰胺"],
+            suitable_skin_types=["敏感肌", "干性肌", "混合肌"],
+            target_audience="关注成分功效和性价比的护肤用户",
+            competitive_position=f"{product.category or '美妆'}品类中端测试产品",
+        )
+
+    def _infer_name(self, description: str) -> str:
+        return description[:20]
+
+    def _price_range(self, price: Decimal | None) -> str | None:
+        if price is None:
+            return None
+        if price < 50:
+            return "0-50"
+        if price < 100:
+            return "50-100"
+        if price < 200:
+            return "100-200"
+        if price < 400:
+            return "200-400"
+        if price < 800:
+            return "400-800"
+        return "800+"
+
+    def _mock_image_url(self, object_key: str) -> str:
+        return f"https://mock-cdn.local/{object_key}"
+
+    def _decode_cursor(self, cursor: str | None) -> int:
+        if cursor is None or cursor == "":
+            return 0
+        if not cursor.isdigit():
+            return 0
+        return int(cursor)
+
+    def _not_found(self, product_id: int) -> AppException:
+        return AppException(
+            code="PRODUCT_NOT_FOUND",
+            message="Product not found",
+            http_status=status.HTTP_404_NOT_FOUND,
+            details={"product_id": str(product_id)},
+        )

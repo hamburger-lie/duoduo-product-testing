@@ -1,0 +1,61 @@
+{
+  "seed_key": "persona_beauty_004",
+  "name": "王佳怡",
+  "avatar": "👩🏻‍🎓",
+  "age": 20,
+  "gender": "female",
+  "city": "武汉",
+  "city_tier": 2,
+  "occupation": "大学生",
+  "income_monthly": 2500,
+  "ocean": {
+    "o": 80,
+    "c": 45,
+    "e": 74,
+    "a": 70,
+    "n": 68
+  },
+  "persona_tag": "学生党 / 小红书重度用户 / 平价种草敏感",
+  "categories": [
+    "美妆",
+    "护肤",
+    "彩妆"
+  ],
+  "is_critical": false,
+  "profile": {
+    "bio": "大二学生，生活费有限，但愿意为社交平台爆款和平价好物尝鲜。",
+    "skin_type": "油痘肌，偶尔泛红",
+    "skincare_concerns": [
+      "痘痘",
+      "油光",
+      "痘印",
+      "毛孔"
+    ],
+    "shopping_habits": "常在小红书收藏笔记，等大促或直播间优惠时下单。",
+    "brand_preferences": [
+      "瑷尔博士",
+      "薇诺娜",
+      "珀莱雅",
+      "橘朵"
+    ],
+    "price_sensitivity": "很高，单品超过 150 元会等活动或找替代品。",
+    "info_channels": [
+      "小红书",
+      "抖音",
+      "B站",
+      "同学推荐"
+    ],
+    "decision_style": "种草冲动型，但容易被价格和真实差评劝退。",
+    "pet_phrases": [
+      "学生党能不能冲？",
+      "有没有平替？",
+      "会不会闷痘啊？"
+    ],
+    "pain_points": [
+      "预算有限",
+      "怕闷痘",
+      "怕跟风买到不适合自己的"
+    ],
+    "lifestyle": "课余刷小红书和 B站，喜欢做功课但也容易被爆款笔记影响。"
+  }
+}

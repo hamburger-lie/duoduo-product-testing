@@ -1,0 +1,166 @@
+{
+  "template_key": "beauty_report_template_v0_1",
+  "name": "美妆 AI 消费者测评报告模板",
+  "version": 1,
+  "category": "美妆",
+  "required_sections": [
+    {
+      "key": "ai_disclaimer",
+      "title": "AI 生成提示",
+      "required": true,
+      "description": "必须提示 AI 生成内容仅供参考，不替代真人调研、功效测试、合规检测或专业市场研究。"
+    },
+    {
+      "key": "executive_summary",
+      "title": "核心结论",
+      "required": true,
+      "min_items": 3,
+      "max_items": 5
+    },
+    {
+      "key": "decision_suggestion",
+      "title": "立项/选品建议",
+      "required": true,
+      "allowed_verdicts": [
+        "go",
+        "iterate",
+        "pause"
+      ]
+    },
+    {
+      "key": "metrics",
+      "title": "量化结果",
+      "required": true,
+      "charts": [
+        "intent_distribution_bar",
+        "dimension_scores_radar",
+        "price_sensitivity_bar",
+        "persona_segments_table"
+      ]
+    },
+    {
+      "key": "top_pros",
+      "title": "Top 机会点",
+      "required": true,
+      "min_items": 3
+    },
+    {
+      "key": "top_cons",
+      "title": "Top 风险点",
+      "required": true,
+      "min_items": 3
+    },
+    {
+      "key": "target_audience",
+      "title": "目标人群与渠道建议",
+      "required": true
+    },
+    {
+      "key": "marketing_copy_angles",
+      "title": "可测试营销话术方向",
+      "required": true,
+      "min_items": 3
+    },
+    {
+      "key": "next_test_recommendations",
+      "title": "下一步真实验证建议",
+      "required": true,
+      "min_items": 3
+    }
+  ],
+  "metric_definitions": {
+    "overall_intent_avg": "q30 综合购买意愿均分，必要时结合角色整体回答校正。",
+    "nps": "将推荐意愿 4-5 视为推荐者，1-2 视为贬损者，3 视为中立。",
+    "dimension_scores": "每个维度由该维度的量表题和相关选择题综合归一到 1-5。",
+    "price_sensitivity": "聚合 q07 与 q09 中可接受价格区间。",
+    "persona_segments": "按年龄、城市层级、价格敏感度、消费决策风格聚类。"
+  },
+  "output_schema": {
+    "ai_disclaimer": "string",
+    "executive_summary": [
+      "string"
+    ],
+    "decision_suggestion": {
+      "verdict": "go|iterate|pause",
+      "reason": "string",
+      "confidence": "number"
+    },
+    "metrics": {
+      "overall_intent_avg": "number",
+      "nps": "integer",
+      "intent_distribution": {
+        "1": "integer",
+        "2": "integer",
+        "3": "integer",
+        "4": "integer",
+        "5": "integer"
+      },
+      "dimension_scores": [
+        {
+          "dim": "string",
+          "score": "number"
+        }
+      ],
+      "price_sensitivity": [
+        {
+          "range": "string",
+          "count": "integer"
+        }
+      ],
+      "persona_segments": [
+        {
+          "segment": "string",
+          "count": "integer",
+          "avg_intent": "number"
+        }
+      ]
+    },
+    "top_pros": [
+      {
+        "title": "string",
+        "support_count": "integer",
+        "evidence_quotes": [
+          {
+            "persona_name": "string",
+            "quote": "string"
+          }
+        ],
+        "business_implication": "string"
+      }
+    ],
+    "top_cons": [
+      {
+        "title": "string",
+        "support_count": "integer",
+        "evidence_quotes": [
+          {
+            "persona_name": "string",
+            "quote": "string"
+          }
+        ],
+        "improvement_suggestion": "string"
+      }
+    ],
+    "target_audience": {
+      "most_likely_to_buy": [
+        "string"
+      ],
+      "least_likely_to_buy": [
+        "string"
+      ],
+      "channel_recommendation": [
+        "string"
+      ]
+    },
+    "marketing_copy_angles": [
+      {
+        "angle": "string",
+        "suitable_segment": "string",
+        "risk_note": "string"
+      }
+    ],
+    "next_test_recommendations": [
+      "string"
+    ]
+  }
+}

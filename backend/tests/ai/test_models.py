@@ -30,11 +30,13 @@ def test_model_route_is_frozen() -> None:
 
 
 def test_model_router_raises_when_endpoint_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ark provider with empty endpoints should raise AIServiceUnavailable."""
     from app.core import config as cfg_module
 
     original = cfg_module.get_settings()
 
     class _FakeSettings:
+        ai_provider = "ark"
         ark_ep_doubao_seed_16 = ""
         ark_ep_doubao_15_pro_character = ""
         ark_ep_doubao_15_lite = ""
@@ -51,22 +53,23 @@ def test_model_router_raises_when_endpoint_empty(monkeypatch: pytest.MonkeyPatch
 
 
 def test_model_router_returns_route_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DeepSeek provider should route SURVEY_GENERATE to deepseek_model_pro."""
     from app.core import config as cfg_module
 
     original = cfg_module.get_settings()
 
     class _FakeSettings:
-        ark_ep_doubao_seed_16 = "ep-seed"
-        ark_ep_doubao_15_pro_character = "ep-pro"
-        ark_ep_doubao_15_lite = "ep-lite"
-        ark_ep_vision_pro = "ep-vision"
-        ark_ep_embedding = "ep-embed"
+        ai_provider = "deepseek"
+        deepseek_model_pro = "deepseek-chat"
+        deepseek_model_flash = "deepseek-chat"
+        zhipu_api_key = ""
+        zhipu_model_vision = "glm-4.6v"
 
     monkeypatch.setattr(cfg_module, "get_settings", lambda: _FakeSettings())
 
     router = ModelRouter()
     route = router.get(TaskType.SURVEY_GENERATE)
-    assert route.endpoint_id == "ep-seed"
+    assert route.endpoint_id == "deepseek-chat"
     assert route.task_type == TaskType.SURVEY_GENERATE
 
     monkeypatch.setattr(cfg_module, "get_settings", lambda: original)

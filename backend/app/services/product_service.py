@@ -204,12 +204,12 @@ class ProductService:
     ) -> ProductAiSummary:
         """Call AI (via product_understand.j2) to extract structured product info."""
 
-        from app.ai.factory import get_ai_client
+        from app.ai.factory import get_vision_client
         from app.ai.json_utils import parse_json_response
         from app.ai.models import ModelRouter, TaskType
         from app.ai.prompt_manager import render_prompt
 
-        ai_client = self._ai_client or get_ai_client()
+        ai_client = self._ai_client or get_vision_client()
         route = ModelRouter().get(TaskType.PRODUCT_UNDERSTAND)
 
         product_context: dict[str, object] = {

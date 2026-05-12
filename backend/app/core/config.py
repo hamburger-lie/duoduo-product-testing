@@ -36,21 +36,34 @@ class Settings(BaseSettings):
     wechat_app_id: str = Field(default="", alias="WECHAT_APP_ID")
     wechat_app_secret: str = Field(default="", alias="WECHAT_APP_SECRET")
 
-    # AI provider: "mock", "ark", or "deepseek"
+    # AI provider: "mock" | "deepseek" | "ark" (deprecated)
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
 
-    # DeepSeek AI settings
+    # DeepSeek AI settings (文本主力)
     deepseek_api_key: str = Field(default="", alias="DEEPSEEK_API_KEY")
     deepseek_base_url: str = Field(
         default="https://api.deepseek.com",
         alias="DEEPSEEK_BASE_URL",
     )
-    deepseek_model: str = Field(
-        default="deepseek-v4-flash",
-        alias="DEEPSEEK_MODEL",
+    deepseek_model: str = Field(default="deepseek-chat", alias="DEEPSEEK_MODEL")
+    deepseek_model_pro: str = Field(
+        default="deepseek-chat",
+        alias="DEEPSEEK_MODEL_PRO",
+    )
+    deepseek_model_flash: str = Field(
+        default="deepseek-chat",
+        alias="DEEPSEEK_MODEL_FLASH",
     )
 
-    # 火山方舟 (Ark/Doubao) AI settings
+    # 智谱 GLM (多模态/视觉，产品图片理解专用)
+    zhipu_api_key: str = Field(default="", alias="ZHIPU_API_KEY")
+    zhipu_base_url: str = Field(
+        default="https://open.bigmodel.cn/api/paas/v4",
+        alias="ZHIPU_BASE_URL",
+    )
+    zhipu_model_vision: str = Field(default="glm-4.6v", alias="ZHIPU_MODEL_VISION")
+
+    # DEPRECATED: 火山方舟 (Ark/Doubao) — 保留向后兼容
     ark_api_key: str = Field(default="", alias="ARK_API_KEY")
     ark_base_url: str = Field(
         default="https://ark.cn-beijing.volces.com/api/v3",

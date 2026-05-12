@@ -16,6 +16,7 @@ from app.ai.streaming import (
     sse_done,
     sse_error,
     sse_meta,
+    sse_start,
 )
 from app.core.exceptions import AppException
 from app.db.models.conversation import Conversation, ConversationMessage
@@ -347,6 +348,7 @@ class ConversationService:
                 "error_code": None,
             }
             try:
+                yield sse_start("conversation", str(conversation.id))
                 context = await self._load_chat_context(conversation)
 
                 try:
@@ -485,13 +487,20 @@ class ConversationService:
         await self.session.commit()
 
         chunks = split_chinese_chunks(assistant_text)
-        return mock_sse_stream(
-            chunks=chunks,
-            message_id=str(assistant_msg.id),
-            token_input=token_input,
-            token_output=token_output,
-            cost_yuan=cost_yuan,
-        )
+        conv_id = str(conversation.id)
+
+        async def _mock_gen() -> AsyncIterator[str]:
+            yield sse_start("conversation", conv_id)
+            async for event in mock_sse_stream(
+                chunks=chunks,
+                message_id=str(assistant_msg.id),
+                token_input=token_input,
+                token_output=token_output,
+                cost_yuan=cost_yuan,
+            ):
+                yield event
+
+        return _mock_gen()
 
     async def _generate_mock_reply(self, conversation: Conversation) -> str:
         """Generate a mock assistant reply based on persona and answer."""

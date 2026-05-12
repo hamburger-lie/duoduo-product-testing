@@ -5,11 +5,11 @@ from app.ai.exceptions import AIServiceUnavailable
 
 
 def get_ai_client() -> AIClient:
-    """Return an AI client based on the AI_PROVIDER setting.
+    """Return AI client based on AI_PROVIDER.
 
     - ``AI_PROVIDER=mock``     → MockAIClient (no key required)
-    - ``AI_PROVIDER=ark``      → ArkOpenAIClient for 火山方舟
     - ``AI_PROVIDER=deepseek`` → ArkOpenAIClient configured for DeepSeek API
+    - ``AI_PROVIDER=ark``      → ArkOpenAIClient for 火山方舟 (DEPRECATED)
 
     Raises AIServiceUnavailable when credentials are missing.
     """
@@ -22,14 +22,6 @@ def get_ai_client() -> AIClient:
     if provider == "mock":
         return MockAIClient()
 
-    if provider == "ark":
-        if not settings.ark_api_key:
-            raise AIServiceUnavailable(
-                "AI_PROVIDER=ark requires ARK_API_KEY to be set. "
-                "Set it in .env or use AI_PROVIDER=mock for local development."
-            )
-        return ArkOpenAIClient()
-
     if provider == "deepseek":
         if not settings.deepseek_api_key:
             raise AIServiceUnavailable(
@@ -40,6 +32,34 @@ def get_ai_client() -> AIClient:
             base_url=settings.deepseek_base_url,
         )
 
+    if provider == "ark":
+        # DEPRECATED: 方舟已废弃，保留向后兼容
+        if not settings.ark_api_key:
+            raise AIServiceUnavailable(
+                "AI_PROVIDER=ark requires ARK_API_KEY to be set."
+            )
+        return ArkOpenAIClient()
+
     raise AIServiceUnavailable(
-        f"Unknown AI_PROVIDER {provider!r}. Valid values: 'mock', 'ark', 'deepseek'."
+        f"Unknown AI_PROVIDER {provider!r}. Valid values: 'mock', 'deepseek', 'ark'."
     )
+
+
+def get_vision_client() -> AIClient:
+    """Return AI client for vision/multimodal tasks.
+
+    优先智谱 GLM-4.6V，fallback 到 get_ai_client()。
+    """
+
+    from app.core.config import get_settings
+
+    settings = get_settings()
+
+    if settings.zhipu_api_key:
+        return ArkOpenAIClient(
+            api_key=settings.zhipu_api_key,
+            base_url=settings.zhipu_base_url,
+        )
+
+    # 没有智谱 key，fallback 到默认 client（纯文本理解）
+    return get_ai_client()

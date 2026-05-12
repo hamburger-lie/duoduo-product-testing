@@ -23,27 +23,82 @@ class ModelRoute:
 
 
 class ModelRouter:
-    """Maps TaskType to the configured endpoint ID from settings."""
+    """Maps TaskType to model routes.
+
+    DeepSeek 做文本主力，GLM-4.6V 做多模态。
+    PRODUCT_UNDERSTAND 走智谱（如有 key），其余走 DeepSeek。
+    """
 
     def __init__(self) -> None:
         from app.core.config import get_settings
 
         s = get_settings()
-        provider = getattr(s, "ai_provider", "ark").strip().lower()
+        provider = getattr(s, "ai_provider", "mock").strip().lower()
         self._routes: dict[TaskType, ModelRoute]
 
-        if provider == "deepseek":
-            model = s.deepseek_model
+        if provider == "mock":
             self._routes = {
                 t: ModelRoute(
                     task_type=t,
-                    endpoint_id=model,
-                    endpoint_env_name="DEEPSEEK_MODEL",
-                    supports_streaming=t == TaskType.PERSONA_CHAT,
+                    endpoint_id="mock",
+                    endpoint_env_name="MOCK",
                 )
                 for t in TaskType
             }
+            return
+
+        # DeepSeek 文本模型 (pro / flash)
+        pro = getattr(s, "deepseek_model_pro", "deepseek-chat")
+        flash = getattr(s, "deepseek_model_flash", "deepseek-chat")
+
+        if provider == "deepseek":
+            self._routes = {
+                TaskType.SURVEY_GENERATE: ModelRoute(
+                    task_type=TaskType.SURVEY_GENERATE,
+                    endpoint_id=pro,
+                    endpoint_env_name="DEEPSEEK_MODEL_PRO",
+                ),
+                TaskType.PERSONA_ANSWER: ModelRoute(
+                    task_type=TaskType.PERSONA_ANSWER,
+                    endpoint_id=pro,
+                    endpoint_env_name="DEEPSEEK_MODEL_PRO",
+                ),
+                TaskType.PERSONA_CHAT: ModelRoute(
+                    task_type=TaskType.PERSONA_CHAT,
+                    endpoint_id=flash,
+                    endpoint_env_name="DEEPSEEK_MODEL_FLASH",
+                    supports_streaming=True,
+                ),
+                TaskType.REPORT_SYNTHESIZE: ModelRoute(
+                    task_type=TaskType.REPORT_SYNTHESIZE,
+                    endpoint_id=pro,
+                    endpoint_env_name="DEEPSEEK_MODEL_PRO",
+                ),
+                TaskType.MEMORY_EXTRACT: ModelRoute(
+                    task_type=TaskType.MEMORY_EXTRACT,
+                    endpoint_id=flash,
+                    endpoint_env_name="DEEPSEEK_MODEL_FLASH",
+                ),
+            }
+
+            # 产品理解：优先走智谱 GLM-4.6V（多模态）
+            zhipu_key = getattr(s, "zhipu_api_key", "")
+            if zhipu_key:
+                vision_model = getattr(s, "zhipu_model_vision", "glm-4.6v")
+                self._routes[TaskType.PRODUCT_UNDERSTAND] = ModelRoute(
+                    task_type=TaskType.PRODUCT_UNDERSTAND,
+                    endpoint_id=vision_model,
+                    endpoint_env_name="ZHIPU_MODEL_VISION",
+                    supports_vision=True,
+                )
+            else:
+                self._routes[TaskType.PRODUCT_UNDERSTAND] = ModelRoute(
+                    task_type=TaskType.PRODUCT_UNDERSTAND,
+                    endpoint_id=pro,
+                    endpoint_env_name="DEEPSEEK_MODEL_PRO",
+                )
         else:
+            # ark (deprecated) — 保留向后兼容
             self._routes = {
                 TaskType.PRODUCT_UNDERSTAND: ModelRoute(
                     task_type=TaskType.PRODUCT_UNDERSTAND,

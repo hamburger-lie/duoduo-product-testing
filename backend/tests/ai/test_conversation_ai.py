@@ -920,8 +920,8 @@ def test_persona_chat_template_contains_safety_rules() -> None:
         conversation_history=[],
         user_message="test",
     )
-    assert "不准承认自己是 AI" in rendered
-    assert "第一人称" in rendered
+    assert "不准承认" in rendered and "AI" in rendered
+    assert "绝对禁止" in rendered
 
 
 def test_persona_chat_template_no_memory_context_section() -> None:

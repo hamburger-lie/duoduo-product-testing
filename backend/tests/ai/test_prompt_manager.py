@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.ai.exceptions import AIPromptNotFound, AIPromptRenderFailed
+from app.ai.exceptions import AIPromptNotFound
 from app.ai.prompt_manager import render_prompt
 
 
@@ -37,10 +37,11 @@ def test_render_unknown_template_raises_not_found() -> None:
         render_prompt("nonexistent_template", foo="bar")
 
 
-def test_render_missing_variable_raises_render_failed() -> None:
-    with pytest.raises(AIPromptRenderFailed):
-        # product_understand requires user_role_type and product
-        render_prompt("product_understand")
+def test_render_missing_variable_still_renders_with_chainable_undefined() -> None:
+    # With ChainableUndefined, missing vars become Undefined (falsy) instead of raising.
+    # This is intentional — v2.0 templates use optional dict attributes extensively.
+    rendered, _, _ = render_prompt("product_understand")
+    assert isinstance(rendered, str)
 
 
 def test_versioned_name_format() -> None:

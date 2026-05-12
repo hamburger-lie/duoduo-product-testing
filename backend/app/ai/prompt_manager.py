@@ -10,19 +10,28 @@ from app.ai.exceptions import AIPromptNotFound, AIPromptRenderFailed
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
+class _UndefinedEncoder(json.JSONEncoder):
+    """JSON encoder that converts Jinja2 Undefined to None."""
+
+    def default(self, o: object) -> object:
+        if isinstance(o, jinja2.Undefined):
+            return None
+        return super().default(o)
+
+
 def _tojson_filter(
     value: object,
     indent: int | None = None,
     ensure_ascii: bool = True,
 ) -> str:
-    return json.dumps(value, indent=indent, ensure_ascii=ensure_ascii)
+    return json.dumps(value, indent=indent, ensure_ascii=ensure_ascii, cls=_UndefinedEncoder)
 
 
 _env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(str(_PROMPTS_DIR)),
     autoescape=False,
     keep_trailing_newline=True,
-    undefined=jinja2.StrictUndefined,
+    undefined=jinja2.ChainableUndefined,
 )
 _env.filters["tojson"] = _tojson_filter
 

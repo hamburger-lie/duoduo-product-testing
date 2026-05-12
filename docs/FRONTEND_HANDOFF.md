@@ -393,7 +393,33 @@ Content-Type: application/json
 
 响应：`text/event-stream`
 
-## 五、小程序流式处理说明
+## 五、SSE 统一事件协议
+
+所有流式接口（conversation messages）使用统一的 SSE 事件格式：
+
+```
+data: {"event": "<event_type>", ...payload}\n\n
+```
+
+### 5.1 事件类型
+
+| event | 字段 | 说明 |
+|---|---|---|
+| `start` | `type`, `id` | 流开始，`type` 为资源类型（如 `"conversation"`），`id` 为资源 ID |
+| `delta` | `content` | 文本增量（打字机效果），拼接到消息内容 |
+| `progress` | `percent`, `message` | 进度更新（百分比 + 文案），用于长时间任务 |
+| `result` | `data` | 完整结构化结果（一次性返回整个对象） |
+| `meta` | `message_id`, `tokens`, `cost_yuan` | 元信息：消息 ID、token 用量 `{input, output}`、费用 |
+| `error` | `code`, `message` | 错误事件，收到后应停止等待后续事件 |
+| `done` | — | 流结束信号 |
+
+### 5.2 事件顺序
+
+正常流程：`start` → `delta` × N → `meta` → `done`
+
+错误流程：`start` → `error` → `done`（或直接 `error` → `done`）
+
+### 5.3 小程序流式处理
 
 微信小程序使用 `wx.request` 的 `enableChunked` 模式接收 SSE：
 
@@ -412,11 +438,9 @@ const task = wx.request({
 
 let buffer = '';
 task.onChunkReceived(function(res) {
-  // res.data 是 ArrayBuffer
   const text = new TextDecoder('utf-8').decode(res.data);
   buffer += text;
 
-  // 按 \n\n 切分事件
   const parts = buffer.split('\n\n');
   buffer = parts.pop(); // 最后一个可能不完整
 
@@ -425,34 +449,39 @@ task.onChunkReceived(function(res) {
     const json = JSON.parse(part.slice(6));
 
     switch (json.event) {
+      case 'start':
+        // 流开始，可记录 json.id 和 json.type
+        break;
       case 'delta':
-        // 拼接文本到聊天气泡
         appendText(json.content);
         break;
+      case 'progress':
+        updateProgress(json.percent, json.message);
+        break;
+      case 'result':
+        handleResult(json.data);
+        break;
       case 'meta':
-        // 保存 message_id 和 tokens
         saveMessageMeta(json.message_id, json.tokens);
         break;
-      case 'done':
-        // 流结束，更新 UI 状态
-        finishStream();
-        break;
       case 'error':
-        // 展示错误：json.code + json.message
         showError(json.code, json.message);
+        break;
+      case 'done':
+        finishStream();
         break;
     }
   }
 });
 ```
 
-流式调试建议：
+### 5.4 流式调试建议
 
 1. 先在 Swagger 或 `scripts/e2e_mock_flow.py` 确认 conversation 能创建。
 2. 调试时打印原始 chunk 文本，确认是否按 `\n\n` 分隔。
 3. 每条事件必须去掉 `data: ` 前缀后再 `JSON.parse`。
 4. 遇到 `event=error` 时展示 `code/message`，不要继续等待后续 delta。
-5. mock 模式下回复较短；`AI_PROVIDER=ark` 时才会走真实豆包流式。
+5. mock 模式下回复较短；`AI_PROVIDER=deepseek` 时走真实 DeepSeek 流式。
 6. 小程序端要处理 chunk 粘包/拆包，不能假设一次 chunk 就是一条完整 `data:` 事件。
 7. `done` 后关闭 loading；`meta` 可能在 `done` 前最后到达，用于保存 `message_id/tokens`。
 
@@ -483,20 +512,24 @@ task.onChunkReceived(function(res) {
 
 | 模式 | 用途 | 前端联调建议 |
 |---|---|---|
-| `AI_PROVIDER=mock` | 默认联调模式，不需要真实 Ark key，响应稳定且成本为 0 | 前端主流程、页面字段、状态流转、SSE 解析优先使用 |
-| `AI_PROVIDER=ark` | 真实 AI 测试模式，需要 `ARK_API_KEY` 和 `ARK_EP_*` endpoint | 后端验证真实 AI 链路后，再用于小范围联调 |
+| `AI_PROVIDER=mock` | 默认联调模式，不需要真实 AI key，响应稳定且成本为 0 | 前端主流程、页面字段、状态流转、SSE 解析优先使用 |
+| `AI_PROVIDER=deepseek` | **推荐生产模式**，DeepSeek 做文本主力 + 智谱 GLM-4.6V 做多模态 | 需要 `DEEPSEEK_API_KEY`，可选 `ZHIPU_API_KEY` |
+| `AI_PROVIDER=ark` | **已弃用**，保留向后兼容，需要 `ARK_API_KEY` 和 `ARK_EP_*` endpoint | 不推荐新项目使用 |
 
-已验证：
+DeepSeek 模式下的模型路由：
 
-- `scripts/live_ai_smoke.py` 已通过，覆盖 `complete()`、`complete_json()`、`stream()`。
-- `scripts/live_conversation_smoke.py` 已通过，覆盖真实 persona chat 流式输出。
+| 任务 | 模型 | 说明 |
+|---|---|---|
+| 问卷生成、角色答卷、报告合成 | `DEEPSEEK_MODEL_PRO`（默认 deepseek-chat） | 重推理任务 |
+| 角色对话、记忆提取 | `DEEPSEEK_MODEL_FLASH`（默认 deepseek-chat） | 轻量快速任务 |
+| 产品理解（多模态） | `ZHIPU_MODEL_VISION`（默认 glm-4.6v） | 图片理解，需 `ZHIPU_API_KEY` |
 
 安全说明：
 
-1. `AI_PROVIDER=ark` 时，如果 Conversation 真实 AI 调用失败，接口会通过 SSE 返回 `event=error`，不会自动降级成 mock。
+1. `AI_PROVIDER=deepseek` 时，如果 Conversation 真实 AI 调用失败，接口会通过 SSE 返回 `event=error`，不会自动降级成 mock。
 2. 前端应按 `event=error` 展示错误提示，不要把失败流当成正常回复。
-3. mock 和 ark 都保持同一套 SSE 事件格式：`delta` / `meta` / `done` / `error`。
-4. 后端日志会记录 Conversation AI 调用的 `task_type`、endpoint 环境变量名、request_id、conversation_id、persona_id、token usage（可估算时）和 error code，便于排查。
+3. mock / deepseek / ark 都保持同一套 SSE 事件格式：`start` / `delta` / `progress` / `result` / `meta` / `done` / `error`。
+4. 后端日志会记录 Conversation AI 调用的 `task_type`、endpoint 环境变量名、request_id、conversation_id、persona_id、token usage 和 error code，便于排查。
 
 ## 八、前端暂时不要做的入口
 

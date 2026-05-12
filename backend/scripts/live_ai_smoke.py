@@ -1,6 +1,6 @@
 """Minimal live smoke test for ArkOpenAIClient.
 
-Usage (set env vars first, then):
+Usage:
     uv run python scripts/live_ai_smoke.py
 """
 
@@ -11,21 +11,44 @@ import os
 import sys
 
 
-async def main() -> None:
-    if not os.environ.get("RUN_LIVE_AI_TESTS"):
-        print("Set RUN_LIVE_AI_TESTS=1 to run live smoke tests.", file=sys.stderr)
+def _configure_stdout() -> None:
+    """Make Windows consoles tolerate model output with emoji/non-GBK chars."""
+
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
+def _load_live_config() -> tuple[str, str]:
+    """Load live config from environment or local .env via Settings."""
+
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    if os.environ.get("RUN_LIVE_AI_TESTS") != "1" and settings.ai_provider != "ark":
+        print(
+            "Set RUN_LIVE_AI_TESTS=1 or AI_PROVIDER=ark to run live smoke tests.",
+            file=sys.stderr,
+        )
         sys.exit(0)
 
-    api_key = os.environ.get("ARK_API_KEY", "")
-    endpoint = os.environ.get("ARK_EP_DOUBAO_15_LITE", "")
+    api_key = os.environ.get("ARK_API_KEY") or settings.ark_api_key
+    endpoint = os.environ.get("ARK_EP_DOUBAO_15_LITE") or settings.ark_ep_doubao_15_lite
+    os.environ.setdefault("ARK_API_KEY", api_key)
+    os.environ.setdefault("ARK_EP_DOUBAO_15_LITE", endpoint)
+    os.environ.setdefault("ARK_BASE_URL", settings.ark_base_url)
+
     if not api_key or not endpoint:
         print(
-            "ARK_API_KEY and ARK_EP_DOUBAO_15_LITE must be set.", file=sys.stderr
+            "ARK_API_KEY and ARK_EP_DOUBAO_15_LITE must be set in environment or .env.",
+            file=sys.stderr,
         )
         sys.exit(1)
+    return api_key, endpoint
 
-    # Set env so config picks them up
-    os.environ.setdefault("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+
+async def main() -> None:
+    _configure_stdout()
+    _, endpoint = _load_live_config()
 
     from app.ai.client import ArkOpenAIClient
 
@@ -66,7 +89,7 @@ async def main() -> None:
             break
     assert chunks, "stream() yielded no chunks"
 
-    print("\n✓ All smoke tests passed.")
+    print("\n[ok] All smoke tests passed.")
 
 
 if __name__ == "__main__":

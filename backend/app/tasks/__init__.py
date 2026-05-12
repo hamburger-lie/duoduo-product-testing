@@ -1,2 +1,1 @@
-"""Async task placeholders for future work."""
-
+"""Async task definitions for Celery workers."""

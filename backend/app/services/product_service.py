@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,16 +22,26 @@ from app.schemas.product import (
 )
 from app.storage.mock_upload import create_mock_upload_url
 
+if TYPE_CHECKING:
+    from app.ai.client import AIClient
+
 ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png"}
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
 
+logger = logging.getLogger(__name__)
+
 
 class ProductService:
-    """Product use cases using mock external adapters."""
+    """Product use cases with mock or AI understanding."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        ai_client: AIClient | None = None,
+    ) -> None:
         self.session = session
         self.products = ProductRepository(session)
+        self._ai_client = ai_client
 
     def create_upload_url(self, payload: ProductUploadUrlRequest) -> ProductUploadUrlResponse:
         """Create a mock upload URL after validating image constraints."""
@@ -49,20 +61,34 @@ class ProductService:
         return create_mock_upload_url(filename=payload.filename, mime_type=payload.mime_type)
 
     async def create_product(self, *, user: User, payload: ProductCreateRequest) -> ProductResponse:
-        """Create a product with mock AI understanding."""
+        """Create a product with AI or mock understanding."""
 
-        ai_summary = self._build_mock_ai_summary(payload)
+        from app.ai.moderation import get_moderation_adapter
+
+        moderator = get_moderation_adapter()
+        await moderator.check_input(
+            f"{payload.name or ''} {payload.description or ''}"
+        )
+
+        ai_summary = await self._build_ai_summary(user=user, payload=payload)
+
+        category = ai_summary.category or "美妆"
+        sub_category = ai_summary.sub_category or "其他"
+        price = payload.price
+        if price is None and ai_summary.price is not None:
+            price = Decimal(str(ai_summary.price))
+
         product = await self.products.create(
             {
                 "user_id": user.id,
                 "name": payload.name or self._infer_name(payload.description),
                 "description": payload.description,
-                "category": "美妆",
-                "sub_category": "面霜",
-                "brand": payload.brand,
-                "price": payload.price,
-                "price_range": self._price_range(payload.price),
-                "target_channel": payload.target_channel,
+                "category": category,
+                "sub_category": sub_category,
+                "brand": payload.brand or ai_summary.brand,
+                "price": price,
+                "price_range": self._price_range(price) or ai_summary.price_range,
+                "target_channel": payload.target_channel or ai_summary.target_channel,
                 "image_urls": [self._mock_image_url(key) for key in payload.image_object_keys],
                 "ai_summary": ai_summary.model_dump(),
                 "status": "ready",
@@ -80,19 +106,34 @@ class ProductService:
         return self._to_response(product)
 
     async def reanalyze_product(self, *, user: User, product_id: int) -> ProductResponse:
-        """Refresh mock product understanding."""
+        """Re-run AI product understanding."""
 
         product = await self.products.get_by_id_and_user_id(product_id=product_id, user_id=user.id)
         if product is None:
             raise self._not_found(product_id)
-        summary = self._build_mock_ai_summary_from_product(product)
-        await self.products.update(
-            product,
-            {
-                "ai_summary": summary.model_dump(),
-                "status": "ready",
-            },
+
+        payload = ProductCreateRequest(
+            name=product.name,
+            description=product.description or "",
+            image_object_keys=(
+                list(product.image_urls) if product.image_urls else ["placeholder.jpg"]
+            ),
+            brand=product.brand,
+            price=product.price,
+            target_channel=product.target_channel,
         )
+        summary = await self._build_ai_summary(user=user, payload=payload)
+
+        update_fields: dict[str, object] = {
+            "ai_summary": summary.model_dump(),
+            "status": "ready",
+        }
+        if summary.category:
+            update_fields["category"] = summary.category
+        if summary.sub_category:
+            update_fields["sub_category"] = summary.sub_category
+
+        await self.products.update(product, update_fields)
         await self.session.commit()
         return self._to_response(product)
 
@@ -141,7 +182,73 @@ class ProductService:
             created_at=product.created_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
         )
 
+    async def _build_ai_summary(
+        self,
+        *,
+        user: User,
+        payload: ProductCreateRequest,
+    ) -> ProductAiSummary:
+        """Route to mock or AI product understanding based on AI_PROVIDER."""
+
+        from app.core.config import get_settings
+
+        if get_settings().ai_provider in {"ark", "deepseek"}:
+            return await self._understand_product_with_ai(user=user, payload=payload)
+        return self._build_mock_ai_summary(payload)
+
+    async def _understand_product_with_ai(
+        self,
+        *,
+        user: User,
+        payload: ProductCreateRequest,
+    ) -> ProductAiSummary:
+        """Call AI (via product_understand.j2) to extract structured product info."""
+
+        from app.ai.factory import get_ai_client
+        from app.ai.json_utils import parse_json_response
+        from app.ai.models import ModelRouter, TaskType
+        from app.ai.prompt_manager import render_prompt
+
+        ai_client = self._ai_client or get_ai_client()
+        route = ModelRouter().get(TaskType.PRODUCT_UNDERSTAND)
+
+        product_context: dict[str, object] = {
+            "name": payload.name or "",
+            "description": payload.description,
+            "brand": payload.brand or "",
+            "price": float(payload.price) if payload.price is not None else None,
+            "target_channel": payload.target_channel or "",
+            "image_object_keys": payload.image_object_keys,
+        }
+
+        prompt, _, _ = render_prompt(
+            "product_understand",
+            user_role_type="manufacturer",
+            product=product_context,
+        )
+
+        try:
+            raw_json = await ai_client.complete_json(
+                system="你是美妆行业产品调研专家。严格按 JSON schema 输出，不要返回 Markdown。",
+                user=prompt,
+                endpoint_id=route.endpoint_id,
+            )
+            data = parse_json_response(raw_json)
+
+            # Normalize field name differences between prompt output and schema
+            if "key_ingredients_or_features" in data:
+                data["key_ingredients"] = data.pop("key_ingredients_or_features")
+            if "suitable_skin_types_or_users" in data:
+                data["suitable_skin_types"] = data.pop("suitable_skin_types_or_users")
+
+            return ProductAiSummary.model_validate(data)
+        except Exception:
+            logger.exception("product_ai_understand_failed, falling back to mock")
+            return self._build_mock_ai_summary(payload)
+
     def _build_mock_ai_summary(self, payload: ProductCreateRequest) -> ProductAiSummary:
+        """Fallback mock product understanding."""
+
         ingredients = (
             ["烟酰胺", "神经酰胺"]
             if "烟酰胺" in payload.description
@@ -156,6 +263,8 @@ class ProductService:
         )
 
     def _build_mock_ai_summary_from_product(self, product: Product) -> ProductAiSummary:
+        """Fallback mock for reanalyze."""
+
         return ProductAiSummary(
             main_selling_points=["重新识别后的温和修护卖点", "保湿与提亮组合"],
             key_ingredients=["烟酰胺", "神经酰胺"],

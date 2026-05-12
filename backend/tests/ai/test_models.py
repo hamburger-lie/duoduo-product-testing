@@ -22,6 +22,7 @@ def test_model_route_is_frozen() -> None:
     route = ModelRoute(
         task_type=TaskType.PERSONA_CHAT,
         endpoint_id="ep-123",
+        endpoint_env_name="ARK_EP_DOUBAO_15_LITE",
         supports_streaming=True,
     )
     with pytest.raises(AttributeError):

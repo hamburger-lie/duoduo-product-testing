@@ -17,6 +17,7 @@ class TaskType(str, Enum):
 class ModelRoute:
     task_type: TaskType
     endpoint_id: str
+    endpoint_env_name: str
     supports_streaming: bool = field(default=False)
     supports_vision: bool = field(default=False)
 
@@ -28,34 +29,55 @@ class ModelRouter:
         from app.core.config import get_settings
 
         s = get_settings()
-        self._routes: dict[TaskType, ModelRoute] = {
-            TaskType.PRODUCT_UNDERSTAND: ModelRoute(
-                task_type=TaskType.PRODUCT_UNDERSTAND,
-                endpoint_id=s.ark_ep_vision_pro,
-                supports_vision=True,
-            ),
-            TaskType.SURVEY_GENERATE: ModelRoute(
-                task_type=TaskType.SURVEY_GENERATE,
-                endpoint_id=s.ark_ep_doubao_seed_16,
-            ),
-            TaskType.PERSONA_ANSWER: ModelRoute(
-                task_type=TaskType.PERSONA_ANSWER,
-                endpoint_id=s.ark_ep_doubao_15_pro_character,
-            ),
-            TaskType.PERSONA_CHAT: ModelRoute(
-                task_type=TaskType.PERSONA_CHAT,
-                endpoint_id=s.ark_ep_doubao_15_lite,
-                supports_streaming=True,
-            ),
-            TaskType.REPORT_SYNTHESIZE: ModelRoute(
-                task_type=TaskType.REPORT_SYNTHESIZE,
-                endpoint_id=s.ark_ep_doubao_seed_16,
-            ),
-            TaskType.MEMORY_EXTRACT: ModelRoute(
-                task_type=TaskType.MEMORY_EXTRACT,
-                endpoint_id=s.ark_ep_doubao_15_lite,
-            ),
-        }
+        provider = getattr(s, "ai_provider", "ark").strip().lower()
+        self._routes: dict[TaskType, ModelRoute]
+
+        if provider == "deepseek":
+            model = s.deepseek_model
+            self._routes = {
+                t: ModelRoute(
+                    task_type=t,
+                    endpoint_id=model,
+                    endpoint_env_name="DEEPSEEK_MODEL",
+                    supports_streaming=t == TaskType.PERSONA_CHAT,
+                )
+                for t in TaskType
+            }
+        else:
+            self._routes = {
+                TaskType.PRODUCT_UNDERSTAND: ModelRoute(
+                    task_type=TaskType.PRODUCT_UNDERSTAND,
+                    endpoint_id=s.ark_ep_vision_pro,
+                    endpoint_env_name="ARK_EP_VISION_PRO",
+                    supports_vision=True,
+                ),
+                TaskType.SURVEY_GENERATE: ModelRoute(
+                    task_type=TaskType.SURVEY_GENERATE,
+                    endpoint_id=s.ark_ep_doubao_seed_16,
+                    endpoint_env_name="ARK_EP_DOUBAO_SEED_16",
+                ),
+                TaskType.PERSONA_ANSWER: ModelRoute(
+                    task_type=TaskType.PERSONA_ANSWER,
+                    endpoint_id=s.ark_ep_doubao_15_pro_character,
+                    endpoint_env_name="ARK_EP_DOUBAO_15_PRO_CHARACTER",
+                ),
+                TaskType.PERSONA_CHAT: ModelRoute(
+                    task_type=TaskType.PERSONA_CHAT,
+                    endpoint_id=s.ark_ep_doubao_15_lite,
+                    endpoint_env_name="ARK_EP_DOUBAO_15_LITE",
+                    supports_streaming=True,
+                ),
+                TaskType.REPORT_SYNTHESIZE: ModelRoute(
+                    task_type=TaskType.REPORT_SYNTHESIZE,
+                    endpoint_id=s.ark_ep_doubao_seed_16,
+                    endpoint_env_name="ARK_EP_DOUBAO_SEED_16",
+                ),
+                TaskType.MEMORY_EXTRACT: ModelRoute(
+                    task_type=TaskType.MEMORY_EXTRACT,
+                    endpoint_id=s.ark_ep_doubao_15_lite,
+                    endpoint_env_name="ARK_EP_DOUBAO_15_LITE",
+                ),
+            }
 
     def get(self, task_type: TaskType) -> ModelRoute:
         """Return the route for a task, raising if the endpoint is unconfigured."""
@@ -66,6 +88,6 @@ class ModelRouter:
         if not route.endpoint_id:
             raise AIServiceUnavailable(
                 f"No endpoint configured for task '{task_type.value}'. "
-                f"Set the corresponding ARK_EP_* environment variable."
+                f"Set the corresponding environment variable."
             )
         return route

@@ -4,6 +4,7 @@ import logging
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -169,6 +170,18 @@ class ConversationService:
                 details={"length": len(content)},
             )
 
+        from app.ai.exceptions import AIContentBlocked
+
+        try:
+            from app.ai.moderation import get_moderation_adapter
+
+            moderator = get_moderation_adapter()
+            await moderator.check_input(content)
+        except (AppException, AIContentBlocked):
+            raise
+        except Exception:
+            logger.debug("moderation_check_skipped")
+
         now = datetime.now(UTC)
         await self.messages.create(
             {
@@ -186,7 +199,7 @@ class ConversationService:
 
         from app.core.config import get_settings
 
-        if get_settings().ai_provider == "ark":
+        if get_settings().ai_provider in {"ark", "deepseek"}:
             return await self._stream_ark_reply(conversation=conversation, user_content=content)
 
         return await self._stream_mock_reply(conversation=conversation)
@@ -320,8 +333,36 @@ class ConversationService:
             from app.ai.models import ModelRouter, TaskType
             from app.ai.prompt_manager import render_prompt
 
+            task_type = TaskType.PERSONA_CHAT
+            route = ModelRouter().get(task_type)
+            request_id = f"ai_req_{uuid4().hex}"
+            log_extra: dict[str, object] = {
+                "task_type": task_type.value,
+                "endpoint_env_name": route.endpoint_env_name,
+                "request_id": request_id,
+                "conversation_id": str(conversation.id),
+                "persona_id": str(conversation.persona_id),
+                "token_input": None,
+                "token_output": None,
+                "error_code": None,
+            }
             try:
                 context = await self._load_chat_context(conversation)
+
+                try:
+                    from app.ai.memory import DatabaseMemoryAdapter
+
+                    memory_adapter = DatabaseMemoryAdapter(self.session)
+                    memories = await memory_adapter.search(
+                        persona_id=conversation.persona_id,
+                        evaluation_id=conversation.evaluation_id,
+                        user_id=conversation.user_id,
+                        query=user_content,
+                    )
+                    context["memory_context"] = memories
+                except Exception:
+                    logger.debug("memory_search_skipped")
+                    context["memory_context"] = []
 
                 prompt, _, _ = render_prompt(
                     "persona_chat",
@@ -330,11 +371,12 @@ class ConversationService:
                 )
 
                 ai_client = self._ai_client or get_ai_client()
-                route = ModelRouter().get(TaskType.PERSONA_CHAT)
 
                 system = (
                     "你是一个消费者角色扮演助手。"
-                    "严格按照角色人设回答，不要暴露 AI 身份。"
+                    "严格按照角色人设、问卷答案和产品信息回答。"
+                    "不得改写角色年龄、职业、城市、收入、肤质、购物渠道或购买态度。"
+                    "不要暴露 AI 身份。"
                 )
 
                 stream = await ai_client.stream(
@@ -349,9 +391,17 @@ class ConversationService:
                     yield sse_delta(chunk)
 
                 full_text = "".join(collected)
+
+                from app.ai.moderation import get_moderation_adapter
+
+                output_moderator = get_moderation_adapter()
+                await output_moderator.check_output(full_text)
+
                 token_input = len(user_content) + len(prompt)
                 token_output = len(full_text)
                 cost_yuan = round((token_input + token_output) * 0.000002, 6)
+                log_extra["token_input"] = token_input
+                log_extra["token_output"] = token_output
 
                 assistant_msg = await self.messages.create(
                     {
@@ -366,6 +416,20 @@ class ConversationService:
                 conversation.message_count += 1
                 conversation.last_message_at = datetime.now(UTC)
                 await self.session.commit()
+                logger.info("conversation_ai_stream_completed", extra=log_extra)
+
+                try:
+                    product_ctx = context.get("product_ai_summary", {})
+                    await memory_adapter.add_chat_turn(
+                        persona_id=conversation.persona_id,
+                        evaluation_id=conversation.evaluation_id,
+                        user_id=conversation.user_id,
+                        user_message=user_content,
+                        assistant_message=full_text,
+                        product_summary=product_ctx,
+                    )
+                except Exception:
+                    logger.exception("memory_add_chat_turn_failed")
 
                 yield sse_meta(
                     message_id=str(assistant_msg.id),
@@ -376,13 +440,15 @@ class ConversationService:
                 yield sse_done()
 
             except AIError as exc:
-                logger.exception("AI error during conversation streaming")
+                log_extra["error_code"] = exc.code
+                logger.exception("conversation_ai_stream_failed", extra=log_extra)
                 yield sse_error(exc.code, str(exc))
                 yield sse_done()
                 await self.session.commit()
 
             except Exception:
-                logger.exception("Unexpected error during conversation streaming")
+                log_extra["error_code"] = "AI_ERROR"
+                logger.exception("conversation_ai_stream_failed", extra=log_extra)
                 yield sse_error("AI_ERROR", "Internal AI service error")
                 yield sse_done()
                 await self.session.commit()

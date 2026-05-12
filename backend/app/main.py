@@ -9,9 +9,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
+from app.ai.exceptions import AIContentBlocked
 from app.core.config import get_settings
 from app.core.exceptions import (
     AppException,
+    ai_content_blocked_handler,
     app_exception_handler,
     request_validation_exception_handler,
     unhandled_exception_handler,
@@ -55,6 +57,10 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["X-Request-Id"] = request.state.request_id
         return response
+
+    @app.exception_handler(AIContentBlocked)
+    async def handle_ai_content_blocked(request: Request, exc: AIContentBlocked) -> JSONResponse:
+        return await ai_content_blocked_handler(request, exc)
 
     @app.exception_handler(AppException)
     async def handle_app_exception(request: Request, exc: AppException) -> JSONResponse:

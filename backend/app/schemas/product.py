@@ -42,15 +42,26 @@ class ProductCreateRequest(BaseModel):
 
 
 class ProductAiSummary(BaseModel):
-    """Mock product understanding summary."""
+    """Structured product understanding from AI or mock."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
-    main_selling_points: list[str]
-    key_ingredients: list[str]
-    suitable_skin_types: list[str]
-    target_audience: str
-    competitive_position: str
+    main_selling_points: list[str] = Field(default_factory=list)
+    key_ingredients: list[str] = Field(default_factory=list)
+    suitable_skin_types: list[str] = Field(default_factory=list)
+    target_audience: str = ""
+    competitive_position: str = ""
+    category: str | None = None
+    sub_category: str | None = None
+    brand: str | None = None
+    price: float | None = None
+    price_range: str | None = None
+    target_channel: str | None = None
+    claims_detected: list[str] = Field(default_factory=list)
+    risk_or_uncertainty_points: list[str] = Field(default_factory=list)
+    usage_scenarios: list[str] = Field(default_factory=list)
+    questionnaire_focus: list[str] = Field(default_factory=list)
+    confidence: float | None = None
 
 
 class ProductResponse(BaseModel):

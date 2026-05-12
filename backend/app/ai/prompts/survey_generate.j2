@@ -12,6 +12,7 @@
 6. 输出必须是 JSON object，根字段为 `questions`。
 7. 每题必须有 `id`，格式 q01-q30。
 8. 每题必须有 `dim`，且只能来自下列 10 个维度。
+9. 每题必须有 `analysis_hint`，说明后续如何参与报告聚合。
 
 10 个维度：
 - first_impression：第一印象
@@ -24,6 +25,14 @@
 - nps_recommendation：推荐意愿
 - channel_touchpoint：信息触达渠道
 - painpoint_improvement：痛点与改进建议
+
+关键指令——问卷必须贴合具体产品：
+- price_sensitivity 维度：必须围绕产品实际价格（如果已知）出题，如"你觉得 {{ product_ai_summary.price or '该' }} 元买这款产品值不值"。
+- competitor_comparison 维度：如果产品信息中有竞品线索，必须在题目中提及具体竞品名称。
+- purchase_motivation 维度：至少 1 题必须问核心卖点的可信度，如"你相信 XX 成分真的能 XX 吗"。
+- painpoint_improvement 维度：至少 1 题必须问购买阻碍，如"什么情况下你不会买"。
+- 如果产品有明确成分（key_ingredients_or_features），至少 2 题要提及具体成分名称。
+- 如果产品有明确渠道信息，channel_touchpoint 维度要围绕该渠道出题。
 
 用户身份：
 {{ user_role_type }}

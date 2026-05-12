@@ -32,8 +32,23 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
-    # AI provider selection
+    # WeChat mini-program settings (leave empty to use mock login)
+    wechat_app_id: str = Field(default="", alias="WECHAT_APP_ID")
+    wechat_app_secret: str = Field(default="", alias="WECHAT_APP_SECRET")
+
+    # AI provider: "mock", "ark", or "deepseek"
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
+
+    # DeepSeek AI settings
+    deepseek_api_key: str = Field(default="", alias="DEEPSEEK_API_KEY")
+    deepseek_base_url: str = Field(
+        default="https://api.deepseek.com",
+        alias="DEEPSEEK_BASE_URL",
+    )
+    deepseek_model: str = Field(
+        default="deepseek-v4-flash",
+        alias="DEEPSEEK_MODEL",
+    )
 
     # 火山方舟 (Ark/Doubao) AI settings
     ark_api_key: str = Field(default="", alias="ARK_API_KEY")

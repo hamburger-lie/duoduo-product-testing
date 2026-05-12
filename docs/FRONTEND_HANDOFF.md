@@ -479,6 +479,25 @@ task.onChunkReceived(function(res) {
 | 分享链接 | p1_not_implemented | share_token 字段保留，逻辑未实现 |
 | 充值 | p1_not_implemented | — |
 
+### 7.1 AI Provider 开关
+
+| 模式 | 用途 | 前端联调建议 |
+|---|---|---|
+| `AI_PROVIDER=mock` | 默认联调模式，不需要真实 Ark key，响应稳定且成本为 0 | 前端主流程、页面字段、状态流转、SSE 解析优先使用 |
+| `AI_PROVIDER=ark` | 真实 AI 测试模式，需要 `ARK_API_KEY` 和 `ARK_EP_*` endpoint | 后端验证真实 AI 链路后，再用于小范围联调 |
+
+已验证：
+
+- `scripts/live_ai_smoke.py` 已通过，覆盖 `complete()`、`complete_json()`、`stream()`。
+- `scripts/live_conversation_smoke.py` 已通过，覆盖真实 persona chat 流式输出。
+
+安全说明：
+
+1. `AI_PROVIDER=ark` 时，如果 Conversation 真实 AI 调用失败，接口会通过 SSE 返回 `event=error`，不会自动降级成 mock。
+2. 前端应按 `event=error` 展示错误提示，不要把失败流当成正常回复。
+3. mock 和 ark 都保持同一套 SSE 事件格式：`delta` / `meta` / `done` / `error`。
+4. 后端日志会记录 Conversation AI 调用的 `task_type`、endpoint 环境变量名、request_id、conversation_id、persona_id、token usage（可估算时）和 error code，便于排查。
+
 ## 八、前端暂时不要做的入口
 
 以下功能后端未实现，前端不要展示入口：

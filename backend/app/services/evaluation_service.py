@@ -345,14 +345,22 @@ class EvaluationService:
     ) -> tuple[list[dict[str, object]], int, str]:
         """Route to mock or AI answer generation based on AI_PROVIDER."""
 
+        import logging
+
         from app.core.config import get_settings
 
-        if get_settings().ai_provider == "ark":
-            return await self._generate_answer_with_ai(
-                survey=survey,
-                persona=persona,
-                product_summary=product_summary,
-            )
+        if get_settings().ai_provider in {"ark", "deepseek"}:
+            try:
+                return await self._generate_answer_with_ai(
+                    survey=survey,
+                    persona=persona,
+                    product_summary=product_summary,
+                )
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "persona_answer_ai_failed for persona=%s, falling back to mock",
+                    persona.id,
+                )
 
         overall_intent = self._mock_overall_intent(persona)
         return (

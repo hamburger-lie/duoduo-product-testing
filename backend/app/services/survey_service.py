@@ -150,13 +150,20 @@ class SurveyService:
     ) -> list[dict[str, Any]]:
         """Route to mock or AI generation based on AI_PROVIDER."""
 
+        import logging
+
         from app.core.config import get_settings
 
-        if get_settings().ai_provider == "ark":
-            return await self._generate_questions_with_ai(
-                product=product,
-                extra_focus=extra_focus,
-            )
+        if get_settings().ai_provider in {"ark", "deepseek"}:
+            try:
+                return await self._generate_questions_with_ai(
+                    product=product,
+                    extra_focus=extra_focus,
+                )
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "survey_ai_generation_failed, falling back to mock"
+                )
         return self._generate_mock_questions(extra_focus=extra_focus)
 
     async def _generate_questions_with_ai(

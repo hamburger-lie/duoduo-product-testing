@@ -7,10 +7,11 @@ from app.ai.exceptions import AIServiceUnavailable
 def get_ai_client() -> AIClient:
     """Return an AI client based on the AI_PROVIDER setting.
 
-    - ``AI_PROVIDER=mock``  → MockAIClient (no key required)
-    - ``AI_PROVIDER=ark``   → ArkOpenAIClient (requires ARK_API_KEY + endpoints)
+    - ``AI_PROVIDER=mock``     → MockAIClient (no key required)
+    - ``AI_PROVIDER=ark``      → ArkOpenAIClient for 火山方舟
+    - ``AI_PROVIDER=deepseek`` → ArkOpenAIClient configured for DeepSeek API
 
-    Raises AIServiceUnavailable when ``ark`` is selected but credentials are missing.
+    Raises AIServiceUnavailable when credentials are missing.
     """
 
     from app.core.config import get_settings
@@ -29,6 +30,16 @@ def get_ai_client() -> AIClient:
             )
         return ArkOpenAIClient()
 
+    if provider == "deepseek":
+        if not settings.deepseek_api_key:
+            raise AIServiceUnavailable(
+                "AI_PROVIDER=deepseek requires DEEPSEEK_API_KEY to be set."
+            )
+        return ArkOpenAIClient(
+            api_key=settings.deepseek_api_key,
+            base_url=settings.deepseek_base_url,
+        )
+
     raise AIServiceUnavailable(
-        f"Unknown AI_PROVIDER {provider!r}. Valid values: 'mock', 'ark'."
+        f"Unknown AI_PROVIDER {provider!r}. Valid values: 'mock', 'ark', 'deepseek'."
     )

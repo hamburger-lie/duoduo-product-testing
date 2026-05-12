@@ -80,6 +80,17 @@ async def request_validation_exception_handler(
     )
 
 
+async def ai_content_blocked_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Render AIContentBlocked as a 451 response."""
+
+    return _build_error_response(
+        request=request,
+        code="AI_CONTENT_BLOCKED",
+        message="Content blocked by moderation",
+        http_status=451,
+    )
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Render unexpected exceptions using the contract error format."""
 

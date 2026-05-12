@@ -1,5 +1,6 @@
 """ORM model registry."""
 
+from app.ai.memory import PersonaMemory
 from app.db.models.answer import Answer
 from app.db.models.conversation import Conversation, ConversationMessage
 from app.db.models.credit import CreditTransaction
@@ -27,4 +28,5 @@ def load_all_models() -> tuple[type[object], ...]:
         Report,
         CreditTransaction,
         PromptVersion,
+        PersonaMemory,
     )

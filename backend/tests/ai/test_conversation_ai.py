@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any
 
@@ -79,6 +80,7 @@ class _MockSettings:
 def _fake_conversation() -> Any:
     class _C:
         id = 1
+        user_id = 1
         evaluation_id = 10
         persona_id = 20
         message_count = 2
@@ -380,6 +382,79 @@ async def test_stream_ark_reply_yields_delta_meta_done(
 
 
 @pytest.mark.asyncio
+async def test_stream_ark_reply_logs_route_and_token_usage(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from app.core import config as cfg
+
+    monkeypatch.setattr(cfg, "get_settings", lambda: _ArkSettings())
+
+    from app.services.conversation_service import ConversationService
+
+    svc = ConversationService.__new__(ConversationService)
+    svc._ai_client = _StreamingAIClient("你好世界")
+
+    class _Personas:
+        async def get_active_by_id(self, *, persona_id: int) -> Any:
+            return _fake_persona()
+
+    class _Evals:
+        async def get_by_id(self, entity_id: int, include_deleted: bool = False) -> Any:
+            return _fake_evaluation()
+
+    class _Products:
+        async def get_by_id(self, entity_id: int, include_deleted: bool = False) -> Any:
+            return _fake_product()
+
+    class _Answers:
+        async def get_by_evaluation_and_persona(self, **kw: Any) -> Any:
+            return _fake_answer()
+
+    class _Messages:
+        async def count_by_conversation_id(self, **kw: Any) -> int:
+            return 0
+
+        async def list_by_conversation_id(self, **kw: Any) -> list[Any]:
+            return []
+
+        async def create(self, data: dict[str, Any]) -> Any:
+            return _fake_message("assistant", data["content"])
+
+    class _FakeSession:
+        async def commit(self) -> None:
+            pass
+
+    svc.personas = _Personas()  # type: ignore[assignment]
+    svc.evaluations = _Evals()  # type: ignore[assignment]
+    svc.products = _Products()  # type: ignore[assignment]
+    svc.answers = _Answers()  # type: ignore[assignment]
+    svc.messages = _Messages()  # type: ignore[assignment]
+    svc.session = _FakeSession()  # type: ignore[assignment]
+
+    with caplog.at_level(logging.INFO, logger="app.services.conversation_service"):
+        stream = await svc._stream_ark_reply(
+            conversation=_fake_conversation(),
+            user_content="测试",
+        )
+        async for _ in stream:
+            pass
+
+    records = [
+        r for r in caplog.records
+        if r.message == "conversation_ai_stream_completed"
+    ]
+    assert records
+    record = records[-1]
+    assert record.task_type == "persona_chat"
+    assert record.endpoint_env_name == "ARK_EP_DOUBAO_15_LITE"
+    assert record.conversation_id == "1"
+    assert record.persona_id == "20"
+    assert record.token_input > 0
+    assert record.token_output == 4
+
+
+@pytest.mark.asyncio
 async def test_stream_ark_reply_saves_assistant_message(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -507,6 +582,79 @@ async def test_stream_ark_reply_error_yields_sse_error(
     assert '"event": "error"' in all_text or '"event":"error"' in all_text
     assert "AI_SERVICE_TIMEOUT" in all_text
     assert '"event": "done"' in all_text or '"event":"done"' in all_text
+
+
+@pytest.mark.asyncio
+async def test_stream_ark_reply_logs_ai_error_details(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from app.ai.exceptions import AIServiceTimeout
+    from app.core import config as cfg
+
+    monkeypatch.setattr(cfg, "get_settings", lambda: _ArkSettings())
+
+    from app.services.conversation_service import ConversationService
+
+    svc = ConversationService.__new__(ConversationService)
+    svc._ai_client = _ErrorAIClient(AIServiceTimeout, "timed out")
+
+    class _Personas:
+        async def get_active_by_id(self, *, persona_id: int) -> Any:
+            return _fake_persona()
+
+    class _Evals:
+        async def get_by_id(self, entity_id: int, include_deleted: bool = False) -> Any:
+            return _fake_evaluation()
+
+    class _Products:
+        async def get_by_id(self, entity_id: int, include_deleted: bool = False) -> Any:
+            return _fake_product()
+
+    class _Answers:
+        async def get_by_evaluation_and_persona(self, **kw: Any) -> Any:
+            return _fake_answer()
+
+    class _Messages:
+        async def count_by_conversation_id(self, **kw: Any) -> int:
+            return 0
+
+        async def list_by_conversation_id(self, **kw: Any) -> list[Any]:
+            return []
+
+        async def create(self, data: dict[str, Any]) -> Any:
+            return _fake_message("assistant", "")
+
+    class _FakeSession:
+        async def commit(self) -> None:
+            pass
+
+    svc.personas = _Personas()  # type: ignore[assignment]
+    svc.evaluations = _Evals()  # type: ignore[assignment]
+    svc.products = _Products()  # type: ignore[assignment]
+    svc.answers = _Answers()  # type: ignore[assignment]
+    svc.messages = _Messages()  # type: ignore[assignment]
+    svc.session = _FakeSession()  # type: ignore[assignment]
+
+    with caplog.at_level(logging.ERROR, logger="app.services.conversation_service"):
+        stream = await svc._stream_ark_reply(
+            conversation=_fake_conversation(),
+            user_content="测试",
+        )
+        async for _ in stream:
+            pass
+
+    records = [
+        r for r in caplog.records
+        if r.message == "conversation_ai_stream_failed"
+    ]
+    assert records
+    record = records[-1]
+    assert record.task_type == "persona_chat"
+    assert record.endpoint_env_name == "ARK_EP_DOUBAO_15_LITE"
+    assert record.conversation_id == "1"
+    assert record.persona_id == "20"
+    assert record.error_code == "AI_SERVICE_TIMEOUT"
 
 
 @pytest.mark.asyncio

@@ -238,7 +238,7 @@ async def step_generate_survey(
 
 async def step_pick_personas(c: DemoClient, count: int) -> list[dict[str, Any]]:
     _h("5. 选取参与角色")
-    data = await c.get("/api/v1/personas", params={"limit": 20, "owner_scope": "public"})
+    data = await c.get("/api/v1/personas", params={"limit": 20, "owner_scope": "system"})
     items: list[dict[str, Any]] = data.get("items", [])
     if not items:
         _err("角色库为空，请先运行: uv run python scripts/seed_personas.py")

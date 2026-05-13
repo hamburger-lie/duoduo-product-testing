@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class EvaluationCreateRequest(BaseModel):
@@ -82,6 +82,14 @@ class AnswerItem(BaseModel):
     type: str
     answer: int | str | list[str]
     reason: str
+
+    @field_validator("answer", mode="before")
+    @classmethod
+    def coerce_float_to_int(cls, v: object) -> object:
+        """AI sometimes returns scale answers as floats (3.0 → 3)."""
+        if isinstance(v, float) and v.is_integer():
+            return int(v)
+        return v
 
 
 class EvaluationAnswerResponse(BaseModel):

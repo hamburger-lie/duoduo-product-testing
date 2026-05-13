@@ -21,8 +21,10 @@ from app.core.exceptions import (
 from app.core.logging import configure_logging, get_logger
 from app.routers.auth import router as auth_router
 from app.routers.conversation import router as conversation_router
+from app.routers.credit import router as credit_router
 from app.routers.evaluation import router as evaluation_router
 from app.routers.health import router as health_router
+from app.routers.history import router as history_router
 from app.routers.persona import router as persona_router
 from app.routers.product import router as product_router
 from app.routers.report import router as report_router
@@ -84,6 +86,8 @@ def create_app() -> FastAPI:
     app.include_router(survey_router)
     app.include_router(report_router)
     app.include_router(conversation_router)
+    app.include_router(history_router)
+    app.include_router(credit_router)
     app.include_router(health_router)
     return app
 

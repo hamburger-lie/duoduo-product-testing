@@ -29,13 +29,28 @@ class ProductUploadUrlResponse(BaseModel):
 
 
 class ProductCreateRequest(BaseModel):
-    """Product creation request."""
+    """Product creation request.
+
+    Images can be supplied in two ways (not mutually exclusive):
+    - ``image_object_keys``: object keys from a prior upload-url flow
+    - ``image_base64_list``: raw base64 strings or data-URLs sent directly
+
+    At least one of the two must be non-empty.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, max_length=128)
     description: str = Field(min_length=10, max_length=500)
-    image_object_keys: list[str] = Field(min_length=1, max_length=5)
+    image_object_keys: list[str] = Field(default_factory=list, max_length=5)
+    image_base64_list: list[str] | None = Field(
+        default=None,
+        max_length=5,
+        description=(
+            "Base64-encoded images (raw base64, data-URL, or HTTPS URL). "
+            "Max 5 images. Each string must be under 8 MB."
+        ),
+    )
     brand: str | None = Field(default=None, max_length=64)
     price: Decimal | None = None
     target_channel: str | None = Field(default=None, max_length=32)

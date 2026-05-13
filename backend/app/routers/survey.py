@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db_session
+from app.core.rate_limit import RateLimiter
 from app.core.security import get_current_user
 from app.db.models.user import User
 from app.schemas.survey import SurveyGenerateRequest, SurveyQuestion, SurveyResponse
@@ -12,11 +13,13 @@ from app.services.survey_service import SurveyService
 router = APIRouter(prefix="/api/v1/surveys", tags=["surveys"])
 db_session_dependency = Depends(get_db_session)
 current_user_dependency = Depends(get_current_user)
+gen_rate_limit_dependency = Depends(RateLimiter("gen"))
 
 
 @router.post("/generate", response_model=SurveyResponse)
 async def generate_survey(
     payload: SurveyGenerateRequest,
+    _rl: None = gen_rate_limit_dependency,
     current_user: User = current_user_dependency,
     session: AsyncSession = db_session_dependency,
 ) -> SurveyResponse:

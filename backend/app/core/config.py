@@ -30,7 +30,9 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    qdrant_url: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    evaluation_run_mode: str = Field(default="sync", alias="EVALUATION_RUN_MODE")
 
     # WeChat mini-program settings (leave empty to use mock login)
     wechat_app_id: str = Field(default="", alias="WECHAT_APP_ID")

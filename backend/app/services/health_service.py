@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import httpx
+import redis.asyncio as aioredis
 from fastapi import status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,24 +30,58 @@ class HealthService:
         return LiveHealthResponse(status="ok")
 
     async def get_ready(self, session: AsyncSession) -> ReadyHealthResponse:
-        """Return readiness status with a real database check."""
+        """Return readiness status with a real database check.
 
+        Checks (in order):
+        1. PostgreSQL — SELECT 1
+        2. Redis — PING
+        3. Qdrant — GET /healthz (HTTP)
+
+        Any failure returns 503 with the failed component listed.
+        """
+        settings = get_settings()
+        checks: dict[str, str] = {}
+        failed = False
+
+        # ---- 1. Database ----
         try:
             await session.execute(text("SELECT 1"))
-        except Exception as exc:
+            checks["database"] = "ok"
+        except Exception:
+            checks["database"] = "failed"
+            failed = True
+
+        # ---- 2. Redis ----
+        try:
+            client = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
+            await client.ping()
+            await client.aclose()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "failed"
+            failed = True
+
+        # ---- 3. Qdrant ----
+        qdrant_url = getattr(settings, "qdrant_url", "http://localhost:6333")
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as http:
+                resp = await http.get(f"{qdrant_url}/healthz")
+            checks["qdrant"] = "ok" if resp.status_code == 200 else "failed"
+            if resp.status_code != 200:
+                failed = True
+        except Exception:
+            checks["qdrant"] = "failed"
+            failed = True
+
+        if failed:
             raise AppException(
                 code="SERVICE_UNAVAILABLE",
-                message="Database is unavailable",
+                message="One or more dependencies are unavailable",
                 http_status=status.HTTP_503_SERVICE_UNAVAILABLE,
-                details={"database": "failed"},
-            ) from exc
+                details=checks,
+            )
 
         return ReadyHealthResponse(
             status="ok",
-            checks={
-                "database": "ok",
-                "redis": "skipped",
-                "qdrant": "skipped",
-                "ark": "skipped",
-            },
+            checks=checks,
         )

@@ -61,9 +61,22 @@ class ProductService:
         return create_mock_upload_url(filename=payload.filename, mime_type=payload.mime_type)
 
     async def create_product(self, *, user: User, payload: ProductCreateRequest) -> ProductResponse:
-        """Create a product with AI or mock understanding."""
+        """Create a product with AI or mock understanding.
+
+        At least one of ``image_object_keys`` or ``image_base64_list`` must
+        be provided so there is something meaningful for the AI to work with.
+        """
 
         from app.ai.moderation import get_moderation_adapter
+
+        has_object_keys = bool(payload.image_object_keys)
+        has_base64 = bool(payload.image_base64_list)
+        if not has_object_keys and not has_base64:
+            raise AppException(
+                code="IMAGE_REQUIRED",
+                message="Provide at least one image via image_object_keys or image_base64_list",
+                http_status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
 
         moderator = get_moderation_adapter()
         await moderator.check_input(
@@ -202,14 +215,30 @@ class ProductService:
         user: User,
         payload: ProductCreateRequest,
     ) -> ProductAiSummary:
-        """Call AI (via product_understand.j2) to extract structured product info."""
+        """Call AI (via product_understand.j2) to extract structured product info.
 
-        from app.ai.factory import get_vision_client
+        When ``payload.image_base64_list`` is provided the vision client
+        (GLM-4.6V) receives the images as multimodal content, enabling true
+        image-based product understanding.  Without images the call falls
+        back to text-only analysis.
+        """
+
+        from app.ai.factory import get_ai_client, get_vision_client
         from app.ai.json_utils import parse_json_response
         from app.ai.models import ModelRouter, TaskType
         from app.ai.prompt_manager import render_prompt
 
-        ai_client = self._ai_client or get_vision_client()
+        images = payload.image_base64_list or []
+        has_images = bool(images)
+
+        # 有真实图片才用 GLM 视觉模型；纯文字描述走 DeepSeek，速度快且稳定
+        if self._ai_client:
+            ai_client = self._ai_client
+        elif has_images:
+            ai_client = get_vision_client()
+        else:
+            ai_client = get_ai_client()
+
         route = ModelRouter().get(TaskType.PRODUCT_UNDERSTAND)
 
         product_context: dict[str, object] = {
@@ -219,6 +248,8 @@ class ProductService:
             "price": float(payload.price) if payload.price is not None else None,
             "target_channel": payload.target_channel or "",
             "image_object_keys": payload.image_object_keys,
+            "has_images": has_images,
+            "image_count": len(images),
         }
 
         prompt, _, _ = render_prompt(
@@ -227,11 +258,26 @@ class ProductService:
             product=product_context,
         )
 
+        if has_images:
+            logger.info(
+                "product_understand_with_vision product=%s images=%d endpoint=%s",
+                payload.name or "(unnamed)",
+                len(images),
+                route.endpoint_id,
+            )
+        else:
+            logger.info(
+                "product_understand_text_only product=%s endpoint=%s",
+                payload.name or "(unnamed)",
+                route.endpoint_id,
+            )
+
         try:
             raw_json = await ai_client.complete_json(
                 system="你是美妆行业产品调研专家。严格按 JSON schema 输出，不要返回 Markdown。",
                 user=prompt,
                 endpoint_id=route.endpoint_id,
+                images=images if has_images else None,
             )
             data = parse_json_response(raw_json)
 

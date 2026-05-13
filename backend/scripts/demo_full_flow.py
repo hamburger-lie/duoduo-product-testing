@@ -4,12 +4,20 @@
     登录 → 创建产品 → 生成问卷 → 创建测评 → 选角色 →
     运行答题 → 查看 summary_comment → 获取报告 → 对话追问
 
-使用方式：
+使用方式（推荐 mock 模式，秒回）：
+    # PowerShell
+    $env:AI_PROVIDER="mock"; uv run python scripts/demo_full_flow.py
+
+    # Bash / Git Bash
+    AI_PROVIDER=mock uv run python scripts/demo_full_flow.py
+
+    # 真实 AI 模式（需配置 .env 里的 API Key，较慢）
     uv run python scripts/demo_full_flow.py
 
 可选环境变量：
-    BASE_URL   服务地址，默认 http://localhost:8000
+    BASE_URL       服务地址，默认 http://localhost:8000
     PERSONA_COUNT  参与角色数，默认 3（建议 1-5，越多越慢）
+    AI_PROVIDER    mock / deepseek，控制服务端行为（需在启动 uvicorn 前设置）
 """
 
 from __future__ import annotations
@@ -30,8 +38,9 @@ import httpx
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
 PERSONA_COUNT = int(os.getenv("PERSONA_COUNT", "3"))
 POLL_INTERVAL = 2          # 秒，轮询间隔
-POLL_TIMEOUT = 120         # 秒，最大等待时间
-STREAM_TIMEOUT = 30        # 秒，SSE 流超时
+POLL_TIMEOUT = 180         # 秒，最大等待时间
+STREAM_TIMEOUT = 60        # 秒，SSE 流超时
+REQUEST_TIMEOUT = 120      # 秒，单个 HTTP 请求超时（AI 生成类接口可能较慢）
 
 # ──────────────────────────────────────────────
 # 终端颜色
@@ -80,7 +89,7 @@ class DemoClient:
     def __init__(self, base_url: str) -> None:
         self._base = base_url
         self._token: str | None = None
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=60.0)
+        self._client = httpx.AsyncClient(base_url=base_url, timeout=REQUEST_TIMEOUT)
 
     def set_token(self, token: str) -> None:
         self._token = token
@@ -143,6 +152,8 @@ class DemoClient:
             except Exception:
                 detail = r.text
             _err(f"HTTP {r.status_code}  {r.request.method} {r.request.url}\n{_json_block(detail)}")
+            if r.status_code == 500 and "ModuleNotFoundError" in str(detail):
+                _err("提示：服务端缺少依赖，请用 uv run python -m uvicorn app.main:app --reload 启动")
             sys.exit(1)
 
     async def aclose(self) -> None:
@@ -406,10 +417,14 @@ async def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+    ai_hint = os.getenv("AI_PROVIDER", "(由服务端 .env 决定)")
     print(f"\n{BOLD}{CYAN}{'═' * 60}{RESET}")
     print(f"{BOLD}{CYAN}  多多测评 — 全流程自动演示{RESET}")
-    print(f"{BOLD}{CYAN}  BASE_URL     = {BASE_URL}{RESET}")
+    print(f"{BOLD}{CYAN}  BASE_URL      = {BASE_URL}{RESET}")
     print(f"{BOLD}{CYAN}  PERSONA_COUNT = {PERSONA_COUNT}{RESET}")
+    print(f"{BOLD}{CYAN}  AI_PROVIDER   = {ai_hint}{RESET}")
+    if ai_hint not in ("mock",):
+        print(f"{YELLOW}  提示：如遇超时，用 mock 模式启动 uvicorn 可秒回{RESET}")
     print(f"{BOLD}{CYAN}{'═' * 60}{RESET}")
 
     c = DemoClient(BASE_URL)
@@ -433,6 +448,21 @@ async def main() -> None:
             await step_get_report(c, evaluation["id"])
             await step_conversation(c, evaluation["id"], first["persona_id"], first["persona_name"])
 
+    except httpx.ReadTimeout:
+        _err(
+            f"请求超时（{REQUEST_TIMEOUT}s）—— AI 接口响应太慢。\n"
+            "建议用 mock 模式演示（秒回）：\n"
+            '  PowerShell:  $env:AI_PROVIDER="mock"; uv run python -m uvicorn app.main:app --reload\n'
+            "  Bash:        AI_PROVIDER=mock uv run python -m uvicorn app.main:app --reload\n"
+            "然后重新运行演示脚本。"
+        )
+        sys.exit(1)
+    except httpx.ConnectError:
+        _err(
+            f"无法连接 {BASE_URL} —— 请确认 uvicorn 已启动：\n"
+            "  uv run python -m uvicorn app.main:app --reload"
+        )
+        sys.exit(1)
     finally:
         await c.aclose()
 

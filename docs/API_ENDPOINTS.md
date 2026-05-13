@@ -1,6 +1,6 @@
 # API 接口功能表
 
-> 版本：v0.2（M5 完成后更新）
+> 版本：v0.3（summary_comment 完成后更新）
 > 前缀：所有接口以 `/api/v1` 开头（健康检查除外）
 > 鉴权：除 `/auth/wechat/login`、`/health/*` 外，所有接口需携带 `Authorization: Bearer <token>`
 
@@ -115,6 +115,42 @@
 
 ---
 
+## 附：响应字段速查（答案相关）
+
+### `GET /api/v1/evaluations/{id}/answers` 响应（数组）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `persona_id` | string | 角色 ID |
+| `persona_name` | string | 角色姓名 |
+| `persona_tag` | string \| null | 角色标签（如"成分党"） |
+| `overall_intent` | int \| null | 购买意向 1–5 |
+| `sentiment` | string \| null | positive / neutral / negative |
+| `summary_comment` | string \| null | 角色第一人称总结短评（60–150字） |
+
+### `GET /api/v1/evaluations/{id}/answers/{persona_id}` 响应
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `evaluation_id` | string | 测评 ID |
+| `persona_id` | string | 角色 ID |
+| `persona_snapshot` | object | 答题时的角色快照（含 name、age、city 等） |
+| `overall_intent` | int \| null | 购买意向 1–5 |
+| `sentiment` | string \| null | positive / neutral / negative |
+| `summary_comment` | string \| null | 角色第一人称总结短评（60–150字） |
+| `answers` | array | 逐题明细，每条含 qid / type / answer / reason |
+| `created_at` | string | ISO 8601 时间戳 |
+
+**`summary_comment` 示例：**
+```
+"这款面霜质地确实不错，上脸很润但不黏腻。不过 169 的价格对我来说偏高了，
+成分表里烟酰胺浓度也没标清楚，如果有试用装我会先试试再决定。"
+```
+
+> mock 模式下为 `null`；AI 模式下由 `persona_answer` prompt 生成并持久化，不额外消耗 API 调用。
+
+---
+
 ## 附：限流规则
 
 | 类型 | 限制 | 适用接口 |
@@ -147,45 +183,6 @@ data: {"event":"done"}
 
 ---
 
-## 附：角色答案字段说明
-
-### `summary_comment` — 角色总结性发言
-
-适用接口：`GET /evaluations/{id}/answers` 和 `GET /evaluations/{id}/answers/{persona_id}`
-
-答题完成后，AI 以该角色第一人称生成 2–3 句总结短评，风格模拟真实消费者在社群里的点评，体现该角色的消费心智和表达风格（60–150 字）。
-
-**示例值（`GET /evaluations/{id}/answers/{persona_id}` 响应片段）：**
-
-```json
-{
-  "persona_id": "42",
-  "persona_snapshot": { "name": "林雪", "persona_tag": "成分党" },
-  "overall_intent": 3,
-  "sentiment": "neutral",
-  "summary_comment": "这款面霜质地确实不错，上脸很润但不黏腻。不过 169 的价格对我来说偏高了，成分表里烟酰胺浓度也没标清楚，如果有试用装我会先试试再决定。",
-  "answers": [ ... ],
-  "created_at": "2026-05-13T10:00:00Z"
-}
-```
-
-**示例值（`GET /evaluations/{id}/answers` 摘要列表单条）：**
-
-```json
-{
-  "persona_id": "42",
-  "persona_name": "林雪",
-  "persona_tag": "成分党",
-  "overall_intent": 3,
-  "sentiment": "neutral",
-  "summary_comment": "这款面霜质地确实不错，上脸很润但不黏腻。不过 169 的价格对我来说偏高了，成分表里烟酰胺浓度也没标清楚，如果有试用装我会先试试再决定。"
-}
-```
-
-> `summary_comment` 为可选字段（`string | null`）。mock 模式下为 `null`；AI 模式下由 `persona_answer` prompt 生成并持久化到 `answers` 表，不额外消耗 API 调用。
-
----
-
 ## 附：错误响应格式
 
 ```json
@@ -202,4 +199,22 @@ data: {"event":"done"}
 
 ---
 
-*最后更新：2026-05-13（M5 + T022 + summary_comment 完成后）*
+## 统计
+
+| 模块 | 接口数 |
+|------|--------|
+| 鉴权 Auth | 4 |
+| 产品 Product | 5 |
+| 角色 Persona | 6 |
+| 测评 Evaluation | 8 |
+| 问卷 Survey | 3 |
+| 报告 Report | 1 |
+| 对话 Conversation | 5 |
+| 积分 Credit | 3 |
+| 历史记录 History | 1 |
+| 健康检查 Health | 3 |
+| **合计** | **39** |
+
+---
+
+*最后更新：2026-05-13 v0.3（M5 + T022 + summary_comment 全部完成）*

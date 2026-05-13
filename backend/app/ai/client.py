@@ -21,9 +21,23 @@ logger = logging.getLogger(__name__)
 class AIClient(Protocol):
     """Protocol for AI completion clients."""
 
-    async def complete(self, *, system: str, user: str, endpoint_id: str) -> str: ...
+    async def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+    ) -> str: ...
 
-    async def complete_json(self, *, system: str, user: str, endpoint_id: str) -> str: ...
+    async def complete_json(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+    ) -> str: ...
 
     async def stream(
         self, *, system: str, user: str, endpoint_id: str
@@ -33,10 +47,25 @@ class AIClient(Protocol):
 class MockAIClient:
     """Fully functional mock — no external calls."""
 
-    async def complete(self, *, system: str, user: str, endpoint_id: str) -> str:
-        return f"Mock response for endpoint {endpoint_id}."
+    async def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+    ) -> str:
+        img_note = f" (with {len(images)} image(s))" if images else ""
+        return f"Mock response for endpoint {endpoint_id}{img_note}."
 
-    async def complete_json(self, *, system: str, user: str, endpoint_id: str) -> str:
+    async def complete_json(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+    ) -> str:
         return f'{{"mock": true, "endpoint_id": "{endpoint_id}"}}'
 
     async def stream(
@@ -92,7 +121,39 @@ class ArkOpenAIClient:
         return f"{self._base_url}/chat/completions"
 
     @staticmethod
-    def _messages(system: str, user: str) -> list[dict[str, str]]:
+    def _build_messages(
+        system: str,
+        user: str,
+        images: list[str] | None = None,
+    ) -> list[dict[str, object]]:
+        """Build OpenAI-compatible messages, with optional multimodal image content.
+
+        Each image in ``images`` can be:
+        - A raw base64 string (JPEG assumed)
+        - A data-URL like ``data:image/png;base64,<...>``
+        - An HTTPS URL pointing to an accessible image
+
+        The resulting user content follows the vision multimodal format so
+        it works with GLM-4.6V and any OpenAI-compatible vision endpoint.
+        """
+        if images:
+            content: list[dict[str, object]] = []
+            for img in images:
+                if img.startswith(("http://", "https://")):
+                    url_val: str = img
+                elif img.startswith("data:"):
+                    url_val = img
+                else:
+                    # Raw base64 — assume JPEG
+                    url_val = f"data:image/jpeg;base64,{img}"
+                content.append(
+                    {"type": "image_url", "image_url": {"url": url_val}}
+                )
+            content.append({"type": "text", "text": user})
+            return [
+                {"role": "system", "content": system},
+                {"role": "user", "content": content},
+            ]
         return [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -120,6 +181,7 @@ class ArkOpenAIClient:
         system: str,
         user: str,
         endpoint_id: str,
+        images: list[str] | None = None,
     ) -> str:
         """Stream the response and collect all content into a single string.
 
@@ -132,7 +194,7 @@ class ArkOpenAIClient:
         headers = self._headers()
         payload: dict[str, object] = {
             "model": endpoint_id,
-            "messages": self._messages(system, user),
+            "messages": self._build_messages(system, user, images),
             "stream": True,
         }
 
@@ -177,9 +239,18 @@ class ArkOpenAIClient:
     # ------------------------------------------------------------------
 
     async def complete(
-        self, *, system: str, user: str, endpoint_id: str,
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
     ) -> str:
-        """Completion via streaming-collect with retry on timeout and 429."""
+        """Completion via streaming-collect with retry on timeout and 429.
+
+        Pass ``images`` to enable multimodal vision input (base64, data-URL,
+        or HTTPS URL). Requires a vision-capable endpoint (e.g. GLM-4.6V).
+        """
 
         max_attempts = 1 + self._MAX_RETRIES
         last_exc: Exception | None = None
@@ -187,6 +258,7 @@ class ArkOpenAIClient:
             try:
                 return await self._stream_collect(
                     system=system, user=user, endpoint_id=endpoint_id,
+                    images=images,
                 )
             except AIRateLimited as exc:
                 last_exc = exc
@@ -222,14 +294,19 @@ class ArkOpenAIClient:
         raise AIServiceTimeout("Ark API timed out") from last_exc
 
     async def complete_json(
-        self, *, system: str, user: str, endpoint_id: str,
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
     ) -> str:
         """Like complete() but validates the response is parseable JSON."""
 
         from app.ai.json_utils import parse_json_response
 
         text = await self.complete(
-            system=system, user=user, endpoint_id=endpoint_id,
+            system=system, user=user, endpoint_id=endpoint_id, images=images,
         )
         parse_json_response(text)
         return text
@@ -243,7 +320,7 @@ class ArkOpenAIClient:
         headers = self._headers()
         payload: dict[str, object] = {
             "model": endpoint_id,
-            "messages": self._messages(system, user),
+            "messages": self._build_messages(system, user),
             "stream": True,
         }
         stream_timeout = self._STREAM_TIMEOUT

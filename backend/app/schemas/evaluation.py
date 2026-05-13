@@ -52,7 +52,7 @@ class EvaluationResponse(BaseModel):
 
 
 class EvaluationRunResponse(BaseModel):
-    """Synchronous mock run response."""
+    """Evaluation run response for sync or Celery mode."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -94,6 +94,7 @@ class EvaluationAnswerResponse(BaseModel):
     persona_snapshot: dict[str, Any]
     overall_intent: int | None
     sentiment: str | None
+    summary_comment: str | None = None
     answers: list[AnswerItem]
     created_at: str
 
@@ -108,3 +109,4 @@ class EvaluationAnswerSummaryItem(BaseModel):
     persona_tag: str | None
     overall_intent: int | None
     sentiment: str | None
+    summary_comment: str | None = None

@@ -52,8 +52,8 @@
 | PUT  | `/api/v1/evaluations/{id}/personas` | 选择参与角色 | 标准 | 1–100 个 |
 | POST | `/api/v1/evaluations/{id}/run` | 启动测评（角色答题）| **生成类 20/min** | 同步或 Celery 异步 |
 | POST | `/api/v1/evaluations/{id}/cancel` | 取消进行中测评 | 标准 | — |
-| GET  | `/api/v1/evaluations/{id}/answers` | 列出所有角色答案摘要 | 标准 | — |
-| GET  | `/api/v1/evaluations/{id}/answers/{persona_id}` | 查询单角色完整答案 | 标准 | 逐题明细 |
+| GET  | `/api/v1/evaluations/{id}/answers` | 列出所有角色答案摘要 | 标准 | 含 `summary_comment` |
+| GET  | `/api/v1/evaluations/{id}/answers/{persona_id}` | 查询单角色完整答案 | 标准 | 逐题明细，含 `summary_comment` |
 
 ---
 
@@ -147,6 +147,45 @@ data: {"event":"done"}
 
 ---
 
+## 附：角色答案字段说明
+
+### `summary_comment` — 角色总结性发言
+
+适用接口：`GET /evaluations/{id}/answers` 和 `GET /evaluations/{id}/answers/{persona_id}`
+
+答题完成后，AI 以该角色第一人称生成 2–3 句总结短评，风格模拟真实消费者在社群里的点评，体现该角色的消费心智和表达风格（60–150 字）。
+
+**示例值（`GET /evaluations/{id}/answers/{persona_id}` 响应片段）：**
+
+```json
+{
+  "persona_id": "42",
+  "persona_snapshot": { "name": "林雪", "persona_tag": "成分党" },
+  "overall_intent": 3,
+  "sentiment": "neutral",
+  "summary_comment": "这款面霜质地确实不错，上脸很润但不黏腻。不过 169 的价格对我来说偏高了，成分表里烟酰胺浓度也没标清楚，如果有试用装我会先试试再决定。",
+  "answers": [ ... ],
+  "created_at": "2026-05-13T10:00:00Z"
+}
+```
+
+**示例值（`GET /evaluations/{id}/answers` 摘要列表单条）：**
+
+```json
+{
+  "persona_id": "42",
+  "persona_name": "林雪",
+  "persona_tag": "成分党",
+  "overall_intent": 3,
+  "sentiment": "neutral",
+  "summary_comment": "这款面霜质地确实不错，上脸很润但不黏腻。不过 169 的价格对我来说偏高了，成分表里烟酰胺浓度也没标清楚，如果有试用装我会先试试再决定。"
+}
+```
+
+> `summary_comment` 为可选字段（`string | null`）。mock 模式下为 `null`；AI 模式下由 `persona_answer` prompt 生成并持久化到 `answers` 表，不额外消耗 API 调用。
+
+---
+
 ## 附：错误响应格式
 
 ```json
@@ -163,4 +202,4 @@ data: {"event":"done"}
 
 ---
 
-*最后更新：2026-05-13（M5 + T022 完成后）*
+*最后更新：2026-05-13（M5 + T022 + summary_comment 完成后）*

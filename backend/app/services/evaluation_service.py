@@ -34,7 +34,8 @@ CONTRACT_PERSONA_COUNT_MIN = 5
 MVP_LITE_PERSONA_COUNT_MIN = 1
 PERSONA_COUNT_MAX = 100
 EDITABLE_STATUSES = {"pending", "generating_survey"}
-RUNNING_OR_FINAL_STATUSES = {"answering", "generating_report", "done", "canceled"}
+RUNNING_STATUSES = {"answering", "generating_report"}
+FINAL_STATUSES = {"done", "canceled"}
 
 
 class EvaluationService:
@@ -152,10 +153,27 @@ class EvaluationService:
         return self.to_response(evaluation)
 
     async def run_evaluation(self, *, user: User, evaluation_id: int) -> EvaluationRunResponse:
-        """Run the evaluation synchronously using mock answers."""
+        """Run an evaluation using sync or Celery mode."""
+
+        from app.core.config import get_settings
+
+        mode = get_settings().evaluation_run_mode.strip().lower()
+        if mode == "celery":
+            return await self._enqueue_evaluation(user=user, evaluation_id=evaluation_id)
+        return await self._run_evaluation_sync(user=user, evaluation_id=evaluation_id)
+
+    async def _run_evaluation_sync(
+        self,
+        *,
+        user: User,
+        evaluation_id: int,
+    ) -> EvaluationRunResponse:
+        """Run the evaluation synchronously for local tests and mock mode."""
 
         evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
-        if evaluation.status in RUNNING_OR_FINAL_STATUSES:
+        if evaluation.status in RUNNING_STATUSES:
+            raise self._evaluation_already_running(evaluation_id)
+        if evaluation.status in FINAL_STATUSES:
             raise self._evaluation_not_editable(evaluation_id)
         if evaluation.survey_id is None or not evaluation.selected_persona_ids:
             raise self._evaluation_not_ready(evaluation_id)
@@ -168,7 +186,13 @@ class EvaluationService:
 
         now = datetime.now(UTC)
         evaluation.status = "answering"
+        evaluation.progress = 0
         evaluation.started_at = now
+        evaluation.queued_at = None
+        evaluation.finished_at = None
+        evaluation.error_message = None
+        evaluation.task_id = None
+        evaluation.run_mode = "sync"
         await self.session.flush()
 
         product = await self.products.get_by_id_and_user_id(
@@ -194,7 +218,7 @@ class EvaluationService:
             if persona is None or not self._can_use_persona(user=user, persona=persona):
                 continue
 
-            answers, overall_intent, sentiment = await self._generate_answer(
+            answers, overall_intent, sentiment, summary_comment = await self._generate_answer(
                 survey=survey,
                 persona=persona,
                 product_summary=product_summary,
@@ -208,6 +232,7 @@ class EvaluationService:
                     "answers": answers,
                     "overall_intent": overall_intent,
                     "sentiment": sentiment,
+                    "summary_comment": summary_comment,
                     "status": "done",
                     "token_input": 0,
                     "token_output": 0,
@@ -227,6 +252,55 @@ class EvaluationService:
             task_id=f"mock_task_{evaluation.id}",
         )
 
+    async def _enqueue_evaluation(
+        self,
+        *,
+        user: User,
+        evaluation_id: int,
+    ) -> EvaluationRunResponse:
+        """Validate and enqueue evaluation answering into Celery."""
+
+        evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
+        if evaluation.status in RUNNING_STATUSES:
+            raise self._evaluation_already_running(evaluation_id)
+        if evaluation.status in FINAL_STATUSES:
+            raise self._evaluation_not_editable(evaluation_id)
+        if evaluation.survey_id is None or not evaluation.selected_persona_ids:
+            raise self._evaluation_not_ready(evaluation_id)
+
+        survey = await self.surveys.get_by_id_for_user(
+            survey_id=evaluation.survey_id,
+            user_id=user.id,
+        )
+        if survey is None:
+            raise self._evaluation_not_ready(evaluation_id)
+
+        now = datetime.now(UTC)
+        evaluation.status = "answering"
+        evaluation.progress = 0
+        evaluation.started_at = now
+        evaluation.queued_at = now
+        evaluation.finished_at = None
+        evaluation.error_message = None
+
+        from app.tasks.evaluation_tasks import run_evaluation_task
+
+        task = run_evaluation_task.apply_async(
+            args=[evaluation.id, user.id],
+            queue="evaluations",
+        )
+        evaluation.task_id = str(task.id)
+        evaluation.run_mode = "celery"
+        await self.session.commit()
+
+        return EvaluationRunResponse(
+            id=str(evaluation.id),
+            status="answering",
+            progress=0,
+            estimated_seconds=max(30, len(evaluation.selected_persona_ids) * 8),
+            task_id=str(task.id),
+        )
+
     async def cancel_evaluation(self, *, user: User, evaluation_id: int) -> EvaluationResponse:
         """Cancel an editable/running evaluation."""
 
@@ -234,6 +308,10 @@ class EvaluationService:
         if evaluation.status == "done":
             raise self._evaluation_not_editable(evaluation_id)
         if evaluation.status in {"pending", "generating_survey", "answering"}:
+            if evaluation.task_id:
+                from app.tasks.celery_app import celery_app
+
+                celery_app.control.revoke(evaluation.task_id, terminate=False)
             evaluation.status = "canceled"
             evaluation.finished_at = datetime.now(UTC)
             await self.session.commit()
@@ -261,6 +339,7 @@ class EvaluationService:
                     persona_tag=persona.persona_tag,
                     overall_intent=answer.overall_intent,
                     sentiment=answer.sentiment,
+                    summary_comment=answer.summary_comment,
                 )
             )
         return items
@@ -342,7 +421,7 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str]:
+    ) -> tuple[list[dict[str, object]], int, str, str | None]:
         """Route to mock or AI answer generation based on AI_PROVIDER."""
 
         import logging
@@ -367,6 +446,7 @@ class EvaluationService:
             self._build_mock_answers(survey=survey, persona=persona),
             overall_intent,
             self._mock_sentiment(overall_intent),
+            None,
         )
 
     async def _generate_answer_with_ai(
@@ -375,7 +455,7 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str]:
+    ) -> tuple[list[dict[str, object]], int, str, str | None]:
         """Call AI (via persona_answer.j2) to generate one persona's answers."""
 
         from app.ai.exceptions import AIResponseInvalid
@@ -442,7 +522,10 @@ class EvaluationService:
                     }
                 )
 
-        return answers, overall_intent, sentiment
+        summary_comment_raw = data.get("summary_comment")
+        summary_comment: str | None = str(summary_comment_raw) if summary_comment_raw else None
+
+        return answers, overall_intent, sentiment, summary_comment
 
     # ------------------------------------------------------------------
     # Mock helpers (unchanged)
@@ -493,6 +576,7 @@ class EvaluationService:
             persona_snapshot=self._persona_snapshot(persona),
             overall_intent=answer.overall_intent,
             sentiment=answer.sentiment,
+            summary_comment=answer.summary_comment,
             answers=[AnswerItem(**item) for item in answer.answers],
             created_at=self._format_required_dt(answer.created_at),
         )
@@ -564,6 +648,14 @@ class EvaluationService:
             code="EVALUATION_NOT_READY",
             message="Evaluation is missing survey or personas",
             http_status=status.HTTP_400_BAD_REQUEST,
+            details={"evaluation_id": str(evaluation_id)},
+        )
+
+    def _evaluation_already_running(self, evaluation_id: int) -> AppException:
+        return AppException(
+            code="EVALUATION_ALREADY_RUNNING",
+            message="Evaluation is already running",
+            http_status=status.HTTP_409_CONFLICT,
             details={"evaluation_id": str(evaluation_id)},
         )
 

@@ -44,6 +44,7 @@ class Answer(Base, BaseModelMixin):
     cost_yuan: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
     status: Mapped[str | None] = mapped_column(String(16), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     evaluation: Mapped["Evaluation"] = relationship(back_populates="answers")
     survey: Mapped["Survey"] = relationship(back_populates="answers")

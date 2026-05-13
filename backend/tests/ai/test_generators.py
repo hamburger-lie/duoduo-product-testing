@@ -142,7 +142,7 @@ async def test_persona_answer_ark_path_returns_valid_tuple(
     svc = EvaluationService.__new__(EvaluationService)
     svc._ai_client = _GoodPersonaClient()
 
-    answers, intent, sentiment = await svc._generate_answer_with_ai(
+    answers, intent, sentiment, summary_comment = await svc._generate_answer_with_ai(
         survey=_fake_survey(),
         persona=_fake_persona(),
         product_summary={"id": 1, "name": "面霜"},
@@ -150,6 +150,7 @@ async def test_persona_answer_ark_path_returns_valid_tuple(
     assert intent == 4
     assert sentiment == "positive"
     assert isinstance(answers, list)
+    assert summary_comment is None or isinstance(summary_comment, str)
 
 
 @pytest.mark.asyncio
@@ -176,7 +177,7 @@ async def test_persona_answer_ark_path_clamps_intent_to_1_5(
     svc = EvaluationService.__new__(EvaluationService)
     svc._ai_client = _HighIntent()
 
-    _, intent, _ = await svc._generate_answer_with_ai(
+    _, intent, _, _sc = await svc._generate_answer_with_ai(
         survey=_fake_survey(),
         persona=_fake_persona(),
         product_summary={},

@@ -141,7 +141,11 @@ class DemoClient:
                 elif ev.get("event") == "done":
                     break
                 elif ev.get("event") == "error":
-                    raise RuntimeError(f"SSE error: {ev}")
+                    print()  # 换行
+                    code = ev.get("code", "UNKNOWN")
+                    msg = ev.get("message", "")
+                    _info(f"⚠ AI 服务返回错误: [{code}] {msg}")
+                    return "".join(full) or f"[AI 错误: {code}]"
         print()  # 换行
         return "".join(full)
 
@@ -368,6 +372,30 @@ async def step_get_report(c: DemoClient, evaluation_id: str) -> dict[str, Any]:
     return data
 
 
+async def _send_chat(
+    c: DemoClient,
+    conv_id: str,
+    persona_name: str,
+    question: str,
+) -> str | None:
+    """Send one chat message, return reply or None on failure."""
+    _info("用户提问", question)
+    print(f"\n  {BOLD}{persona_name}：{RESET}", end="", flush=True)
+    try:
+        reply = await c.stream_post(
+            f"/api/v1/conversations/{conv_id}/messages",
+            {"content": question},
+        )
+        if reply and not reply.startswith("[AI 错误"):
+            _ok("对话完成", f"回复长度={len(reply)} 字")
+        return reply
+    except (httpx.ReadTimeout, RuntimeError) as exc:
+        print()
+        _info(f"⚠ 对话请求失败: {exc.__class__.__name__}")
+        _info("  AI 流式接口偶尔不稳定，不影响核心测评流程")
+        return None
+
+
 async def step_conversation(
     c: DemoClient,
     evaluation_id: str,
@@ -385,28 +413,10 @@ async def step_conversation(
     _ok("对话创建", f"id={conv_id}  title={conv.get('title','')}")
 
     # 发送第一条追问
-    question = "你给了这个分数，主要是哪个点让你犹豫？"
-    _info(f"用户提问", question)
-    print(f"\n  {BOLD}{persona_name}：{RESET}", end="", flush=True)
-
-    reply = await c.stream_post(
-        f"/api/v1/conversations/{conv_id}/messages",
-        {"content": question},
-    )
-
-    if not reply:
-        _info("（SSE 流为空，可能是 mock 模式返回空响应）")
-    else:
-        _ok("对话完成", f"回复长度={len(reply)} 字")
+    await _send_chat(c, conv_id, persona_name, "你给了这个分数，主要是哪个点让你犹豫？")
 
     # 第二条追问
-    question2 = "如果打折到 179 元，你会买吗？"
-    _info(f"用户追问", question2)
-    print(f"\n  {BOLD}{persona_name}：{RESET}", end="", flush=True)
-    await c.stream_post(
-        f"/api/v1/conversations/{conv_id}/messages",
-        {"content": question2},
-    )
+    await _send_chat(c, conv_id, persona_name, "如果打折到 179 元，你会买吗？")
 
 
 # ──────────────────────────────────────────────

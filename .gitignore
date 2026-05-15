@@ -15,3 +15,5 @@ build/
 .claude/settings.local.json
 *.pid
 .tmp_*
+backend/tmp/
+docs/exports/

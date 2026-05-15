@@ -217,6 +217,10 @@ async def step_create_product(c: DemoClient) -> dict[str, Any]:
         "brand": "珀莱雅",
         "price": "239.00",
         "image_object_keys": ["demo/polaar-serum-2.0.jpg"],
+        "image_base64_list": [
+            "https://www.proya.com/UploadImage/Product/2021040110051611.png",
+            "https://www.proya.com/UploadImage/Product/2021040110051612.png",
+        ],
     }
     data = await c.post("/api/v1/products", payload)
     _ok("产品创建成功", f"id={data['id']}  name={data['name']}")

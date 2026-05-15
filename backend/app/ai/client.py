@@ -121,6 +121,35 @@ class ArkOpenAIClient:
         return f"{self._base_url}/chat/completions"
 
     @staticmethod
+    def _extract_usage(chunk_data: dict[str, object]) -> tuple[int, int, int] | None:
+        """Extract provider token usage from one streamed response chunk."""
+
+        usage = chunk_data.get("usage")
+        if not isinstance(usage, dict):
+            return None
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        total_tokens = usage.get("total_tokens")
+        if not all(isinstance(value, int) for value in (
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+        )):
+            return None
+        return prompt_tokens, completion_tokens, total_tokens
+
+    @staticmethod
+    def _log_usage(endpoint_id: str, usage: tuple[int, int, int]) -> None:
+        prompt_tokens, completion_tokens, total_tokens = usage
+        logger.info(
+            "ai_usage endpoint=%s prompt_tokens=%d completion_tokens=%d total_tokens=%d",
+            endpoint_id,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+        )
+
+    @staticmethod
     def _build_messages(
         system: str,
         user: str,
@@ -196,6 +225,7 @@ class ArkOpenAIClient:
             "model": endpoint_id,
             "messages": self._build_messages(system, user, images),
             "stream": True,
+            "stream_options": {"include_usage": True},
         }
 
         collected: list[str] = []
@@ -217,6 +247,9 @@ class ArkOpenAIClient:
                         break
                     try:
                         chunk_data: dict[str, object] = json.loads(chunk)
+                        usage = self._extract_usage(chunk_data)
+                        if usage is not None:
+                            self._log_usage(endpoint_id, usage)
                         choices = chunk_data.get("choices")
                         if not isinstance(choices, list) or not choices:
                             continue
@@ -310,6 +343,7 @@ class ArkOpenAIClient:
         """
 
         import logging as _logging
+
         from app.ai.exceptions import AIResponseInvalid
         from app.ai.json_utils import parse_json_response
 
@@ -356,6 +390,7 @@ class ArkOpenAIClient:
             "model": endpoint_id,
             "messages": self._build_messages(system, user),
             "stream": True,
+            "stream_options": {"include_usage": True},
         }
         stream_timeout = self._STREAM_TIMEOUT
 
@@ -383,6 +418,9 @@ class ArkOpenAIClient:
                                 chunk_data: dict[str, object] = (
                                     json.loads(chunk)
                                 )
+                                usage = self._extract_usage(chunk_data)
+                                if usage is not None:
+                                    self._log_usage(endpoint_id, usage)
                                 choices = chunk_data.get("choices")
                                 if (
                                     not isinstance(choices, list)

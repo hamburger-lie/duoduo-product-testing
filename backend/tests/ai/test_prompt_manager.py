@@ -127,6 +127,51 @@ def test_render_persona_chat_has_honest_identity_boundary() -> None:
     assert "价格要和体验匹配" in rendered
 
 
+def test_render_survey_generate_includes_price_fidelity_guardrail() -> None:
+    rendered, _, _ = render_prompt(
+        "survey_generate",
+        user_role_type="manufacturer",
+        product_ai_summary={
+            "name": "珀莱雅双抗精华2.0",
+            "price": 169,
+            "main_selling_points": ["双抗"],
+            "key_ingredients": ["虾青素", "麦角硫因", "肌肽"],
+        },
+        product={"id": 1},
+    )
+
+    assert "169" in rendered
+    assert "涉及价格的题必须写出具体数字" in rendered
+
+
+def test_render_survey_generate_includes_question_type_contract() -> None:
+    rendered, _, _ = render_prompt(
+        "survey_generate",
+        user_role_type="manufacturer",
+        product_ai_summary={"name": "测试面霜", "price": 199},
+        product={"id": 1},
+    )
+
+    assert "scale_1_5 和 open 设为 null" in rendered
+    assert "single 和 multi 必须有" in rendered
+    assert "single" in rendered and "multi" in rendered
+
+
+def test_render_survey_generate_includes_psychology_techniques() -> None:
+    rendered, _, _ = render_prompt(
+        "survey_generate",
+        user_role_type="manufacturer",
+        product_ai_summary={"name": "测试精华", "price": 239},
+        product={"id": 1},
+    )
+
+    assert "投射法" in rendered
+    assert "PSM 价格三问" in rendered
+    assert "认知失调探针" in rendered
+    assert "注意力验证" in rendered
+    assert "至少用 5 种" in rendered
+
+
 def test_render_unknown_template_raises_not_found() -> None:
     with pytest.raises(AIPromptNotFound):
         render_prompt("nonexistent_template", foo="bar")
@@ -162,7 +207,12 @@ def test_render_report_synthesize_returns_tuple() -> None:
         user_role_type="manufacturer",
         product_ai_summary={"name": "测试面霜", "brand": "珀莱雅", "category": "面霜"},
         survey_questions=[
-            {"id": "q01", "dim": "first_impression", "type": "scale_1_5", "question": "第一印象如何？"}
+            {
+                "id": "q01",
+                "dim": "first_impression",
+                "type": "scale_1_5",
+                "question": "第一印象如何？",
+            }
         ],
         all_answers=[
             {

@@ -6,10 +6,12 @@
 
 使用方式（推荐 mock 模式，秒回）：
     # PowerShell
-    $env:AI_PROVIDER="mock"; uv run python scripts/demo_full_flow.py
+    $env:AI_PROVIDER="mock"; uv run python -m uvicorn app.main:app --reload
+    uv run python scripts/demo_full_flow.py
 
     # Bash / Git Bash
-    AI_PROVIDER=mock uv run python scripts/demo_full_flow.py
+    AI_PROVIDER=mock uv run python -m uvicorn app.main:app --reload
+    uv run python scripts/demo_full_flow.py
 
     # 真实 AI 模式（需配置 .env 里的 API Key，较慢）
     uv run python scripts/demo_full_flow.py
@@ -17,7 +19,9 @@
 可选环境变量：
     BASE_URL       服务地址，默认 http://localhost:8000
     PERSONA_COUNT  参与角色数，默认 3（建议 1-5，越多越慢）
-    AI_PROVIDER    mock / deepseek，控制服务端行为（需在启动 uvicorn 前设置）
+    AI_PROVIDER    仅用于展示提示；实际 AI 模式由服务端启动时的环境或 .env 决定
+    DEMO_REQUEST_TIMEOUT  单个 HTTP 请求超时秒数，默认 300
+    DEMO_POLL_TIMEOUT     测评轮询总超时秒数，默认 300
 """
 
 from __future__ import annotations
@@ -37,10 +41,10 @@ import httpx
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
 PERSONA_COUNT = int(os.getenv("PERSONA_COUNT", "3"))
-POLL_INTERVAL = 2          # 秒，轮询间隔
-POLL_TIMEOUT = 180         # 秒，最大等待时间
-STREAM_TIMEOUT = 60        # 秒，SSE 流超时
-REQUEST_TIMEOUT = 120      # 秒，单个 HTTP 请求超时（AI 生成类接口可能较慢）
+POLL_INTERVAL = float(os.getenv("DEMO_POLL_INTERVAL", "2"))
+POLL_TIMEOUT = int(os.getenv("DEMO_POLL_TIMEOUT", "300"))
+STREAM_TIMEOUT = int(os.getenv("DEMO_STREAM_TIMEOUT", "120"))
+REQUEST_TIMEOUT = int(os.getenv("DEMO_REQUEST_TIMEOUT", "300"))
 
 # ──────────────────────────────────────────────
 # 终端颜色
@@ -104,7 +108,12 @@ class DemoClient:
         self._check(r)
         return r.json()
 
-    async def post(self, path: str, body: dict[str, Any] | None = None, **kw: Any) -> dict[str, Any]:
+    async def post(
+        self,
+        path: str,
+        body: dict[str, Any] | None = None,
+        **kw: Any,
+    ) -> dict[str, Any]:
         r = await self._client.post(path, json=body, headers=self._auth(), **kw)
         self._check(r)
         return r.json()
@@ -155,9 +164,15 @@ class DemoClient:
                 detail = r.json()
             except Exception:
                 detail = r.text
-            _err(f"HTTP {r.status_code}  {r.request.method} {r.request.url}\n{_json_block(detail)}")
+            _err(
+                f"HTTP {r.status_code}  {r.request.method} {r.request.url}\n"
+                f"{_json_block(detail)}"
+            )
             if r.status_code == 500 and "ModuleNotFoundError" in str(detail):
-                _err("提示：服务端缺少依赖，请用 uv run python -m uvicorn app.main:app --reload 启动")
+                _err(
+                    "提示：服务端缺少依赖，请用 "
+                    "uv run python -m uvicorn app.main:app --reload 启动"
+                )
             sys.exit(1)
 
     async def aclose(self) -> None:
@@ -234,7 +249,9 @@ async def step_generate_survey(
     questions = data.get("questions", [])
     _ok("问卷生成", f"id={data['id']}  题数={len(questions)}")
     for i, q in enumerate(questions[:3], 1):
-        _info(f"  Q{i} [{q['type']}]", q["question"][:50] + ("…" if len(q["question"]) > 50 else ""))
+        question = q["question"]
+        preview = question[:50] + ("…" if len(question) > 50 else "")
+        _info(f"  Q{i} [{q['type']}]", preview)
     if len(questions) > 3:
         _info(f"  … 共 {len(questions)} 题")
     return data
@@ -251,7 +268,10 @@ async def step_pick_personas(c: DemoClient, count: int) -> list[dict[str, Any]]:
     picked = items[:count]
     for p in picked:
         crit = "⚡挑剔" if p.get("is_critical") else ""
-        _ok(f"{p['name']} {crit}", f"id={p['id']}  tag={p.get('persona_tag','')}  age={p.get('age','?')}")
+        _ok(
+            f"{p['name']} {crit}",
+            f"id={p['id']}  tag={p.get('persona_tag','')}  age={p.get('age','?')}",
+        )
     return picked
 
 
@@ -454,16 +474,23 @@ async def main() -> None:
         answers     = await step_get_answers(c, evaluation["id"])
         if answers:
             first = answers[0]
-            await step_get_full_answer(c, evaluation["id"], first["persona_id"], first["persona_name"])
+            await step_get_full_answer(
+                c,
+                evaluation["id"],
+                first["persona_id"],
+                first["persona_name"],
+            )
             await step_get_report(c, evaluation["id"])
             await step_conversation(c, evaluation["id"], first["persona_id"], first["persona_name"])
 
     except httpx.ReadTimeout:
         _err(
             f"请求超时（{REQUEST_TIMEOUT}s）—— AI 接口响应太慢。\n"
-            "建议用 mock 模式演示（秒回）：\n"
-            '  PowerShell:  $env:AI_PROVIDER="mock"; uv run python -m uvicorn app.main:app --reload\n'
-            "  Bash:        AI_PROVIDER=mock uv run python -m uvicorn app.main:app --reload\n"
+            "建议重新启动服务端为 mock 模式演示（秒回）：\n"
+            '  PowerShell:  $env:AI_PROVIDER="mock"; '
+            "uv run python -m uvicorn app.main:app --reload\n"
+            "  Bash:        AI_PROVIDER=mock "
+            "uv run python -m uvicorn app.main:app --reload\n"
             "然后重新运行演示脚本。"
         )
         sys.exit(1)

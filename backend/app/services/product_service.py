@@ -239,7 +239,10 @@ class ProductService:
         else:
             ai_client = get_ai_client()
 
-        route = ModelRouter().get(TaskType.PRODUCT_UNDERSTAND)
+        router = ModelRouter()
+        route = router.get(
+            TaskType.PRODUCT_UNDERSTAND if has_images else TaskType.SURVEY_GENERATE
+        )
 
         product_context: dict[str, object] = {
             "name": payload.name or "",

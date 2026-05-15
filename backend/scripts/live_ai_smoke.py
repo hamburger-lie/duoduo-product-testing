@@ -46,7 +46,7 @@ async def main() -> None:
     from app.ai.factory import get_ai_client
 
     client = get_ai_client()
-    model = getattr(settings, "deepseek_model_pro", "deepseek-chat")
+    model = getattr(settings, "deepseek_model_pro", "deepseek-v4-flash")
 
     text = await client.complete(
         system="你是一个简洁的助手。",
@@ -71,7 +71,7 @@ async def main() -> None:
 
     # ---- 3. DeepSeek stream() ----
     print("=== 3. DeepSeek stream() ===")
-    flash_model = getattr(settings, "deepseek_model_flash", "deepseek-chat")
+    flash_model = getattr(settings, "deepseek_model_flash", "deepseek-v4-flash")
     gen = await client.stream(
         system="你是一个助手。",
         user="用三句话介绍珀莱雅红宝石面霜。",
@@ -86,10 +86,10 @@ async def main() -> None:
     assert chunks, "stream() yielded no chunks"
     print(f"  full: {''.join(chunks)}")
 
-    # ---- 4. 智谱 GLM-4.6V (optional) ----
+    # ---- 4. 智谱 GLM-4.6V 文字模式 (optional) ----
     zhipu_key = getattr(settings, "zhipu_api_key", "")
     if zhipu_key:
-        print("=== 4. 智谱 GLM-4.6V complete() ===")
+        print("=== 4. 智谱 GLM-4.6V complete() — 文字模式 ===")
         from app.ai.factory import get_vision_client
 
         vision_client = get_vision_client()
@@ -106,8 +106,26 @@ async def main() -> None:
         )
         print(f"  → {vision_text[:300]}")
         assert len(vision_text) > 0, "vision complete() returned empty string"
+
+        # ---- 5. 智谱 GLM-4.6V 视觉模式 — 图片识别 ----
+        print("=== 5. 智谱 GLM-4.6V complete() — 视觉模式（图片识别）===")
+        lion_url = (
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/"
+            "Lion_waiting_in_Namibia.jpg/640px-Lion_waiting_in_Namibia.jpg"
+        )
+        vision_img_text = await vision_client.complete(
+            system="你是一个图片分析助手，请用中文回答。",
+            user="请描述图片中的主体是什么动物？有什么特征？",
+            endpoint_id=vision_model,
+            images=[lion_url],
+        )
+        print(f"  → {vision_img_text[:300]}")
+        assert len(vision_img_text) > 0, "vision image complete() returned empty string"
+        assert any(w in vision_img_text for w in ["狮", "lion", "猫科", "幼", "Lion", "哺乳"]), \
+            f"视觉识别未返回预期内容: {vision_img_text}"
+        print("  [视觉识别] OK — 图片识别管道畅通 ✓")
     else:
-        print("=== 4. 智谱 GLM-4.6V — SKIPPED (ZHIPU_API_KEY not set) ===")
+        print("=== 4/5. 智谱 GLM-4.6V — SKIPPED (ZHIPU_API_KEY not set) ===")
 
     print("\n[ok] All smoke tests passed.")
 

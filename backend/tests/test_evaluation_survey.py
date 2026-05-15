@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.config import get_settings
 from app.core.deps import get_db_session
 from app.db.models.answer import Answer
 from app.db.models.evaluation import Evaluation
@@ -734,6 +735,85 @@ async def test_run_success_sets_done_and_progress_100(
     assert response.json()["task_id"] == f"mock_task_{evaluation_id}"
 
 
+async def test_run_celery_mode_enqueues_task_without_generating_answers(
+    evaluation_survey_context: EvaluationSurveyContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token = await login(evaluation_survey_context, "mock_eval_run_celery")
+    _, evaluation_id, _ = await prepare_runnable_evaluation(
+        evaluation_survey_context,
+        token=token,
+    )
+
+    class FakeTask:
+        id = "celery-task-test-id"
+
+    def fake_apply_async(*, args: list[int], queue: str) -> FakeTask:
+        assert queue == "evaluations"
+        assert args[0] == int(evaluation_id)
+        return FakeTask()
+
+    monkeypatch.setenv("EVALUATION_RUN_MODE", "celery")
+    get_settings.cache_clear()
+    from app.tasks.evaluation_tasks import run_evaluation_task
+
+    monkeypatch.setattr(run_evaluation_task, "apply_async", fake_apply_async)
+
+    try:
+        response = await evaluation_survey_context.client.post(
+            f"/api/v1/evaluations/{evaluation_id}/run",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "answering"
+    assert body["progress"] == 0
+    assert body["task_id"] == "celery-task-test-id"
+    assert await count_answers(evaluation_survey_context, evaluation_id) == 0
+
+    async with evaluation_survey_context.session_factory() as session:
+        entity = await session.get(Evaluation, int(evaluation_id))
+        assert entity is not None
+        assert entity.status == "answering"
+        assert entity.progress == 0
+        assert entity.task_id == "celery-task-test-id"
+        assert entity.run_mode == "celery"
+        assert entity.queued_at is not None
+
+
+async def test_run_celery_mode_rejects_already_answering(
+    evaluation_survey_context: EvaluationSurveyContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token = await login(evaluation_survey_context, "mock_eval_run_celery_repeat")
+    _, evaluation_id, _ = await prepare_runnable_evaluation(
+        evaluation_survey_context,
+        token=token,
+    )
+    async with evaluation_survey_context.session_factory() as session:
+        entity = await session.get(Evaluation, int(evaluation_id))
+        assert entity is not None
+        entity.status = "answering"
+        entity.task_id = "existing-task-id"
+        await session.commit()
+
+    monkeypatch.setenv("EVALUATION_RUN_MODE", "celery")
+    get_settings.cache_clear()
+    try:
+        response = await evaluation_survey_context.client.post(
+            f"/api/v1/evaluations/{evaluation_id}/run",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "EVALUATION_ALREADY_RUNNING"
+
+
 async def test_run_success_generates_answers(
     evaluation_survey_context: EvaluationSurveyContext,
 ) -> None:
@@ -882,6 +962,42 @@ async def test_cancel_pending_evaluation_success(
 
     assert response.status_code == 200
     assert response.json()["status"] == "canceled"
+
+
+async def test_cancel_answering_evaluation_revokes_celery_task(
+    evaluation_survey_context: EvaluationSurveyContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token = await login(evaluation_survey_context, "mock_eval_cancel_answering")
+    _, evaluation_id, _ = await prepare_runnable_evaluation(
+        evaluation_survey_context,
+        token=token,
+    )
+    async with evaluation_survey_context.session_factory() as session:
+        entity = await session.get(Evaluation, int(evaluation_id))
+        assert entity is not None
+        entity.status = "answering"
+        entity.task_id = "celery-task-to-revoke"
+        await session.commit()
+
+    revoked: dict[str, object] = {}
+
+    def fake_revoke(task_id: str, *, terminate: bool) -> None:
+        revoked["task_id"] = task_id
+        revoked["terminate"] = terminate
+
+    from app.tasks.celery_app import celery_app
+
+    monkeypatch.setattr(celery_app.control, "revoke", fake_revoke)
+
+    response = await evaluation_survey_context.client.post(
+        f"/api/v1/evaluations/{evaluation_id}/cancel",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "canceled"
+    assert revoked == {"task_id": "celery-task-to-revoke", "terminate": False}
 
 
 async def test_done_evaluation_cancel_fails(

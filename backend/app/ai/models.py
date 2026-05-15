@@ -25,8 +25,8 @@ class ModelRoute:
 class ModelRouter:
     """Maps TaskType to model routes.
 
-    DeepSeek 做文本主力，GLM-4.6V 做多模态。
-    PRODUCT_UNDERSTAND 走智谱（如有 key），其余走 DeepSeek。
+    DeepSeek v4 flash 做文本主力，GLM-4.6V 做多模态。
+    PRODUCT_UNDERSTAND 走智谱（如有 key），其余走 DeepSeek flash。
     """
 
     def __init__(self) -> None:
@@ -47,21 +47,19 @@ class ModelRouter:
             }
             return
 
-        # DeepSeek 文本模型 (pro / flash)
-        pro = getattr(s, "deepseek_model_pro", "deepseek-chat")
-        flash = getattr(s, "deepseek_model_flash", "deepseek-chat")
+        flash = getattr(s, "deepseek_model_flash", "deepseek-v4-flash")
 
         if provider == "deepseek":
             self._routes = {
                 TaskType.SURVEY_GENERATE: ModelRoute(
                     task_type=TaskType.SURVEY_GENERATE,
-                    endpoint_id=pro,
-                    endpoint_env_name="DEEPSEEK_MODEL_PRO",
+                    endpoint_id=flash,
+                    endpoint_env_name="DEEPSEEK_MODEL_FLASH",
                 ),
                 TaskType.PERSONA_ANSWER: ModelRoute(
                     task_type=TaskType.PERSONA_ANSWER,
-                    endpoint_id=pro,
-                    endpoint_env_name="DEEPSEEK_MODEL_PRO",
+                    endpoint_id=flash,
+                    endpoint_env_name="DEEPSEEK_MODEL_FLASH",
                 ),
                 TaskType.PERSONA_CHAT: ModelRoute(
                     task_type=TaskType.PERSONA_CHAT,
@@ -71,8 +69,8 @@ class ModelRouter:
                 ),
                 TaskType.REPORT_SYNTHESIZE: ModelRoute(
                     task_type=TaskType.REPORT_SYNTHESIZE,
-                    endpoint_id=pro,
-                    endpoint_env_name="DEEPSEEK_MODEL_PRO",
+                    endpoint_id=flash,
+                    endpoint_env_name="DEEPSEEK_MODEL_FLASH",
                 ),
                 TaskType.MEMORY_EXTRACT: ModelRoute(
                     task_type=TaskType.MEMORY_EXTRACT,
@@ -94,8 +92,8 @@ class ModelRouter:
             else:
                 self._routes[TaskType.PRODUCT_UNDERSTAND] = ModelRoute(
                     task_type=TaskType.PRODUCT_UNDERSTAND,
-                    endpoint_id=pro,
-                    endpoint_env_name="DEEPSEEK_MODEL_PRO",
+                    endpoint_id=flash,
+                    endpoint_env_name="DEEPSEEK_MODEL_FLASH",
                 )
         else:
             # ark (deprecated) — 保留向后兼容

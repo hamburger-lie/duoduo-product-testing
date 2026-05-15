@@ -52,8 +52,10 @@ def test_model_router_raises_when_endpoint_empty(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(cfg_module, "get_settings", lambda: original)
 
 
-def test_model_router_returns_route_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    """DeepSeek provider should route SURVEY_GENERATE to deepseek_model_pro."""
+def test_deepseek_router_uses_flash_for_non_vision_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DeepSeek provider should route non-vision tasks to deepseek-v4-flash."""
     from app.core import config as cfg_module
 
     original = cfg_module.get_settings()
@@ -61,15 +63,43 @@ def test_model_router_returns_route_when_configured(monkeypatch: pytest.MonkeyPa
     class _FakeSettings:
         ai_provider = "deepseek"
         deepseek_model_pro = "deepseek-chat"
-        deepseek_model_flash = "deepseek-chat"
+        deepseek_model_flash = "deepseek-v4-flash"
         zhipu_api_key = ""
         zhipu_model_vision = "glm-4.6v"
 
     monkeypatch.setattr(cfg_module, "get_settings", lambda: _FakeSettings())
 
     router = ModelRouter()
-    route = router.get(TaskType.SURVEY_GENERATE)
-    assert route.endpoint_id == "deepseek-chat"
-    assert route.task_type == TaskType.SURVEY_GENERATE
+    for task_type in TaskType:
+        route = router.get(task_type)
+        assert route.endpoint_id == "deepseek-v4-flash"
+        assert route.endpoint_env_name == "DEEPSEEK_MODEL_FLASH"
+        if task_type == TaskType.PERSONA_CHAT:
+            assert route.supports_streaming is True
+
+    monkeypatch.setattr(cfg_module, "get_settings", lambda: original)
+
+
+def test_deepseek_router_keeps_zhipu_for_vision_product_understand(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Product understanding should keep the vision route when Zhipu is configured."""
+    from app.core import config as cfg_module
+
+    original = cfg_module.get_settings()
+
+    class _FakeSettings:
+        ai_provider = "deepseek"
+        deepseek_model_pro = "deepseek-chat"
+        deepseek_model_flash = "deepseek-v4-flash"
+        zhipu_api_key = "zhipu-key"
+        zhipu_model_vision = "glm-4.6v"
+
+    monkeypatch.setattr(cfg_module, "get_settings", lambda: _FakeSettings())
+
+    route = ModelRouter().get(TaskType.PRODUCT_UNDERSTAND)
+    assert route.endpoint_id == "glm-4.6v"
+    assert route.endpoint_env_name == "ZHIPU_MODEL_VISION"
+    assert route.supports_vision is True
 
     monkeypatch.setattr(cfg_module, "get_settings", lambda: original)

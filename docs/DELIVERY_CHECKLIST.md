@@ -13,13 +13,16 @@
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | Auth mock + JWT | 已完成 | mock 微信 code 登录，签发 JWT |
-| Product mock upload + mock ai_summary | 已完成 | 上传 URL 和产品理解均为 mock |
+| Product mock upload + AI optional ai_summary | 已完成 | 上传 URL 为 mock；产品理解默认 mock，可通过 DeepSeek/vision client 生成 ai_summary |
 | Persona 系统/私有角色 | 已完成 | 支持 seed 系统角色、私有角色 CRUD、推荐 |
-| Survey mock / AI optional | 已完成 | 默认种子模板，可通过 `AI_PROVIDER=ark` 走 AI adapter |
-| Evaluation mock / AI optional run | 已完成 | 默认同步 mock answer，可通过 ark 走 Persona Answer adapter |
+| Survey mock / AI optional | 已完成 | 默认种子模板，可通过 `AI_PROVIDER=deepseek` 走 AI adapter |
+| Evaluation mock / AI optional run | 已完成 | 默认 `sync` 本地模式；`EVALUATION_RUN_MODE=celery` 时生产异步入队，answer 内容可 mock/deepseek |
 | Answer 查询 | 已完成 | 支持汇总和单 persona 答案查询 |
 | Report 聚合 | 已完成 | metrics 基于 DB answers 聚合，文案规则生成 |
-| Conversation mock / AI optional SSE | 已完成 | 默认 mock SSE，ark 可走真实流式对话 |
+| Conversation mock / AI optional SSE | 已完成 | 默认 mock SSE，deepseek 可走真实流式对话 |
+| Local keyword moderation | 部分完成 | 本地关键词拦截可用；生产审核未完成 |
+| DB-backed memory adapter | 部分完成 | 可记录/检索 DB 记忆；mem0/Qdrant 向量记忆未完成 |
+| Celery evaluation queue | 部分完成 | 主 run 已支持 Celery 入队和 worker 消费；默认本地 `sync`，生产需启动 worker profile |
 | OpenAPI 导出 | 已完成 | `docs/openapi.v0.1.json` |
 | Docker 本地依赖 | 已完成 | postgres / redis / qdrant |
 | dev_check | 已完成 | 本地环境 readiness 检查 |
@@ -31,9 +34,9 @@
 |---|---|
 | 真实微信登录 | MVP-Lite 使用 mock code |
 | 真实 TOS / OSS | MVP-Lite 不做真实对象存储 |
-| Celery 异步队列 | 当前 evaluation run 同步完成 |
-| mem0 / Qdrant 真实记忆 | 当前 conversation 只用 DB 上下文 |
-| 内容审核 | 后续合规轮次接入 |
+| Celery 生产运维完善 | Evaluation run 已可异步；后续还需监控、重试策略、死信/告警和生产部署治理 |
+| mem0 / Qdrant 真实记忆 | 当前仅 DB-backed memory adapter；未接 mem0/Qdrant 向量检索 |
+| 生产级内容审核 | 当前仅 local keyword moderation；未接第三方审核、图像审核和策略治理 |
 | 积分扣费闭环 | 当前仅保留 credit 模型/字段 |
 | 充值 / 支付 | P1 后置 |
 | PDF 导出 | P1 后置，字段保留 |
@@ -52,6 +55,18 @@ uv sync
 uv run alembic upgrade head
 uv run python scripts/seed_personas.py
 uv run uvicorn app.main:app --reload
+```
+
+如果需要验证生产异步链路，设置 `EVALUATION_RUN_MODE=celery` 并启动 worker：
+
+```bash
+uv run celery -A app.tasks.celery_app.celery_app worker -Q evaluations -l info -c 4
+```
+
+或使用 Docker profiles：
+
+```bash
+docker compose --profile api --profile worker up -d --build
 ```
 
 检查：
@@ -75,7 +90,7 @@ uv run python scripts/e2e_mock_flow.py
 2. Product：获取 upload-url，创建产品。
 3. Persona：推荐角色，必要时先 seed。
 4. Survey：生成问卷，run 前可编辑。
-5. Evaluation：创建测评、选择角色、启动 run、轮询状态。
+5. Evaluation：创建测评、选择角色、启动 run、轮询状态；`celery` 模式下前端只认 evaluation.status/progress，不依赖 Celery task 状态。
 6. Report：按 evaluation 查询报告。
 7. Conversation：创建对话，发送 SSE 流式消息，读取历史消息。
 

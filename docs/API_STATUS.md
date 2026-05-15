@@ -10,7 +10,8 @@
 |---|---|
 | done | 真实 DB 可用 |
 | mock | 接口可用但依赖是 mock |
-| ai_optional | mock 默认，可通过 AI_PROVIDER=ark 切换真实 AI |
+| ai_optional | mock 默认，可通过 AI_PROVIDER=deepseek 切换真实 AI |
+| partial | 本地/适配器能力已接入，但不是生产完整能力 |
 | p1_not_implemented | P1 暂未实现 |
 | not_started | 未开始 |
 
@@ -41,10 +42,11 @@
 
 | 类型 | 接口 / 能力 |
 |---|---|
-| mock | 微信登录（可配真实 jscode2session）、TOS upload-url、Product ai_summary |
-| ai_optional | Survey 生成、Evaluation run / Persona Answer、Conversation messages（deepseek/mock） |
+| mock | 微信登录（可配真实 jscode2session）、TOS upload-url |
+| ai_optional | Survey 生成、Evaluation Persona Answer、Conversation messages（deepseek/mock） |
 | done/mock | Report metrics 真实聚合，summary/top_pros/top_cons 规则生成或后续 AI 化 |
 | p1_not_implemented | PDF export、share、Credit/recharge |
+| partial | local keyword moderation、DB-backed memory adapter、Celery evaluation run（需 EVALUATION_RUN_MODE=celery + worker） |
 
 ## Health
 
@@ -68,10 +70,10 @@
 | 方法 | 路径 | 状态 | 说明 |
 |---|---|---|---|
 | POST | /api/v1/products/upload-url | mock | mock TOS 签名 URL，返回 mock object_key |
-| POST | /api/v1/products | mock | 真实 DB，ai_summary 为 mock，当前 Product 未接 ark |
+| POST | /api/v1/products | ai_optional | 真实 DB，mock 默认；deepseek/vision client 可生成 ai_summary，多图当前为 object_key/mock CDN 路径 |
 | GET | /api/v1/products | done | 真实 DB 分页查询 |
 | GET | /api/v1/products/{product_id} | done | 真实 DB |
-| POST | /api/v1/products/{product_id}/reanalyze | mock | 真实 DB + mock AI 重新分析 |
+| POST | /api/v1/products/{product_id}/reanalyze | ai_optional | 真实 DB，mock 默认；deepseek/vision client 可重新分析 |
 
 ## Persona
 
@@ -100,8 +102,8 @@
 | GET | /api/v1/evaluations | done | 真实 DB 分页查询 |
 | GET | /api/v1/evaluations/{evaluation_id} | done | 真实 DB |
 | PUT | /api/v1/evaluations/{evaluation_id}/personas | done | 真实 DB 选择角色 |
-| POST | /api/v1/evaluations/{evaluation_id}/run | ai_optional | 同步执行，mock 默认，deepseek 可选 AI 答卷 |
-| POST | /api/v1/evaluations/{evaluation_id}/cancel | done | 真实 DB 取消 |
+| POST | /api/v1/evaluations/{evaluation_id}/run | partial | `sync` 本地模式同步完成；`celery` 生产异步模式返回 answering/task_id，由 worker 生成 answers；answer 内容仍可 mock/deepseek |
+| POST | /api/v1/evaluations/{evaluation_id}/cancel | done | 真实 DB 协作式取消；有 task_id 时 revoke Celery task |
 | GET | /api/v1/evaluations/{evaluation_id}/answers | done | 真实 DB |
 | GET | /api/v1/evaluations/{evaluation_id}/answers/{persona_id} | done | 真实 DB |
 
@@ -138,6 +140,6 @@
 | 多产品对比 | not_started | — |
 | 团队协作 | not_started | — |
 | 真实支付 | not_started | — |
-| 内容审核 | done | LocalModerationAdapter 关键词过滤，HTTP 451 拦截 |
-| 对话记忆 | done | DatabaseMemoryAdapter，跨会话角色记忆持久化 |
-| Celery 异步任务 | done | celery_app + evaluation_tasks，Redis broker |
+| 内容审核 | partial | LocalModerationAdapter 关键词过滤可用；生产级第三方审核、图像审核、策略治理未完成 |
+| 对话记忆 | partial | DB-backed memory adapter 可用；mem0/Qdrant 真实向量记忆未完成 |
+| Celery 异步任务 | partial | Evaluation run 已支持 `EVALUATION_RUN_MODE=celery` 入队和 worker 消费；默认本地 `sync`，生产需启动 worker profile |

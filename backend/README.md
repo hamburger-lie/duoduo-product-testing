@@ -1,17 +1,34 @@
 # Duoduo Product Testing Backend
 
-多角色 AI 测品工具后端 MVP-Lite。当前版本用于前端主流程联调，不是生产版。
+多角色 AI 测品工具后端。当前版本：**v0.2.0**
+
+## 更新日志
+
+### v0.2.0（2026-05-15）
+
+- **问卷提示词 v2**：全面升级为"闺蜜聊天"风格，7 种心理学技法（注意力验证、投射法、PSM 价格三问、行为场景、损失框架、三秒直觉、认知失调探针），题型/维度严格约束
+- **`summary_comment` 字段**：角色答卷新增第一人称 2-3 句社群短评，随答案接口一并返回
+- **AI 路由优化**：有图片时 GLM 专门做图片→文字识别，DeepSeek 负责产品理解推理；无图片直接走 DeepSeek
+- **Persona Chat v3**：注入 Nuwa-style 消费心智模型、表达 DNA、诚实边界
+- **全流程演示脚本** `scripts/demo_full_flow.py`：12 步 CLI 自动演示，覆盖完整业务链路
+- **Bug 修复**：`stream()` 方法名拼写错误 / JSON 懒惰正则截断 / 浮点数量表答案类型错误 / `complete_json` 新增自动重试
+
+### v0.1.0（2026-05-12）
+
+- 初始 MVP-Lite 交付，完成 Health / Auth / Product / Persona / Survey / Evaluation / Report / Conversation 核心模块
+
+---
 
 ## 已实现模块
 
 - **Health** — 健康检查、存活探针、就绪探针
 - **Auth** — mock 微信登录、JWT、profile
-- **Product** — 产品创建、列表、详情、mock 上传 URL、mock AI 理解
-- **Persona** — 系统角色、自定义角色、推荐、CRUD
-- **Survey** — mock 种子模板生成，`AI_PROVIDER=ark` 时可走 AI adapter
-- **Evaluation** — 创建、选角色、同步 run、取消、answers 查询
+- **Product** — 产品创建、列表、详情、mock 上传 URL；`AI_PROVIDER=deepseek` 时走双阶段 AI 理解（GLM 视觉 + DeepSeek 推理）
+- **Persona** — 系统角色、自定义角色、推荐、CRUD；seed 已支持 Persona v2 Nuwa-style 心智模型
+- **Survey** — mock 种子模板生成，`AI_PROVIDER=deepseek` 时走 AI 生成 30 题问卷（7 种心理技法）
+- **Evaluation** — 创建、选角色、run、取消、answers 查询（含 `summary_comment`）；本地默认 sync，`EVALUATION_RUN_MODE=celery` 时走 Celery 异步队列
 - **Report** — 按 evaluation 查询，metrics 真实聚合，文案规则生成
-- **Conversation** — 创建、消息列表、SSE 流式对话，mock 默认，ark 可选
+- **Conversation** — 创建、消息列表、SSE 流式对话，mock 默认，deepseek 可选
 
 ## 环境要求
 
@@ -77,12 +94,44 @@ docker compose up -d postgres redis qdrant
 | redis | redis:7 | 6380:6379 | 后续 cache/broker 预留，避开常见 6379 冲突 |
 | qdrant | qdrant/qdrant | 6333:6333, 6334:6334 | 后续向量检索预留 |
 | api | 本地 Dockerfile | 8000:8000 | 可选，使用 profile `api` |
+| worker | 本地 Dockerfile | 无 | 可选，使用 profile `worker`，处理 evaluation 队列 |
 
 如需同时启动 API 容器：
 
 ```bash
 docker compose --profile api up -d
 ```
+
+如需启动生产异步链路（API 入队 + worker 消费）：
+
+```bash
+docker compose --profile api --profile worker up -d --build
+```
+
+本机运行 API 时也可以单独启动 worker：
+
+```bash
+uv run celery -A app.tasks.celery_app.celery_app worker -Q evaluations -l info -c 4
+```
+
+## Evaluation Run Mode
+
+默认 `.env.example` 使用：
+
+```env
+EVALUATION_RUN_MODE=sync
+```
+
+这是本地测试和普通前端联调模式：`POST /api/v1/evaluations/{id}/run` 会同步生成 answer，并返回 `status=done`。
+
+生产异步模式使用：
+
+```env
+EVALUATION_RUN_MODE=celery
+REDIS_URL=redis://localhost:6380/0
+```
+
+此时 `/run` 只做校验和入队，立即返回 `202 + status=answering + task_id`，前端每 2 秒轮询 `GET /api/v1/evaluations/{id}`，直到 `status=done/failed/canceled`。Docker `api` + `worker` profile 内部使用 `redis://redis:6379/0`。
 
 ## 开发检查
 
@@ -189,6 +238,34 @@ ARK_EP_VISION_PRO=<endpoint-id>
 
 不要把真实 key 写入代码、README、测试或 `.env.example`。
 
+## Persona v2 / Nuwa-style 心智模型
+
+当前角色 seed 支持 Nuwa-style 消费者心智蒸馏，但不引入外部 runtime 依赖，也不改 DB schema。`Persona.profile` 仍是 JSON 字段。
+
+Persona v2 profile 重点字段：
+
+| 字段 | 说明 |
+|---|---|
+| mind_model | 角色如何理解产品、消费、风险和证据 |
+| decision_heuristics | 看到什么信号会买，看到什么信号会拒买 |
+| expression_dna | 语气、句式、关键词、口头禅 |
+| anti_patterns | 角色反感或不会被打动的内容 |
+| scoring_bias | 默认评分倾向、高分/低分条件 |
+| honest_boundaries | 不能假装知道、不能假装真实长期使用的边界 |
+
+构建 Persona v2 seed：
+
+```bash
+uv run python scripts/build_persona_v2.py
+```
+
+导入 seed 时会优先读取 `../docs/SEEDS/personas_v2/`；如果该目录不存在或为空，则回退到旧版 `../docs/SEEDS/personas/`。
+
+Prompt 行为：
+
+- `persona_answer.j2` 会把角色心智模型、启发式、表达 DNA、反模式和诚实边界注入答卷约束。
+- `persona_chat.j2` 保持微信聊天风格，但如果用户追问身份，会诚实说明是基于消费者画像生成的模拟反馈，不会声称自己是真实消费者本人。
+
 ## 当前状态摘要
 
 | 模块 | 状态 |
@@ -198,7 +275,7 @@ ARK_EP_VISION_PRO=<endpoint-id>
 | Product | mock（上传/AI 理解）/ done（CRUD） |
 | Persona | done |
 | Survey | ai_optional |
-| Evaluation | ai_optional |
+| Evaluation | ai_optional / partial |
 | Report | done/mock |
 | Conversation | ai_optional |
 | Credit | p1_not_implemented |

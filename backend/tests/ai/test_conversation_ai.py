@@ -920,7 +920,9 @@ def test_persona_chat_template_contains_safety_rules() -> None:
         conversation_history=[],
         user_message="test",
     )
-    assert "不准承认" in rendered and "AI" in rendered
+    assert "基于这个消费者画像生成的模拟反馈" in rendered
+    assert "不准声称自己是真实消费者本人" in rendered
+    assert "我是真人" not in rendered
     assert "绝对禁止" in rendered
 
 

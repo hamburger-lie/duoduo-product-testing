@@ -18,6 +18,7 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BACKEND_ROOT.parent
 SEEDS_ROOT = PROJECT_ROOT / "docs" / "SEEDS"
 PERSONA_SEEDS_ROOT = SEEDS_ROOT / "personas"
+PERSONA_V2_SEEDS_ROOT = SEEDS_ROOT / "personas_v2"
 SURVEY_TEMPLATE_PATH = SEEDS_ROOT / "survey_templates" / "beauty_survey_template.json"
 REPORT_TEMPLATE_PATH = SEEDS_ROOT / "report_templates" / "beauty_report_template.json"
 
@@ -31,7 +32,10 @@ def load_json_file(path: Path) -> dict[str, Any]:
 def load_persona_seed_files() -> list[dict[str, Any]]:
     """Load persona seed JSON files from docs/SEEDS."""
 
-    return [load_json_file(path) for path in sorted(PERSONA_SEEDS_ROOT.glob("*.json"))]
+    seeds_root = PERSONA_V2_SEEDS_ROOT
+    if not seeds_root.exists() or not any(seeds_root.glob("*.json")):
+        seeds_root = PERSONA_SEEDS_ROOT
+    return [load_json_file(path) for path in sorted(seeds_root.glob("*.json"))]
 
 
 def load_template_seed_files() -> dict[str, dict[str, Any]]:

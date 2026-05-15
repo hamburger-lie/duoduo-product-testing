@@ -24,6 +24,7 @@ uv run uvicorn app.main:app --reload
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/duoduo
 REDIS_URL=redis://localhost:6380/0
 AI_PROVIDER=mock
+EVALUATION_RUN_MODE=sync
 ```
 
 说明：
@@ -33,6 +34,7 @@ AI_PROVIDER=mock
 3. Docker profile 内部 API 使用 `redis://redis:6379/0`，本机 uvicorn 使用 `redis://localhost:6380/0`。
 4. `alembic/env.py` 从 `.env` / 环境变量读取 `DATABASE_URL`，不要依赖 `alembic.ini` 修改端口。
 5. 前端联调前必须先执行 `uv run python scripts/seed_personas.py`，否则 `/personas/recommend` 可能为空。
+6. 默认 `EVALUATION_RUN_MODE=sync` 方便本地联调；生产异步验证请改为 `celery` 并启动 worker。
 
 可选本地检查：
 
@@ -286,16 +288,28 @@ PUT /api/v1/evaluations/{evaluation_id}/personas
 POST /api/v1/evaluations/{evaluation_id}/run
 ```
 
-响应关键字段：
+`sync` 本地模式响应关键字段：
 ```json
 {
   "id": "200",
   "status": "done",
-  "progress": 100
+  "progress": 100,
+  "task_id": "mock_task_200"
 }
 ```
 
-> mock 模式下同步完成。ark 模式下仍为同步，未来可改为异步。
+`celery` 生产异步模式响应关键字段：
+```json
+{
+  "id": "200",
+  "status": "answering",
+  "progress": 0,
+  "estimated_seconds": 180,
+  "task_id": "celery-task-id"
+}
+```
+
+前端不要依赖 Celery 自身 task 状态，只轮询后端自己的 `GET /api/v1/evaluations/{evaluation_id}`。
 
 ### 4.10 轮询 evaluation 状态
 
@@ -305,6 +319,14 @@ GET /api/v1/evaluations/{evaluation_id}
 
 前端轮询建议：POST /run 后 2 秒开始轮询，间隔 2 秒。当 `status` 为 `done`、`failed` 或 `canceled` 时停止。
 
+`celery` 模式状态流：
+
+```text
+pending → answering → done
+answering → failed
+answering → canceled
+```
+
 ### 4.11 查询 answers
 
 ```
@@ -313,16 +335,15 @@ GET /api/v1/evaluations/{evaluation_id}/answers
 
 响应关键字段：
 ```json
-{
-  "items": [
-    {
-      "persona_id": "50",
-      "overall_intent": 4,
-      "sentiment": "positive",
-      "answers": [...]
-    }
-  ]
-}
+[
+  {
+    "persona_id": "50",
+    "persona_name": "林雪",
+    "persona_tag": "成分党",
+    "overall_intent": 4,
+    "sentiment": "positive"
+  }
+]
 ```
 
 ### 4.12 查询 report
@@ -499,11 +520,15 @@ task.onChunkReceived(function(res) {
 |---|---|---|
 | 微信登录 | mock | 任意 code 均可登录，不验证微信 |
 | TOS 上传 | mock | 返回 mock URL，不可实际上传 |
-| 产品理解 | mock | 创建后直接 ready，无 AI 分析 |
-| Survey 生成 | mock / ai_optional | 默认用种子模板，设 AI_PROVIDER=ark 可调 AI 生成 |
-| Persona Answer | mock / ai_optional | 默认 mock 答卷，设 AI_PROVIDER=ark 可调 AI |
-| Conversation | mock / ai_optional | 默认 mock 流式回复，设 AI_PROVIDER=ark 可调 AI 对话 |
+| 产品理解 | mock / ai_optional | 默认 mock；设 AI_PROVIDER=deepseek 可调 AI/vision client 生成 ai_summary |
+| Survey 生成 | mock / ai_optional | 默认用种子模板，设 AI_PROVIDER=deepseek 可调 AI 生成 |
+| Persona Answer | mock / ai_optional | 默认 mock 答卷，设 AI_PROVIDER=deepseek 可调 AI |
+| Evaluation run mode | sync / celery | 默认 sync；设 EVALUATION_RUN_MODE=celery 后 `/run` 返回 answering/task_id，worker 后台生成 answers |
+| Conversation | mock / ai_optional | 默认 mock 流式回复，设 AI_PROVIDER=deepseek 可调 AI 对话 |
 | Report | done | metrics 真实聚合，文案规则生成，可后续 AI 化 |
+| 内容审核 | partial | local keyword moderation 可用；生产级第三方审核/图像审核未完成 |
+| 对话记忆 | partial | DB-backed memory adapter 可用；mem0/Qdrant 向量记忆未完成 |
+| Celery 异步任务 | partial | Evaluation run 已支持 Celery；生产异步需 `EVALUATION_RUN_MODE=celery` 并启动 worker |
 | PDF 导出 | p1_not_implemented | pdf_url 字段保留，逻辑未实现 |
 | 分享链接 | p1_not_implemented | share_token 字段保留，逻辑未实现 |
 | 充值 | p1_not_implemented | — |
@@ -513,15 +538,15 @@ task.onChunkReceived(function(res) {
 | 模式 | 用途 | 前端联调建议 |
 |---|---|---|
 | `AI_PROVIDER=mock` | 默认联调模式，不需要真实 AI key，响应稳定且成本为 0 | 前端主流程、页面字段、状态流转、SSE 解析优先使用 |
-| `AI_PROVIDER=deepseek` | **推荐生产模式**，DeepSeek 做文本主力 + 智谱 GLM-4.6V 做多模态 | 需要 `DEEPSEEK_API_KEY`，可选 `ZHIPU_API_KEY` |
+| `AI_PROVIDER=deepseek` | 真实 AI 测试/预生产候选模式，DeepSeek 做文本主力 + 智谱 GLM-4.6V 做多模态 | 需要 `DEEPSEEK_API_KEY`，可选 `ZHIPU_API_KEY`；正式生产前仍需审核、限流、监控和成本治理 |
 | `AI_PROVIDER=ark` | **已弃用**，保留向后兼容，需要 `ARK_API_KEY` 和 `ARK_EP_*` endpoint | 不推荐新项目使用 |
 
 DeepSeek 模式下的模型路由：
 
 | 任务 | 模型 | 说明 |
 |---|---|---|
-| 问卷生成、角色答卷、报告合成 | `DEEPSEEK_MODEL_PRO`（默认 deepseek-chat） | 重推理任务 |
-| 角色对话、记忆提取 | `DEEPSEEK_MODEL_FLASH`（默认 deepseek-chat） | 轻量快速任务 |
+| 问卷生成、角色答卷、报告合成 | `DEEPSEEK_MODEL_FLASH`（默认 deepseek-v4-flash） | 文本生成任务 |
+| 角色对话、记忆提取 | `DEEPSEEK_MODEL_FLASH`（默认 deepseek-v4-flash） | 轻量快速任务 |
 | 产品理解（多模态） | `ZHIPU_MODEL_VISION`（默认 glm-4.6v） | 图片理解，需 `ZHIPU_API_KEY` |
 
 安全说明：

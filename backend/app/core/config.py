@@ -47,13 +47,13 @@ class Settings(BaseSettings):
         default="https://api.deepseek.com",
         alias="DEEPSEEK_BASE_URL",
     )
-    deepseek_model: str = Field(default="deepseek-chat", alias="DEEPSEEK_MODEL")
+    deepseek_model: str = Field(default="deepseek-v4-flash", alias="DEEPSEEK_MODEL")
     deepseek_model_pro: str = Field(
-        default="deepseek-chat",
+        default="deepseek-v4-flash",
         alias="DEEPSEEK_MODEL_PRO",
     )
     deepseek_model_flash: str = Field(
-        default="deepseek-chat",
+        default="deepseek-v4-flash",
         alias="DEEPSEEK_MODEL_FLASH",
     )
 

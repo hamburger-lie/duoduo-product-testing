@@ -126,6 +126,7 @@ async def test_create_product_short_description_validation(product_client: Async
 
 
 async def test_create_product_image_count_validation(product_client: AsyncClient) -> None:
+    """No image_object_keys AND no image_base64_list → IMAGE_REQUIRED (422)."""
     token = await login(product_client, "mock_product_images")
     response = await product_client.post(
         "/api/v1/products",
@@ -136,8 +137,36 @@ async def test_create_product_image_count_validation(product_client: AsyncClient
         },
     )
 
-    assert response.status_code == 400
-    assert response.json()["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 422
+    assert response.json()["code"] == "IMAGE_REQUIRED"
+
+
+async def test_create_product_with_base64_image(product_client: AsyncClient) -> None:
+    """image_base64_list alone (no image_object_keys) should be accepted."""
+    import base64
+
+    token = await login(product_client, "mock_product_base64")
+    # Minimal valid 1×1 white JPEG as base64
+    tiny_jpeg_b64 = base64.b64encode(
+        b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+        b"\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t"
+        b"\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a"
+        b"\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\x1e\xff\xd9"
+    ).decode()
+    response = await product_client.post(
+        "/api/v1/products",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "description": "这是一个通过 base64 图片创建的产品，描述足够长。",
+            "image_object_keys": [],
+            "image_base64_list": [tiny_jpeg_b64],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"]
+    assert data["ai_summary"] is not None
 
 
 async def test_get_product_detail_success(product_client: AsyncClient) -> None:

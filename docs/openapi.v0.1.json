@@ -962,7 +962,7 @@
           "evaluations"
         ],
         "summary": "Run Evaluation",
-        "description": "Run mock persona answering synchronously.",
+        "description": "Start persona answering in sync or Celery mode.",
         "operationId": "run_evaluation_api_v1_evaluations__evaluation_id__run_post",
         "security": [
           {
@@ -2292,7 +2292,7 @@
           "task_id"
         ],
         "title": "EvaluationRunResponse",
-        "description": "Synchronous mock run response."
+        "description": "Evaluation run response for sync or Celery mode."
       },
       "EvaluationStats": {
         "properties": {
@@ -3266,24 +3266,123 @@
           },
           "target_audience": {
             "type": "string",
-            "title": "Target Audience"
+            "title": "Target Audience",
+            "default": ""
           },
           "competitive_position": {
             "type": "string",
-            "title": "Competitive Position"
+            "title": "Competitive Position",
+            "default": ""
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "sub_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Category"
+          },
+          "brand": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "price_range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Range"
+          },
+          "target_channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Channel"
+          },
+          "claims_detected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Claims Detected"
+          },
+          "risk_or_uncertainty_points": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Risk Or Uncertainty Points"
+          },
+          "usage_scenarios": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Usage Scenarios"
+          },
+          "questionnaire_focus": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Questionnaire Focus"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
           }
         },
-        "additionalProperties": false,
         "type": "object",
-        "required": [
-          "main_selling_points",
-          "key_ingredients",
-          "suitable_skin_types",
-          "target_audience",
-          "competitive_position"
-        ],
         "title": "ProductAiSummary",
-        "description": "Mock product understanding summary."
+        "description": "Structured product understanding from AI or mock."
       },
       "ProductCreateRequest": {
         "properties": {

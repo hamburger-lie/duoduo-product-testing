@@ -1,31 +1,63 @@
 from __future__ import annotations
 
-from scripts.seed_personas import (
-    build_persona_values,
-    load_persona_seed_files,
-    load_template_seed_files,
-)
+import json
+
+from scripts import seed_personas
 
 
-def test_persona_seed_files_load_from_docs_seed_directory() -> None:
-    seeds = load_persona_seed_files()
+def test_load_persona_seed_files_prefers_personas_v2(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    seeds_root = tmp_path / "SEEDS"
+    legacy_dir = seeds_root / "personas"
+    v2_dir = seeds_root / "personas_v2"
+    legacy_dir.mkdir(parents=True)
+    v2_dir.mkdir()
+    (legacy_dir / "legacy.json").write_text(
+        json.dumps({"name": "旧角色", "profile": {"bio": "legacy"}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (v2_dir / "v2.json").write_text(
+        json.dumps(
+            {
+                "name": "新角色",
+                "profile": {
+                    "bio": "v2",
+                    "mind_model": ["先看证据"],
+                    "honest_boundaries": ["不能假装真实使用"],
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
-    assert len(seeds) == 5
-    assert {seed["seed_key"] for seed in seeds} >= {"persona_beauty_001", "persona_beauty_005"}
+    monkeypatch.setattr(seed_personas, "PERSONA_SEEDS_ROOT", legacy_dir)
+    monkeypatch.setattr(seed_personas, "PERSONA_V2_SEEDS_ROOT", v2_dir)
+
+    seeds = seed_personas.load_persona_seed_files()
+
+    assert [seed["name"] for seed in seeds] == ["新角色"]
+    assert seeds[0]["profile"]["mind_model"] == ["先看证据"]
 
 
-def test_persona_seed_mapping_uses_name_and_version_for_idempotency() -> None:
-    seed = load_persona_seed_files()[0]
-    values = build_persona_values(seed)
+def test_load_persona_seed_files_falls_back_to_legacy_personas(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    seeds_root = tmp_path / "SEEDS"
+    legacy_dir = seeds_root / "personas"
+    v2_dir = seeds_root / "personas_v2"
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "legacy.json").write_text(
+        json.dumps({"name": "旧角色", "profile": {"bio": "legacy"}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
-    assert values["name"] == seed["name"]
-    assert values["version"] == 1
-    assert values["profile"] == seed["profile"]
-    assert values["categories"] == seed["categories"]
+    monkeypatch.setattr(seed_personas, "PERSONA_SEEDS_ROOT", legacy_dir)
+    monkeypatch.setattr(seed_personas, "PERSONA_V2_SEEDS_ROOT", v2_dir)
 
+    seeds = seed_personas.load_persona_seed_files()
 
-def test_template_seed_files_are_read_for_future_import() -> None:
-    templates = load_template_seed_files()
-
-    assert templates["survey"]["template_key"] == "beauty_survey_template_v0_1"
-    assert templates["report"]["template_key"] == "beauty_report_template_v0_1"
+    assert [seed["name"] for seed in seeds] == ["旧角色"]

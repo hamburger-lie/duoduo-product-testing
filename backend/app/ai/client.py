@@ -300,16 +300,50 @@ class ArkOpenAIClient:
         user: str,
         endpoint_id: str,
         images: list[str] | None = None,
+        max_retries: int = 2,
     ) -> str:
-        """Like complete() but validates the response is parseable JSON."""
+        """Like complete() but validates the response is parseable JSON.
 
+        Retries up to *max_retries* times when the model returns malformed JSON.
+        On each retry the system prompt is reinforced with an explicit JSON-only
+        instruction to reduce the chance of another format error.
+        """
+
+        import logging as _logging
+        from app.ai.exceptions import AIResponseInvalid
         from app.ai.json_utils import parse_json_response
 
-        text = await self.complete(
-            system=system, user=user, endpoint_id=endpoint_id, images=images,
-        )
-        parse_json_response(text)
-        return text
+        _log = _logging.getLogger(__name__)
+
+        last_exc: AIResponseInvalid | None = None
+        for attempt in range(max_retries + 1):
+            retry_system = system
+            if attempt > 0:
+                retry_system = (
+                    system
+                    + "\n\n【重要】上一次回复的 JSON 格式有误。"
+                    "本次必须输出合法 JSON，不得包含任何 Markdown、注释或多余文字。"
+                    "确保所有字符串用双引号、逗号和括号完整闭合。"
+                )
+                _log.warning(
+                    "complete_json_retry attempt=%d endpoint=%s",
+                    attempt,
+                    endpoint_id,
+                )
+            text = await self.complete(
+                system=retry_system,
+                user=user,
+                endpoint_id=endpoint_id,
+                images=images,
+            )
+            try:
+                parse_json_response(text)
+                return text
+            except AIResponseInvalid as exc:
+                last_exc = exc
+                if attempt < max_retries:
+                    continue
+        raise last_exc  # type: ignore[misc]
 
     async def stream(
         self, *, system: str, user: str, endpoint_id: str,

@@ -215,12 +215,15 @@ class ProductService:
         user: User,
         payload: ProductCreateRequest,
     ) -> ProductAiSummary:
-        """Call AI (via product_understand.j2) to extract structured product info.
+        """Call AI to extract structured product info.
 
-        When ``payload.image_base64_list`` is provided the vision client
-        (GLM-4.6V) receives the images as multimodal content, enabling true
-        image-based product understanding.  Without images the call falls
-        back to text-only analysis.
+        Two-step when images are present:
+          1. GLM-4.6V  → describe visible image content as plain text
+          2. DeepSeek  → parse product context + image description into JSON
+
+        Text-only (no images): skip step 1, DeepSeek handles everything.
+        This keeps GLM usage minimal (only what it's actually good at) and
+        lets the faster/cheaper DeepSeek model do all the reasoning.
         """
 
         from app.ai.factory import get_ai_client, get_vision_client
@@ -231,18 +234,37 @@ class ProductService:
         images = payload.image_base64_list or []
         has_images = bool(images)
 
-        # 有真实图片才用 GLM 视觉模型；纯文字描述走 DeepSeek，速度快且稳定
-        if self._ai_client:
-            ai_client = self._ai_client
-        elif has_images:
-            ai_client = get_vision_client()
-        else:
-            ai_client = get_ai_client()
-
         router = ModelRouter()
-        route = router.get(
-            TaskType.PRODUCT_UNDERSTAND if has_images else TaskType.SURVEY_GENERATE
-        )
+
+        # ── Step 1 (only when images exist): GLM extracts visible text/details ──
+        image_description: str | None = None
+        if has_images and not self._ai_client:
+            vision_client = get_vision_client()
+            vision_route = router.get(TaskType.PRODUCT_UNDERSTAND)
+            logger.info(
+                "product_vision_describe product=%s images=%d",
+                payload.name or "(unnamed)",
+                len(images),
+            )
+            image_description = await vision_client.complete(
+                system=(
+                    "你是产品图片识别助手。"
+                    "请用中文详细描述图片中所有可见内容：包装设计、产品名称、成分表、"
+                    "容量规格、品牌 logo、使用说明、颜色、形状、任何可见文字。"
+                    "只描述图片中实际看到的内容，不要推断或联想。"
+                ),
+                user="请描述这些产品图片。",
+                endpoint_id=vision_route.endpoint_id,
+                images=images,
+            )
+            logger.info(
+                "product_vision_describe_done chars=%d",
+                len(image_description) if image_description else 0,
+            )
+
+        # ── Step 2: DeepSeek does the reasoning / JSON extraction ──
+        text_client = self._ai_client if self._ai_client else get_ai_client()
+        text_route = router.get(TaskType.SURVEY_GENERATE)
 
         product_context: dict[str, object] = {
             "name": payload.name or "",
@@ -254,6 +276,8 @@ class ProductService:
             "has_images": has_images,
             "image_count": len(images),
         }
+        if image_description:
+            product_context["image_description"] = image_description
 
         prompt, _, _ = render_prompt(
             "product_understand",
@@ -261,26 +285,18 @@ class ProductService:
             product=product_context,
         )
 
-        if has_images:
-            logger.info(
-                "product_understand_with_vision product=%s images=%d endpoint=%s",
-                payload.name or "(unnamed)",
-                len(images),
-                route.endpoint_id,
-            )
-        else:
-            logger.info(
-                "product_understand_text_only product=%s endpoint=%s",
-                payload.name or "(unnamed)",
-                route.endpoint_id,
-            )
+        logger.info(
+            "product_understand_text product=%s has_images=%s endpoint=%s",
+            payload.name or "(unnamed)",
+            has_images,
+            text_route.endpoint_id,
+        )
 
         try:
-            raw_json = await ai_client.complete_json(
+            raw_json = await text_client.complete_json(
                 system="你是美妆行业产品调研专家。严格按 JSON schema 输出，不要返回 Markdown。",
                 user=prompt,
-                endpoint_id=route.endpoint_id,
-                images=images if has_images else None,
+                endpoint_id=text_route.endpoint_id,
             )
             data = parse_json_response(raw_json)
 
@@ -292,8 +308,8 @@ class ProductService:
 
             return ProductAiSummary.model_validate(data)
         except Exception:
-            logger.exception("product_ai_understand_failed, falling back to mock")
-            return self._build_mock_ai_summary(payload)
+            logger.exception("product_ai_understand_failed")
+            raise
 
     def _build_mock_ai_summary(self, payload: ProductCreateRequest) -> ProductAiSummary:
         """Fallback mock product understanding."""

@@ -76,7 +76,7 @@ def test_render_persona_answer_includes_persona_v2_mind_model() -> None:
     assert "决策启发式" in rendered
     assert "表达 DNA" in rendered
     assert "反模式" in rendered
-    assert "评分倾向" in rendered
+    assert "评分规则" in rendered
     assert "诚实边界" in rendered
     assert "护肤品不是越贵越好" in rendered
     assert "光这么说我不太信" in rendered

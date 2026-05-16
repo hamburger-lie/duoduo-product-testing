@@ -529,9 +529,10 @@ task.onChunkReceived(function(res) {
 | 内容审核 | partial | local keyword moderation 可用；生产级第三方审核/图像审核未完成 |
 | 对话记忆 | partial | DB-backed memory adapter 可用；mem0/Qdrant 向量记忆未完成 |
 | Celery 异步任务 | partial | Evaluation run 已支持 Celery；生产异步需 `EVALUATION_RUN_MODE=celery` 并启动 worker |
-| PDF 导出 | p1_not_implemented | pdf_url 字段保留，逻辑未实现 |
-| 分享链接 | p1_not_implemented | share_token 字段保留，逻辑未实现 |
-| 充值 | p1_not_implemented | — |
+| PDF 导出 | p1_planned | 契约已定义，pdf_url 字段保留，当前未实现 |
+| 分享链接 | p1_planned | 契约已定义，share_token 字段保留，当前未实现 |
+| Credit balance / transactions | done | 已支持余额与流水查询 |
+| 充值 | p1_not_implemented | `recharge` 当前返回 501 |
 
 ### 7.1 AI Provider 开关
 

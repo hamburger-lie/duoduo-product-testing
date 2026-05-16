@@ -20,6 +20,7 @@
 | Answer 查询 | 已完成 | 支持汇总和单 persona 答案查询 |
 | Report 聚合 | 已完成 | metrics 基于 DB answers 聚合，文案规则生成 |
 | Conversation mock / AI optional SSE | 已完成 | 默认 mock SSE，deepseek 可走真实流式对话 |
+| Credit balance / transactions | 已完成 | 已支持余额与流水查询；recharge 仍返回 501 |
 | Local keyword moderation | 部分完成 | 本地关键词拦截可用；生产审核未完成 |
 | DB-backed memory adapter | 部分完成 | 可记录/检索 DB 记忆；mem0/Qdrant 向量记忆未完成 |
 | Celery evaluation queue | 部分完成 | 主 run 已支持 Celery 入队和 worker 消费；默认本地 `sync`，生产需启动 worker profile |
@@ -37,10 +38,10 @@
 | Celery 生产运维完善 | Evaluation run 已可异步；后续还需监控、重试策略、死信/告警和生产部署治理 |
 | mem0 / Qdrant 真实记忆 | 当前仅 DB-backed memory adapter；未接 mem0/Qdrant 向量检索 |
 | 生产级内容审核 | 当前仅 local keyword moderation；未接第三方审核、图像审核和策略治理 |
-| 积分扣费闭环 | 当前仅保留 credit 模型/字段 |
-| 充值 / 支付 | P1 后置 |
-| PDF 导出 | P1 后置，字段保留 |
-| 分享链接 | P1 后置，字段保留 |
+| 积分扣费闭环 | 当前仅完成余额 / 流水查询，未形成真实扣费闭环 |
+| 充值 / 支付 | P1 后置；`recharge` 当前返回 501 |
+| PDF 导出 | P1 planned，契约已定义、字段保留、当前未实现 |
+| 分享链接 | P1 planned，契约已定义、字段保留、当前未实现 |
 | 管理后台 | MVP 不做 |
 | 生产部署 | 需后续 Dockerfile/compose 生产化、HTTPS、密钥治理 |
 

@@ -17,9 +17,10 @@
 | Persona | done | 系统角色 seed、私有角色、推荐、CRUD |
 | Survey | ai_optional | 默认种子模板，Ark 可选 |
 | Evaluation | ai_optional | 默认同步 mock answer，Ark 可选 |
-| Report | done / mock | metrics 基于 DB 聚合，文案规则生成 |
+| Report | done / mock | metrics 基于 DB 聚合，summary/top_pros/top_cons 规则生成 |
 | Conversation | ai_optional | SSE 流式对话，默认 mock，Ark 可选 |
-| Credit / PDF / Share | p1_not_implemented | 字段或入口预留，暂不建议前端展示 |
+| Credit | partial | balance / transactions 已实现，recharge 仍为 P1 / 501 |
+| PDF / Share | p1_planned | 契约已预留，当前未实现，暂不建议前端展示 |
 
 ## 快速启动
 

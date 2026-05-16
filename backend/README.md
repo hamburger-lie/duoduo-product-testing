@@ -27,8 +27,9 @@
 - **Persona** — 系统角色、自定义角色、推荐、CRUD；seed 已支持 Persona v2 Nuwa-style 心智模型
 - **Survey** — mock 种子模板生成，`AI_PROVIDER=deepseek` 时走 AI 生成 30 题问卷（7 种心理技法）
 - **Evaluation** — 创建、选角色、run、取消、answers 查询（含 `summary_comment`）；本地默认 sync，`EVALUATION_RUN_MODE=celery` 时走 Celery 异步队列
-- **Report** — 按 evaluation 查询，metrics 真实聚合，文案规则生成
+- **Report** — 按 evaluation 查询，metrics 真实聚合，summary/top_pros/top_cons 规则生成
 - **Conversation** — 创建、消息列表、SSE 流式对话，mock 默认，deepseek 可选
+- **Credit** — balance / transactions 已实现，recharge 仍为 P1（返回 501）
 
 ## 环境要求
 
@@ -284,8 +285,9 @@ Prompt 行为：
 | Persona | done |
 | Survey | ai_optional |
 | Evaluation | ai_optional / partial |
-| Report | done/mock |
+| Report | done / mock |
 | Conversation | ai_optional |
-| Credit | p1_not_implemented |
+| Credit | partial（balance / transactions done，recharge P1 / 501） |
+| PDF / Share | p1_planned / not implemented |
 
 详见 `../docs/API_STATUS.md`。

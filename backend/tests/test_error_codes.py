@@ -130,8 +130,7 @@ async def test_not_implemented_recharge(ctx: EC) -> None:
     """POST /credits/recharge → NOT_IMPLEMENTED 501."""
     token = await _login(ctx, "ec_not_impl")
     r = await ctx.client.post("/api/v1/credits/recharge", headers=_h(token))
-    assert r.status_code == 501
-    assert r.json()["code"] == "NOT_IMPLEMENTED"
+    assert_error_format(r, code="NOT_IMPLEMENTED", http_status=501)
 
 
 # ------------------------------------------------------------------ #

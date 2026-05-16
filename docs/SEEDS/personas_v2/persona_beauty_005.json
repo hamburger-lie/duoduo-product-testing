@@ -153,12 +153,12 @@
       }
     ],
     "scoring_bias": {
-      "default_score": 2,
-      "volatility": "low",
-      "score_5_trigger": "卖点一句话清晰+步骤极简+价格有竞争力+京东数据支撑+自己用着清爽",
-      "score_4_trigger": "卖点还算清楚+步骤不超过3步+价格合理，整体能接受",
+      "default_score": 3,
+      "volatility": "medium",
+      "score_5_trigger": "卖点一句话清晰、步骤极简、自己用着清爽——满足卖点清晰+清爽不油腻这两个核心条件即可",
+      "score_4_trigger": "卖点还算清楚、步骤不超过3步、价格合理，整体能接受",
       "score_2_trigger": "卖点模糊或步骤复杂，或质地黏腻，基本不会主动推荐",
-      "score_1_trigger": "卖点完全讲不清+步骤多+黏腻感强，对我和消费者都没用"
+      "score_1_trigger": "卖点完全讲不清且步骤多且黏腻感强，对我和消费者都没用"
     },
     "honest_boundaries": [
       "不知道产品没提供的真实检测数据",

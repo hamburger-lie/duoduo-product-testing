@@ -226,87 +226,11 @@ class ProductService:
         lets the faster/cheaper DeepSeek model do all the reasoning.
         """
 
-        from app.ai.factory import get_ai_client, get_vision_client
-        from app.ai.json_utils import parse_json_response
-        from app.ai.models import ModelRouter, TaskType
-        from app.ai.prompt_manager import render_prompt
-
-        images = payload.image_base64_list or []
-        has_images = bool(images)
-
-        router = ModelRouter()
-
-        # ── Step 1 (only when images exist): GLM extracts visible text/details ──
-        image_description: str | None = None
-        if has_images and not self._ai_client:
-            vision_client = get_vision_client()
-            vision_route = router.get(TaskType.PRODUCT_UNDERSTAND)
-            logger.info(
-                "product_vision_describe product=%s images=%d",
-                payload.name or "(unnamed)",
-                len(images),
-            )
-            image_description = await vision_client.complete(
-                system=(
-                    "你是产品图片识别助手。"
-                    "请用中文详细描述图片中所有可见内容：包装设计、产品名称、成分表、"
-                    "容量规格、品牌 logo、使用说明、颜色、形状、任何可见文字。"
-                    "只描述图片中实际看到的内容，不要推断或联想。"
-                ),
-                user="请描述这些产品图片。",
-                endpoint_id=vision_route.endpoint_id,
-                images=images,
-            )
-            logger.info(
-                "product_vision_describe_done chars=%d",
-                len(image_description) if image_description else 0,
-            )
-
-        # ── Step 2: DeepSeek does the reasoning / JSON extraction ──
-        text_client = self._ai_client if self._ai_client else get_ai_client()
-        text_route = router.get(TaskType.SURVEY_GENERATE)
-
-        product_context: dict[str, object] = {
-            "name": payload.name or "",
-            "description": payload.description,
-            "brand": payload.brand or "",
-            "price": float(payload.price) if payload.price is not None else None,
-            "target_channel": payload.target_channel or "",
-            "image_object_keys": payload.image_object_keys,
-            "has_images": has_images,
-            "image_count": len(images),
-        }
-        if image_description:
-            product_context["image_description"] = image_description
-
-        prompt, _, _ = render_prompt(
-            "product_understand",
-            user_role_type="manufacturer",
-            product=product_context,
-        )
-
-        logger.info(
-            "product_understand_text product=%s has_images=%s endpoint=%s",
-            payload.name or "(unnamed)",
-            has_images,
-            text_route.endpoint_id,
-        )
+        from app.ai.adapters.structured_generation import ProductUnderstandingAdapter
 
         try:
-            raw_json = await text_client.complete_json(
-                system="你是美妆行业产品调研专家。严格按 JSON schema 输出，不要返回 Markdown。",
-                user=prompt,
-                endpoint_id=text_route.endpoint_id,
-            )
-            data = parse_json_response(raw_json)
-
-            # Normalize field name differences between prompt output and schema
-            if "key_ingredients_or_features" in data:
-                data["key_ingredients"] = data.pop("key_ingredients_or_features")
-            if "suitable_skin_types_or_users" in data:
-                data["suitable_skin_types"] = data.pop("suitable_skin_types_or_users")
-
-            return ProductAiSummary.model_validate(data)
+            adapter = ProductUnderstandingAdapter(ai_client=self._ai_client)
+            return await adapter.generate_summary(payload=payload)
         except Exception:
             logger.exception("product_ai_understand_failed")
             raise

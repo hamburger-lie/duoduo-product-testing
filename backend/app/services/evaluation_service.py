@@ -458,74 +458,14 @@ class EvaluationService:
     ) -> tuple[list[dict[str, object]], int, str, str | None]:
         """Call AI (via persona_answer.j2) to generate one persona's answers."""
 
-        from app.ai.exceptions import AIResponseInvalid
-        from app.ai.factory import get_ai_client
-        from app.ai.json_utils import parse_json_response, validate_required_keys
-        from app.ai.models import ModelRouter, TaskType
-        from app.ai.prompt_manager import render_prompt
+        from app.ai.adapters.structured_generation import PersonaAnswerGenerationAdapter
 
-        ai_client = self._ai_client or get_ai_client()
-        route = ModelRouter().get(TaskType.PERSONA_ANSWER)
-
-        persona_dict: dict[str, object] = {
-            "id": persona.id,
-            "name": persona.name,
-            "age": persona.age,
-            "city": persona.city,
-            "occupation": persona.occupation,
-            "persona_tag": persona.persona_tag or "",
-            "is_critical": persona.is_critical,
-        }
-        if persona.profile:
-            persona_dict = {**persona_dict, **persona.profile}
-
-        prompt, _, _ = render_prompt(
-            "persona_answer",
-            persona=persona_dict,
-            product_ai_summary=product_summary,
-            survey_questions=survey.questions,
+        adapter = PersonaAnswerGenerationAdapter(ai_client=self._ai_client)
+        return await adapter.generate_answer(
+            survey=survey,
+            persona=persona,
+            product_summary=product_summary,
         )
-
-        raw_json = await ai_client.complete_json(
-            system="你是一名真实的中国消费者，正在参与产品测评问卷。",
-            user=prompt,
-            endpoint_id=route.endpoint_id,
-        )
-
-        data = parse_json_response(raw_json)
-        validate_required_keys(data, ["overall_intent", "sentiment", "answers"])
-
-        raw_intent = data["overall_intent"]
-        if not isinstance(raw_intent, (int, float)):
-            raise AIResponseInvalid(
-                f"overall_intent must be a number, got {type(raw_intent).__name__}"
-            )
-        overall_intent = max(1, min(5, int(raw_intent)))
-
-        sentiment = str(data.get("sentiment", "neutral"))
-        if sentiment not in ("positive", "neutral", "negative"):
-            sentiment = "neutral"
-
-        answers_raw = data["answers"]
-        if not isinstance(answers_raw, list):
-            raise AIResponseInvalid("'answers' must be a list")
-
-        answers: list[dict[str, object]] = []
-        for item in answers_raw:
-            if isinstance(item, dict):
-                answers.append(
-                    {
-                        "qid": str(item.get("qid", "")),
-                        "type": str(item.get("type", "open")),
-                        "answer": item.get("answer", ""),
-                        "reason": str(item.get("reason_short", item.get("reason", ""))),
-                    }
-                )
-
-        summary_comment_raw = data.get("summary_comment")
-        summary_comment: str | None = str(summary_comment_raw) if summary_comment_raw else None
-
-        return answers, overall_intent, sentiment, summary_comment
 
     # ------------------------------------------------------------------
     # Mock helpers (unchanged)

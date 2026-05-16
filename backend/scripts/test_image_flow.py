@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 import sys
 from pathlib import Path
 
@@ -42,6 +41,7 @@ def _encode_url_image(url: str) -> str:
 async def test_method1_object_keys() -> None:
     """方式 1：先拿 upload-url，再用 object_key 创建产品（mock CDN）。"""
     from httpx import AsyncClient
+
     from app.main import app
 
     print("\n" + "=" * 60)
@@ -105,8 +105,9 @@ async def test_method2_base64_image(image_source: str) -> None:
     - base64 字符串
     """
     from httpx import AsyncClient
-    from app.main import app
+
     from app.core.config import get_settings
+    from app.main import app
 
     s = get_settings()
     provider = s.ai_provider.strip().lower()

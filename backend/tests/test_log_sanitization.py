@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """T055 — 日志脱敏审计测试
 
 Verifies that:
@@ -10,14 +8,13 @@ Verifies that:
 4. The `JsonFormatter` uses scrubbing.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from io import StringIO
 
-import pytest
-
 from app.core.logging import JsonFormatter, _scrub
-
 
 # ------------------------------------------------------------------ #
 # Unit tests: _scrub()
@@ -125,7 +122,7 @@ def test_auth_service_does_not_log_full_openid() -> None:
 
 
 def test_settings_repr_does_not_leak_secret_key() -> None:
-    """Settings.__repr__ from pydantic_settings may expose values — verify app_secret_key isn't logged."""
+    """Settings repr may expose values; verify app_secret_key is not logged."""
     from app.core.config import get_settings
 
     s = get_settings()

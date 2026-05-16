@@ -9,8 +9,6 @@ conftest.py 强制 AI_PROVIDER=mock，这个测试通过 monkeypatch 恢复真�
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 

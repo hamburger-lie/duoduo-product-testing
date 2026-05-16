@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging as py_logging
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -10,11 +11,13 @@ from app.core.config import get_settings
 
 # Patterns that must never appear verbatim in log output.
 # Each tuple is (pattern, replacement).
-_SENSITIVE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+Replacement = str | Callable[[re.Match[str]], str]
+
+_SENSITIVE_PATTERNS: list[tuple[re.Pattern[str], Replacement]] = [
     # JWT Bearer tokens  (eyJ…)
     (re.compile(r"eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+"), "***JWT***"),
     # Generic API keys / secret-like strings (≥32 hex chars)
-    (re.compile(r"[A-Za-z0-9]{32,}"), lambda m: m.group()[:4] + "***"),  # type: ignore[arg-type]
+    (re.compile(r"[A-Za-z0-9]{32,}"), lambda match: match.group()[:4] + "***"),
     # Authorization header values
     (re.compile(r"(Bearer\s+)\S+", re.IGNORECASE), r"\1***"),
     # Signed upload URLs (TOS / S3)
@@ -26,7 +29,7 @@ _SENSITIVE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 def _scrub(text: str) -> str:
     """Replace sensitive patterns in ``text`` with placeholders."""
     for pattern, replacement in _SENSITIVE_PATTERNS:
-        text = pattern.sub(replacement, text)  # type: ignore[call-overload]
+        text = pattern.sub(replacement, text)
     return text
 
 
@@ -65,4 +68,3 @@ def get_logger(name: str) -> py_logging.Logger:
     """Return a configured logger."""
 
     return py_logging.getLogger(name)
-

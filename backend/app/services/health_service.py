@@ -54,7 +54,9 @@ class HealthService:
         # ---- 2. Redis ----
         try:
             client = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
-            await client.ping()
+            ping_result = client.ping()
+            if hasattr(ping_result, "__await__"):
+                await ping_result
             await client.aclose()
             checks["redis"] = "ok"
         except Exception:

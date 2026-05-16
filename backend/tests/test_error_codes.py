@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """T054 — API 错误码完整性测试
 
 对照 API_CONTRACT §10 错误码表，验证：
@@ -9,6 +7,8 @@ from __future__ import annotations
 
 不需要 Redis / Qdrant / 真实 AI；使用 in-memory SQLite + mock AI。
 """
+
+from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -27,7 +27,6 @@ from app.db.models.report import Report
 from app.db.models.survey import Survey
 from app.db.models.user import User
 from app.main import app
-
 
 # ------------------------------------------------------------------ #
 # Fixtures

@@ -1,0 +1,98 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "docs/**"
+      - "README.md"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "docs/**"
+      - "README.md"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: development
+      APP_SECRET_KEY: ci_secret_key_at_least_32_bytes_long
+      AI_PROVIDER: mock
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/duoduo
+      REDIS_URL: redis://localhost:6380/0
+      QDRANT_URL: http://localhost:6333
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Start local dependencies
+        run: docker compose up -d postgres redis qdrant
+
+      - name: Wait for PostgreSQL
+        run: |
+          for attempt in {1..30}; do
+            if docker compose exec -T postgres pg_isready -U postgres -d duoduo; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose ps
+          exit 1
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Mypy
+        run: uv run mypy app
+
+      - name: Pytest
+        run: uv run pytest
+
+      - name: Alembic upgrade
+        run: uv run alembic upgrade head
+
+      - name: Alembic check
+        run: uv run alembic check
+
+      - name: Seed personas
+        run: uv run python scripts/seed_personas.py
+
+      - name: Export OpenAPI
+        run: uv run python scripts/export_openapi.py
+
+      - name: Start API
+        run: |
+          nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 >/tmp/uvicorn.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/health/live >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/uvicorn.log
+          exit 1
+
+      - name: Dev check
+        run: uv run python scripts/dev_check.py
+
+      - name: HTTP E2E mock flow
+        run: uv run python scripts/e2e_mock_flow.py

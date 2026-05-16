@@ -110,19 +110,25 @@ uv run python scripts/e2e_mock_flow.py
 ## 7. 最终验收命令
 
 ```bash
+docker compose up -d postgres redis qdrant
 uv sync
-uv run ruff check .
-uv run mypy app
 uv run alembic upgrade head
 uv run alembic check
 uv run python scripts/seed_personas.py
-uv run python scripts/seed_personas.py
+uv run ruff check .
+uv run mypy app
 uv run pytest
 uv run python scripts/export_openapi.py
 uv run python scripts/dev_check.py
 ```
 
-API 启动后：
+先在一个终端启动 API：
+
+```bash
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+再在另一个终端执行 HTTP 主流程验收：
 
 ```bash
 uv run python scripts/e2e_mock_flow.py

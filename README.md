@@ -50,16 +50,25 @@ uv run python scripts/e2e_mock_flow.py
 
 ```powershell
 cd backend
+docker compose up -d postgres redis qdrant
+uv sync
+uv run alembic upgrade head
+uv run alembic check
+uv run python scripts/seed_personas.py
 uv run ruff check .
 uv run mypy app
 uv run pytest
-uv run alembic upgrade head
-uv run alembic check
-uv run python scripts/dev_check.py
 uv run python scripts/export_openapi.py
+uv run python scripts/dev_check.py
 ```
 
-主流程 HTTP E2E：
+主流程 HTTP E2E 需要先在一个终端启动 API：
+
+```powershell
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+再在另一个终端执行：
 
 ```powershell
 uv run python scripts/e2e_mock_flow.py

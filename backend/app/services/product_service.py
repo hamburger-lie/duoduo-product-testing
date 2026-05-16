@@ -20,7 +20,7 @@ from app.schemas.product import (
     ProductUploadUrlRequest,
     ProductUploadUrlResponse,
 )
-from app.storage.mock_upload import create_mock_upload_url
+from app.storage.adapters import MockProductStorageAdapter, ProductStorageAdapter
 
 if TYPE_CHECKING:
     from app.ai.client import AIClient
@@ -38,10 +38,12 @@ class ProductService:
         self,
         session: AsyncSession,
         ai_client: AIClient | None = None,
+        storage_adapter: ProductStorageAdapter | None = None,
     ) -> None:
         self.session = session
         self.products = ProductRepository(session)
         self._ai_client = ai_client
+        self._storage_adapter = storage_adapter or MockProductStorageAdapter()
 
     def create_upload_url(self, payload: ProductUploadUrlRequest) -> ProductUploadUrlResponse:
         """Create a mock upload URL after validating image constraints."""
@@ -58,7 +60,10 @@ class ProductService:
                 message="File is larger than 5MB",
                 http_status=status.HTTP_400_BAD_REQUEST,
             )
-        return create_mock_upload_url(filename=payload.filename, mime_type=payload.mime_type)
+        return self._storage_adapter.create_upload_url(
+            filename=payload.filename,
+            mime_type=payload.mime_type,
+        )
 
     async def create_product(self, *, user: User, payload: ProductCreateRequest) -> ProductResponse:
         """Create a product with AI or mock understanding.
@@ -102,7 +107,10 @@ class ProductService:
                 "price": price,
                 "price_range": self._price_range(price) or ai_summary.price_range,
                 "target_channel": payload.target_channel or ai_summary.target_channel,
-                "image_urls": [self._mock_image_url(key) for key in payload.image_object_keys],
+                "image_urls": [
+                    self._storage_adapter.build_public_url(key)
+                    for key in payload.image_object_keys
+                ],
                 "ai_summary": ai_summary.model_dump(),
                 "status": "ready",
             }
@@ -279,9 +287,6 @@ class ProductService:
         if price < 800:
             return "400-800"
         return "800+"
-
-    def _mock_image_url(self, object_key: str) -> str:
-        return f"https://mock-cdn.local/{object_key}"
 
     def _decode_cursor(self, cursor: str | None) -> int:
         if cursor is None or cursor == "":

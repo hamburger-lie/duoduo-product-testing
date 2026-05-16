@@ -1,2 +1,1 @@
-"""Storage layer placeholders for future work."""
-
+"""Storage layer boundaries and mock implementations."""

@@ -156,12 +156,14 @@ uv run python scripts/seed_personas.py
 ## 质量检查
 
 ```bash
+docker compose up -d postgres redis qdrant
 uv sync
+uv run alembic upgrade head
+uv run alembic check
+uv run python scripts/seed_personas.py
 uv run ruff check .
 uv run mypy app
 uv run pytest
-uv run alembic upgrade head
-uv run alembic check
 uv run python scripts/export_openapi.py
 uv run python scripts/dev_check.py
 ```
@@ -188,7 +190,13 @@ uv run python scripts/export_openapi.py
 uv run pytest tests/e2e/test_full_mock_flow.py -v
 ```
 
-人工联调演示脚本（需先启动 API，并建议先 seed）：
+人工联调演示脚本（需先完成上面的 seed 步骤，并在一个终端启动 API）：
+
+```bash
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+再在另一个终端执行：
 
 ```bash
 uv run python scripts/e2e_mock_flow.py

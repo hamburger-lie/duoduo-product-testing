@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """Tests for the Redis-based rate limiter (app.core.rate_limit).
 
 Strategy: mock the redis pipeline so we can control the counter value
 returned, then verify the dependency raises 429 when the counter
 exceeds the limit.
 """
+
+from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,7 +20,6 @@ from app.core.rate_limit import RateLimiter
 from app.core.security import get_current_user
 from app.db.models.user import User
 from app.main import app as main_app
-
 
 # ------------------------------------------------------------------ #
 # Helper: build a patched redis that returns a given counter value
@@ -52,11 +51,13 @@ def _mock_redis_counter(counter: int) -> patch:
 def _make_test_app(tier: str = "gen") -> FastAPI:
     """Tiny app with one endpoint protected by RateLimiter."""
     test_app = FastAPI()
+    current_user_dependency = Depends(get_current_user)
+    rate_limiter_dependency = Depends(RateLimiter(tier))  # type: ignore[arg-type]
 
     @test_app.get("/test-endpoint")
     async def endpoint(
-        _rl: None = Depends(RateLimiter(tier)),  # type: ignore[arg-type]
-        _user: User = Depends(get_current_user),
+        _rl: None = rate_limiter_dependency,
+        _user: User = current_user_dependency,
     ) -> dict[str, str]:
         return {"ok": "true"}
 

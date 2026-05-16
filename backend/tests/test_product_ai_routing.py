@@ -52,7 +52,9 @@ class _RecordingAIClient:
         endpoint_id: str,
         images: list[str] | None = None,
     ) -> str:
-        return ""
+        self.endpoint_id = endpoint_id
+        self.images = images
+        return "包装显示这是珀莱雅双抗精华。"
 
     async def stream(
         self,
@@ -89,7 +91,7 @@ async def test_text_only_product_understand_uses_deepseek_endpoint(
 
 
 @pytest.mark.asyncio
-async def test_image_product_understand_uses_zhipu_endpoint(
+async def test_image_product_understand_keeps_deepseek_for_structured_reasoning(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.core import config as cfg_module
@@ -107,5 +109,5 @@ async def test_image_product_understand_uses_zhipu_endpoint(
         ),
     )
 
-    assert client.endpoint_id == "glm-4.6v"
-    assert client.images == ["data:image/jpeg;base64,/9j/4AAQSkZJRg=="]
+    assert client.endpoint_id == "deepseek-v4-flash"
+    assert client.images is None

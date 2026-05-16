@@ -18,13 +18,14 @@ class CreditTransactionItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    amount: int               # negative = deduction, positive = credit
+    amount: int  # negative = deduction, positive = credit
     balance_after: int | None
-    reason: str | None        # init | survey_gen | persona_answer | chat | recharge | refund | manual_adjust
-    ref_type: str | None      # evaluation | conversation | …
-    ref_id: str | None        # stringified ref id
+    # init | survey_gen | persona_answer | chat | recharge | refund | manual_adjust
+    reason: str | None
+    ref_type: str | None  # evaluation | conversation | …
+    ref_id: str | None  # stringified ref id
     note: str | None
-    created_at: str           # ISO 8601 UTC
+    created_at: str  # ISO 8601 UTC
 
 
 class CreditTransactionListResponse(BaseModel):

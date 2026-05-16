@@ -12,7 +12,6 @@ from app.db.models.credit import CreditTransaction
 from app.db.models.user import User
 from app.main import app
 
-
 # ------------------------------------------------------------------ #
 # Fixtures
 # ------------------------------------------------------------------ #

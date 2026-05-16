@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Redis-based sliding-window rate limiter.
 
 Strategy: fixed-window counter per (user_id, window_key).
@@ -30,6 +28,8 @@ If Redis is unreachable the limiter **fails open** (allows the request)
 and logs a warning — availability beats perfect enforcement in MVP.
 """
 
+from __future__ import annotations
+
 import time
 from typing import Literal
 
@@ -51,8 +51,10 @@ _LIMITS: dict[str, int] = {
     "std": 100,  # all other authenticated endpoints
 }
 
+current_user_dependency = Depends(get_current_user)
 
-def _get_redis_client() -> aioredis.Redis:  # type: ignore[type-arg]
+
+def _get_redis_client() -> aioredis.Redis:
     settings = get_settings()
     return aioredis.from_url(
         settings.redis_url,
@@ -78,7 +80,7 @@ class RateLimiter:
     async def __call__(
         self,
         request: Request,
-        current_user: User = Depends(get_current_user),
+        current_user: User = current_user_dependency,
     ) -> None:
         window = int(time.time()) // _WINDOW_SECONDS
         key = f"rl:{self.tier}:{current_user.id}:{window}"

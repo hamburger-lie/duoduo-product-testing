@@ -182,10 +182,25 @@ def _fallback_price_anchors(seed: dict[str, Any]) -> dict[str, Any]:
     """Fallback: infer price psychology."""
     income = seed.get("income_monthly", 10000)
     if income < 5000:
-        return {"too_cheap": 20, "comfortable": 80, "too_expensive": 200, "anchor_reference": "平价国货"}
+        return {
+            "too_cheap": 20,
+            "comfortable": 80,
+            "too_expensive": 200,
+            "anchor_reference": "平价国货",
+        }
     if income < 12000:
-        return {"too_cheap": 30, "comfortable": 150, "too_expensive": 300, "anchor_reference": "国货中端"}
-    return {"too_cheap": 50, "comfortable": 300, "too_expensive": 800, "anchor_reference": "国际大牌"}
+        return {
+            "too_cheap": 30,
+            "comfortable": 150,
+            "too_expensive": 300,
+            "anchor_reference": "国货中端",
+        }
+    return {
+        "too_cheap": 50,
+        "comfortable": 300,
+        "too_expensive": 800,
+        "anchor_reference": "国际大牌",
+    }
 
 
 def _fallback_impulse_triggers(seed: dict[str, Any]) -> list[str]:
@@ -202,7 +217,7 @@ def _fallback_dealbreakers(seed: dict[str, Any]) -> list[str]:
     """Fallback: infer deal-breaking conditions."""
     profile = seed.get("profile", {})
     base = ["严重的真实差评", "价格远超预算"]
-    for concern in profile.get("skincare_concerns", [])[:1]:
+    for _concern in profile.get("skincare_concerns", [])[:1]:
         base.append(f"产品不适合{profile.get('skin_type', '自己的肤质')}")
     return base
 

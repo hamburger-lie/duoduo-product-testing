@@ -146,7 +146,12 @@ async def _run_evaluation_async(
                     from app.services.evaluation_service import EvaluationService
 
                     svc = EvaluationService(session)
-                    answer_data, overall_intent, sentiment, summary_comment = await svc._generate_answer(
+                    (
+                        answer_data,
+                        overall_intent,
+                        sentiment,
+                        summary_comment,
+                    ) = await svc._generate_answer(
                         survey=survey,
                         persona=persona,
                         product_summary=product_summary,

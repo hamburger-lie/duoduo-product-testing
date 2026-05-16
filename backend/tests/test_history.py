@@ -17,7 +17,6 @@ from app.db.models.survey import Survey
 from app.db.models.user import User
 from app.main import app
 
-
 # ------------------------------------------------------------------ #
 # Fixtures
 # ------------------------------------------------------------------ #

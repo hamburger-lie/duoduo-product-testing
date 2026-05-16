@@ -3,13 +3,11 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.deps import get_db_session
 from app.main import app
-
 
 # ------------------------------------------------------------------ #
 # Helpers

@@ -67,7 +67,10 @@ async def main() -> None:
             "格式：{\"name\": ..., \"brand\": ..., \"category\": ..., "
             "\"key_ingredients\": [...], \"main_selling_points\": [...]}"
         ),
-        user="请分析图片中的美妆产品，提取结构化信息。如果图片无法访问，请输出 {\"error\": \"image_unavailable\"}",
+        user=(
+            "请分析图片中的美妆产品，提取结构化信息。"
+            "如果图片无法访问，请输出 {\"error\": \"image_unavailable\"}"
+        ),
         endpoint_id=model,
         images=[product_img_url],
     )
@@ -78,7 +81,7 @@ async def main() -> None:
         if "error" not in parsed:
             print(f"  → 解析成功: name={parsed.get('name')}, brand={parsed.get('brand')}")
         else:
-            print(f"  → 图片不可访问（CDN 限流），改用文字描述模式")
+            print("  → 图片不可访问（CDN 限流），改用文字描述模式")
     except Exception:
         print(f"  → JSON 解析失败，原始文本: {raw[:200]}")
 

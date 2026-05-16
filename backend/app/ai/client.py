@@ -130,11 +130,11 @@ class ArkOpenAIClient:
         prompt_tokens = usage.get("prompt_tokens")
         completion_tokens = usage.get("completion_tokens")
         total_tokens = usage.get("total_tokens")
-        if not all(isinstance(value, int) for value in (
-            prompt_tokens,
-            completion_tokens,
-            total_tokens,
-        )):
+        if (
+            not isinstance(prompt_tokens, int)
+            or not isinstance(completion_tokens, int)
+            or not isinstance(total_tokens, int)
+        ):
             return None
         return prompt_tokens, completion_tokens, total_tokens
 

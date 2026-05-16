@@ -174,70 +174,10 @@ class SurveyService:
     ) -> list[dict[str, Any]]:
         """Call AI (via survey_generate.j2) to generate 30 survey questions."""
 
-        from app.ai.exceptions import AIResponseInvalid
-        from app.ai.factory import get_ai_client
-        from app.ai.json_utils import parse_json_response, validate_required_keys
-        from app.ai.models import ModelRouter, TaskType
-        from app.ai.prompt_manager import render_prompt
+        from app.ai.adapters.structured_generation import SurveyGenerationAdapter
 
-        ai_client = self._ai_client or get_ai_client()
-        route = ModelRouter().get(TaskType.SURVEY_GENERATE)
-
-        product_summary: dict[str, object] = {
-            "id": product.id,
-            "name": product.name or "",
-            "description": product.description or "",
-            "category": product.category or "",
-            "brand": product.brand or "",
-            "price": float(product.price) if product.price is not None else None,
-        }
-        if product.ai_summary:
-            product_summary = {**product_summary, **product.ai_summary}
-
-        prompt, _, _ = render_prompt(
-            "survey_generate",
-            user_role_type="manufacturer",
-            product_ai_summary=product_summary,
-            extra_focus=extra_focus or "",
-            product={"id": product.id},
-        )
-
-        raw_json = await ai_client.complete_json(
-            system="你是专业的市场调研问卷设计专家。严格按 JSON schema 输出。",
-            user=prompt,
-            endpoint_id=route.endpoint_id,
-        )
-
-        data = parse_json_response(raw_json)
-        validate_required_keys(data, ["questions"])
-
-        questions_raw = data["questions"]
-        if not isinstance(questions_raw, list):
-            raise AIResponseInvalid("'questions' must be a list")
-        if len(questions_raw) != 30:
-            raise AIResponseInvalid(
-                f"Expected exactly 30 questions, got {len(questions_raw)}"
-            )
-
-        from app.schemas.survey import QuestionType
-
-        valid_types = {"single", "multi", "scale_1_5", "open"}
-        result: list[dict[str, Any]] = []
-        for q in questions_raw:
-            if not isinstance(q, dict):
-                raise AIResponseInvalid("Each question must be a JSON object")
-            raw_type = str(q.get("type", "open"))
-            q_type: QuestionType = raw_type if raw_type in valid_types else "open"  # type: ignore[assignment]
-            result.append(
-                SurveyQuestion(
-                    id=str(q.get("id", "")),
-                    dim=str(q.get("dim", "unknown")),
-                    type=q_type,
-                    question=str(q.get("question", "")),
-                    options=q.get("options"),
-                ).model_dump()
-            )
-        return result
+        adapter = SurveyGenerationAdapter(ai_client=self._ai_client)
+        return await adapter.generate_questions(product=product, extra_focus=extra_focus)
 
     # ------------------------------------------------------------------
     # Mock helpers (unchanged)

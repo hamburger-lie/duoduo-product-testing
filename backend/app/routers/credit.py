@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db_session
+from app.core.exceptions import AppException
 from app.core.security import get_current_user
 from app.db.models.user import User
 from app.schemas.credit import CreditBalanceResponse, CreditTransactionListResponse
@@ -42,13 +42,11 @@ async def list_transactions(
 
 
 @router.post("/recharge")
-async def recharge() -> JSONResponse:
+async def recharge() -> None:
     """Recharge credits — not implemented in MVP."""
 
-    return JSONResponse(
-        status_code=501,
-        content={
-            "code": "NOT_IMPLEMENTED",
-            "message": "充值功能暂未开放",
-        },
+    raise AppException(
+        code="NOT_IMPLEMENTED",
+        message="充值功能暂未开放",
+        http_status=status.HTTP_501_NOT_IMPLEMENTED,
     )

@@ -651,6 +651,7 @@ data: {"event":"done"}
   "persona_snapshot": { /* 答题时的角色快照 */ },
   "overall_intent": 4,
   "sentiment": "positive",
+  "summary_comment": "我会愿意继续了解，但还想先确认真实肤感和长期效果。",
   "answers": [
     {
       "qid": "q1",
@@ -682,7 +683,8 @@ data: {"event":"done"}
     "persona_name": "林雪",
     "persona_tag": "成分党",
     "overall_intent": 4,
-    "sentiment": "positive"
+    "sentiment": "positive",
+    "summary_comment": "我会愿意继续了解，但还想先确认真实肤感和长期效果。"
   }
 ]
 ```
@@ -774,6 +776,8 @@ data: {"event":"done"}
 ### 6.2 生成 PDF（P1）
 `POST /reports/{report_id}/export-pdf`
 
+> 状态：P1 planned / not implemented。当前版本仅保留契约与字段，不提供实现。
+
 **响应 200**：
 ```json
 { "pdf_url": "https://cdn.../report_xxx.pdf", "expires_in": 86400 }
@@ -784,6 +788,8 @@ data: {"event":"done"}
 ### 6.3 创建分享链接（P1）
 `POST /reports/{report_id}/share`
 
+> 状态：P1 planned / not implemented。当前版本仅保留契约与字段，不提供实现。
+
 **响应 200**：
 ```json
 { "share_url": "https://app.../share/xxxx", "share_token": "xxxx", "expires_at": "..." }
@@ -793,6 +799,8 @@ data: {"event":"done"}
 
 ### 6.4 通过 share token 查看（公开）
 `GET /reports/share/{share_token}` — 不需要鉴权
+
+> 状态：P1 planned / not implemented。
 
 ---
 
@@ -905,6 +913,8 @@ data: {"event":"error","code":"AI_SERVICE_TIMEOUT","message":"模型响应超时
 ### 8.1 查询积分余额
 `GET /credits/balance`
 
+> 状态：已实现。
+
 **响应 200**：
 ```json
 { "balance": 990, "updated_at": "..." }
@@ -914,6 +924,8 @@ data: {"event":"error","code":"AI_SERVICE_TIMEOUT","message":"模型响应超时
 
 ### 8.2 查询积分流水
 `GET /credits/transactions?cursor=&limit=20`
+
+> 状态：已实现。
 
 **响应 200**：
 ```json
@@ -1084,19 +1096,19 @@ data: {"event":"error","code":"AI_SERVICE_TIMEOUT","message":"模型响应超时
 | GET | `/evaluations/{id}/answers/{pid}` | ✅ | 单角色答题 |
 | GET | `/evaluations/{id}/answers` | ✅ | 答题汇总 |
 | GET | `/reports/by-evaluation/{id}` | ✅ | 报告 |
-| POST | `/reports/{id}/export-pdf` | ✅ | 导 PDF（P1） |
-| POST | `/reports/{id}/share` | ✅ | 分享链接（P1） |
-| GET | `/reports/share/{token}` | ❌ | 公开查看 |
+| POST | `/reports/{id}/export-pdf` | ✅ | 导 PDF（P1 planned，当前未实现） |
+| POST | `/reports/{id}/share` | ✅ | 分享链接（P1 planned，当前未实现） |
+| GET | `/reports/share/{token}` | ❌ | 公开查看（P1 planned，当前未实现） |
 | POST | `/conversations` | ✅ | 创建对话 |
 | GET | `/conversations/{id}/messages` | ✅ | 历史消息 |
 | POST | `/conversations/{id}/messages` | ✅ | 发消息（流式） |
 | GET | `/conversations` | ✅ | 我的对话列表 |
 | DELETE | `/conversations/{id}` | ✅ | 删对话 |
-| GET | `/credits/balance` | ✅ | 积分余额 |
-| GET | `/credits/transactions` | ✅ | 积分流水 |
+| GET | `/credits/balance` | ✅ | 积分余额（已实现） |
+| GET | `/credits/transactions` | ✅ | 积分流水（已实现） |
 | POST | `/credits/recharge` | ✅ | 充值（501） |
-| GET | `/health/live` | ❌ | 存活 |
-| GET | `/health/ready` | ❌ | 就绪 |
+| GET | `/health/live` | ❌ | 存活（已实现） |
+| GET | `/health/ready` | ❌ | 就绪（已实现） |
 
 ---
 

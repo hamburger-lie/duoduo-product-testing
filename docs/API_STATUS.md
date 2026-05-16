@@ -13,6 +13,7 @@
 | ai_optional | mock 默认，可通过 AI_PROVIDER=deepseek 切换真实 AI |
 | partial | 本地/适配器能力已接入，但不是生产完整能力 |
 | p1_not_implemented | P1 暂未实现 |
+| p1_planned | 契约已定义，但当前版本尚未实现 |
 | not_started | 未开始 |
 
 ---
@@ -30,7 +31,7 @@
 
 ## 前端暂不建议做入口
 
-- Credit
+- Credit recharge
 - PDF 导出
 - 分享链接
 - 充值
@@ -45,7 +46,9 @@
 | mock | 微信登录（可配真实 jscode2session）、TOS upload-url |
 | ai_optional | Survey 生成、Evaluation Persona Answer、Conversation messages（deepseek/mock） |
 | done/mock | Report metrics 真实聚合，summary/top_pros/top_cons 规则生成或后续 AI 化 |
-| p1_not_implemented | PDF export、share、Credit/recharge |
+| partial | Credit（balance / transactions 已实现，recharge 未实现） |
+| p1_planned | PDF export、share |
+| p1_not_implemented | Credit/recharge |
 | partial | local keyword moderation、DB-backed memory adapter、Celery evaluation run（需 EVALUATION_RUN_MODE=celery + worker） |
 
 ## Health
@@ -54,7 +57,7 @@
 |---|---|---|---|
 | GET | /health | done | 基础健康检查 |
 | GET | /health/live | done | 存活探针 |
-| GET | /health/ready | done | 就绪探针（检查 DB，跳过 Redis/Qdrant/Ark） |
+| GET | /health/ready | done | 就绪探针（检查 DB / Redis / Qdrant） |
 
 ## Auth
 
@@ -127,16 +130,16 @@
 
 | 方法 | 路径 | 状态 | 说明 |
 |---|---|---|---|
-| GET | /api/v1/credits/balance | p1_not_implemented | 暂未实现 |
-| POST | /api/v1/credits/recharge | p1_not_implemented | 暂未实现 |
-| GET | /api/v1/credits/transactions | p1_not_implemented | 暂未实现 |
+| GET | /api/v1/credits/balance | done | 查询当前用户余额 |
+| POST | /api/v1/credits/recharge | p1_not_implemented | 当前返回 501 |
+| GET | /api/v1/credits/transactions | done | 查询当前用户积分流水 |
 
 ## 其他未实现
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| PDF 导出 | p1_not_implemented | report.pdf_url 字段保留，逻辑未实现 |
-| 分享链接 | p1_not_implemented | report.share_token 字段保留，逻辑未实现 |
+| PDF 导出 | p1_planned | 契约已定义，report.pdf_url 字段保留，逻辑未实现 |
+| 分享链接 | p1_planned | 契约已定义，report.share_token 字段保留，逻辑未实现 |
 | 多产品对比 | not_started | — |
 | 团队协作 | not_started | — |
 | 真实支付 | not_started | — |

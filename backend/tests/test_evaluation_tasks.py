@@ -215,3 +215,24 @@ async def test_evaluation_task_marks_all_failed_when_persona_generation_fails(
         assert answer is not None
         assert answer.status == "failed"
         assert answer.error_message == "model unavailable"
+
+
+async def test_evaluation_task_does_not_finalize_canceled_evaluation(
+    task_context: TaskContext,
+) -> None:
+    evaluation_id, user_id, _ = await create_task_fixture(task_context)
+
+    async with task_context.session_factory() as session:
+        evaluation = await session.get(Evaluation, evaluation_id)
+        assert evaluation is not None
+        evaluation.status = "canceled"
+        await session.commit()
+
+    result = await _run_evaluation_async(evaluation_id, user_id, "celery-task-id")
+
+    assert result["status"] == "canceled"
+    async with task_context.session_factory() as session:
+        evaluation = await session.get(Evaluation, evaluation_id)
+        assert evaluation is not None
+        assert evaluation.status == "canceled"
+        assert evaluation.finished_at is None

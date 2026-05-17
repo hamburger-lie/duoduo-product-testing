@@ -205,11 +205,11 @@ async def _run_evaluation_async(
             if refreshed is not None:
                 evaluation = refreshed
 
-            evaluation.progress = 100 if total else 0
-            evaluation.status = "failed" if failed_count >= total and total > 0 else "done"
-            evaluation.finished_at = datetime.now(UTC)
-            if evaluation.status == "failed":
-                evaluation.error_message = "All persona answers failed"
+            _finalize_evaluation(
+                evaluation,
+                total=total,
+                failed_count=failed_count,
+            )
             await session.commit()
 
             logger.info(
@@ -234,3 +234,22 @@ async def _run_evaluation_async(
                 refreshed.finished_at = datetime.now(UTC)
                 await session.commit()
             return {"status": "failed", "message": str(exc)[:200]}
+
+
+def _finalize_evaluation(
+    evaluation: object,
+    *,
+    total: int,
+    failed_count: int,
+) -> None:
+    """Finalize a completed evaluation task using the existing status policy."""
+
+    from app.db.models.evaluation import Evaluation
+
+    assert isinstance(evaluation, Evaluation)
+    evaluation.progress = 100 if total else 0
+    evaluation.status = "failed" if failed_count >= total and total > 0 else "done"
+    evaluation.finished_at = datetime.now(UTC)
+    evaluation.error_message = (
+        "All persona answers failed" if evaluation.status == "failed" else None
+    )

@@ -1021,6 +1021,30 @@ async def test_done_evaluation_cancel_fails(
     assert response.json()["code"] == "EVALUATION_NOT_EDITABLE"
 
 
+async def test_failed_evaluation_can_be_run_again(
+    evaluation_survey_context: EvaluationSurveyContext,
+) -> None:
+    token = await login(evaluation_survey_context, "mock_eval_failed_retry")
+    _, evaluation_id, _ = await prepare_runnable_evaluation(
+        evaluation_survey_context,
+        token=token,
+    )
+    async with evaluation_survey_context.session_factory() as session:
+        evaluation = await session.get(Evaluation, int(evaluation_id))
+        assert evaluation is not None
+        evaluation.status = "failed"
+        evaluation.progress = 100
+        await session.commit()
+
+    response = await evaluation_survey_context.client.post(
+        f"/api/v1/evaluations/{evaluation_id}/run",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "done"
+
+
 async def test_evaluation_list_only_returns_current_user_evaluations(
     evaluation_survey_context: EvaluationSurveyContext,
 ) -> None:

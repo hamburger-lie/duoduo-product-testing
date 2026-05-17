@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -36,6 +37,7 @@ PERSONA_COUNT_MAX = 100
 EDITABLE_STATUSES = {"pending", "generating_survey"}
 RUNNING_STATUSES = {"answering", "generating_report"}
 FINAL_STATUSES = {"done", "canceled"}
+logger = logging.getLogger(__name__)
 
 
 def can_run_evaluation(status_value: str) -> bool:
@@ -164,21 +166,45 @@ class EvaluationService:
         await self.session.commit()
         return self.to_response(evaluation)
 
-    async def run_evaluation(self, *, user: User, evaluation_id: int) -> EvaluationRunResponse:
+    async def run_evaluation(
+        self,
+        *,
+        user: User,
+        evaluation_id: int,
+        request_id: str | None = None,
+    ) -> EvaluationRunResponse:
         """Run an evaluation using sync or Celery mode."""
 
         from app.core.config import get_settings
 
+        logger.info(
+            "evaluation_run_requested",
+            extra={
+                "event": "evaluation_run_requested",
+                "request_id": request_id,
+                "user_id": user.id,
+                "evaluation_id": evaluation_id,
+            },
+        )
         mode = get_settings().evaluation_run_mode.strip().lower()
         if mode == "celery":
-            return await self._enqueue_evaluation(user=user, evaluation_id=evaluation_id)
-        return await self._run_evaluation_sync(user=user, evaluation_id=evaluation_id)
+            return await self._enqueue_evaluation(
+                user=user,
+                evaluation_id=evaluation_id,
+                request_id=request_id,
+            )
+        return await self._run_evaluation_sync(
+            user=user,
+            evaluation_id=evaluation_id,
+            request_id=request_id,
+        )
 
     async def _run_evaluation_sync(
         self,
         *,
         user: User,
         evaluation_id: int,
+        request_id: str | None = None,
     ) -> EvaluationRunResponse:
         """Run the evaluation synchronously for local tests and mock mode."""
 
@@ -197,12 +223,24 @@ class EvaluationService:
             raise self._evaluation_not_ready(evaluation_id)
 
         now = datetime.now(UTC)
+        previous_status = evaluation.status
         self._mark_answering(
             evaluation,
             now=now,
             queued_at=None,
             task_id=None,
             run_mode="sync",
+        )
+        logger.info(
+            "evaluation_status_changed",
+            extra={
+                "event": "evaluation_status_changed",
+                "request_id": request_id,
+                "user_id": user.id,
+                "evaluation_id": evaluation.id,
+                "from_status": previous_status,
+                "to_status": evaluation.status,
+            },
         )
         await self.session.flush()
 
@@ -254,7 +292,19 @@ class EvaluationService:
                 }
             )
 
+        previous_status = evaluation.status
         self._mark_finished(evaluation, status_value="done")
+        logger.info(
+            "evaluation_status_changed",
+            extra={
+                "event": "evaluation_status_changed",
+                "request_id": request_id,
+                "user_id": user.id,
+                "evaluation_id": evaluation.id,
+                "from_status": previous_status,
+                "to_status": evaluation.status,
+            },
+        )
         await self.session.commit()
         return EvaluationRunResponse(
             id=str(evaluation.id),
@@ -269,6 +319,7 @@ class EvaluationService:
         *,
         user: User,
         evaluation_id: int,
+        request_id: str | None = None,
     ) -> EvaluationRunResponse:
         """Validate and enqueue evaluation answering into Celery."""
 
@@ -288,6 +339,7 @@ class EvaluationService:
             raise self._evaluation_not_ready(evaluation_id)
 
         now = datetime.now(UTC)
+        previous_status = evaluation.status
         self._mark_answering(
             evaluation,
             now=now,
@@ -305,6 +357,18 @@ class EvaluationService:
         evaluation.task_id = str(task.id)
         evaluation.run_mode = "celery"
         await self.session.commit()
+        logger.info(
+            "evaluation_enqueued",
+            extra={
+                "event": "evaluation_enqueued",
+                "request_id": request_id,
+                "user_id": user.id,
+                "evaluation_id": evaluation.id,
+                "task_id": str(task.id),
+                "from_status": previous_status,
+                "to_status": evaluation.status,
+            },
+        )
 
         return EvaluationRunResponse(
             id=str(evaluation.id),
@@ -314,9 +378,24 @@ class EvaluationService:
             task_id=str(task.id),
         )
 
-    async def cancel_evaluation(self, *, user: User, evaluation_id: int) -> EvaluationResponse:
+    async def cancel_evaluation(
+        self,
+        *,
+        user: User,
+        evaluation_id: int,
+        request_id: str | None = None,
+    ) -> EvaluationResponse:
         """Cancel an editable/running evaluation."""
 
+        logger.info(
+            "evaluation_cancel_requested",
+            extra={
+                "event": "evaluation_cancel_requested",
+                "request_id": request_id,
+                "user_id": user.id,
+                "evaluation_id": evaluation_id,
+            },
+        )
         evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
         if evaluation.status == "done":
             raise self._evaluation_not_editable(evaluation_id)
@@ -325,8 +404,21 @@ class EvaluationService:
                 from app.tasks.celery_app import celery_app
 
                 celery_app.control.revoke(evaluation.task_id, terminate=False)
+            previous_status = evaluation.status
             self._mark_finished(evaluation, status_value="canceled")
             await self.session.commit()
+            logger.info(
+                "evaluation_status_changed",
+                extra={
+                    "event": "evaluation_status_changed",
+                    "request_id": request_id,
+                    "user_id": user.id,
+                    "evaluation_id": evaluation.id,
+                    "task_id": evaluation.task_id,
+                    "from_status": previous_status,
+                    "to_status": evaluation.status,
+                },
+            )
         return self.to_response(evaluation)
 
     async def list_answers(
@@ -436,21 +528,26 @@ class EvaluationService:
     ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
         """Route to mock or AI answer generation based on AI_PROVIDER."""
 
-        import logging
-
         from app.core.config import get_settings
 
-        if get_settings().ai_provider in {"ark", "deepseek"}:
+        provider = get_settings().ai_provider
+        if provider in {"ark", "deepseek"}:
             try:
                 return await self._generate_answer_with_ai(
                     survey=survey,
                     persona=persona,
                     product_summary=product_summary,
                 )
-            except Exception:
-                logging.getLogger(__name__).exception(
-                    "persona_answer_ai_failed for persona=%s, falling back to mock",
-                    persona.id,
+            except Exception as exc:
+                logger.exception(
+                    "persona_answer_ai_failed",
+                    extra={
+                        "event": "persona_answer_ai_failed",
+                        "evaluation_id": survey.evaluation_id,
+                        "persona_id": persona.id,
+                        "provider": provider,
+                        "error_message": str(exc)[:200],
+                    },
                 )
 
         overall_intent = self._mock_overall_intent(persona)

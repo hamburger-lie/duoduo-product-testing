@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db_session
@@ -79,6 +79,7 @@ async def update_evaluation_personas(
 )
 async def run_evaluation(
     evaluation_id: int,
+    request: Request,
     _rl: None = gen_rate_limit_dependency,
     current_user: User = current_user_dependency,
     session: AsyncSession = db_session_dependency,
@@ -88,12 +89,14 @@ async def run_evaluation(
     return await EvaluationService(session).run_evaluation(
         user=current_user,
         evaluation_id=evaluation_id,
+        request_id=getattr(request.state, "request_id", None),
     )
 
 
 @router.post("/{evaluation_id}/cancel", response_model=EvaluationResponse)
 async def cancel_evaluation(
     evaluation_id: int,
+    request: Request,
     current_user: User = current_user_dependency,
     session: AsyncSession = db_session_dependency,
 ) -> EvaluationResponse:
@@ -102,6 +105,7 @@ async def cancel_evaluation(
     return await EvaluationService(session).cancel_evaluation(
         user=current_user,
         evaluation_id=evaluation_id,
+        request_id=getattr(request.state, "request_id", None),
     )
 
 

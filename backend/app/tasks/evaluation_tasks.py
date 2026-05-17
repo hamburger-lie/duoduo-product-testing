@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+from time import perf_counter
 
 from app.tasks.celery_app import celery_app
 
@@ -28,10 +29,13 @@ def run_evaluation_task(self: object, evaluation_id: int, user_id: int) -> dict[
 
     assert isinstance(self, Task)
     logger.info(
-        "celery_evaluation_start evaluation_id=%d user_id=%d task_id=%s",
-        evaluation_id,
-        user_id,
-        self.request.id,
+        "evaluation_task_started",
+        extra={
+            "event": "evaluation_task_started",
+            "evaluation_id": evaluation_id,
+            "user_id": user_id,
+            "task_id": str(self.request.id),
+        },
     )
     return _run_async(_run_evaluation_async(evaluation_id, user_id, str(self.request.id)))
 
@@ -45,6 +49,7 @@ async def _run_evaluation_async(
 
     from app.db.session import AsyncSessionFactory
 
+    task_started_at = perf_counter()
     async with AsyncSessionFactory() as session:
         from app.db.repositories.answer import AnswerRepository
         from app.db.repositories.evaluation import EvaluationRepository
@@ -60,11 +65,33 @@ async def _run_evaluation_async(
 
         evaluation = await evaluations.get_by_id(evaluation_id)
         if evaluation is None or evaluation.user_id != user_id:
-            logger.error("celery_evaluation_not_found id=%d", evaluation_id)
+            logger.error(
+                "evaluation_task_failed",
+                extra={
+                    "event": "evaluation_task_failed",
+                    "evaluation_id": evaluation_id,
+                    "user_id": user_id,
+                    "task_id": task_id,
+                    "duration_ms": int((perf_counter() - task_started_at) * 1000),
+                    "error_code": "EVALUATION_NOT_FOUND",
+                    "error_message": "Evaluation not found",
+                },
+            )
             return {"status": "error", "message": "Evaluation not found"}
 
         if evaluation.status == "canceled":
-            logger.info("celery_evaluation_already_canceled id=%d", evaluation_id)
+            logger.info(
+                "evaluation_task_canceled",
+                extra={
+                    "event": "evaluation_task_canceled",
+                    "evaluation_id": evaluation_id,
+                    "user_id": user_id,
+                    "task_id": task_id,
+                    "from_status": "canceled",
+                    "to_status": "canceled",
+                    "duration_ms": int((perf_counter() - task_started_at) * 1000),
+                },
+            )
             return {"status": "canceled"}
 
         if evaluation.task_id is None:
@@ -77,7 +104,18 @@ async def _run_evaluation_async(
 
         survey = await surveys.get_by_id(evaluation.survey_id) if evaluation.survey_id else None
         if survey is None:
-            logger.error("celery_evaluation_no_survey id=%d", evaluation_id)
+            logger.error(
+                "evaluation_task_failed",
+                extra={
+                    "event": "evaluation_task_failed",
+                    "evaluation_id": evaluation_id,
+                    "user_id": user_id,
+                    "task_id": task_id,
+                    "duration_ms": int((perf_counter() - task_started_at) * 1000),
+                    "error_code": "SURVEY_NOT_FOUND",
+                    "error_message": "Survey not found",
+                },
+            )
             evaluation.status = "failed"
             evaluation.error_message = "Survey not found"
             evaluation.finished_at = datetime.now(UTC)
@@ -101,7 +139,18 @@ async def _run_evaluation_async(
             for persona_id in evaluation.selected_persona_ids:
                 refreshed = await evaluations.get_by_id(evaluation_id)
                 if refreshed and refreshed.status == "canceled":
-                    logger.info("celery_evaluation_canceled_mid_run id=%d", evaluation_id)
+                    logger.info(
+                        "evaluation_task_canceled",
+                        extra={
+                            "event": "evaluation_task_canceled",
+                            "evaluation_id": evaluation_id,
+                            "user_id": user_id,
+                            "task_id": task_id,
+                            "from_status": "answering",
+                            "to_status": "canceled",
+                            "duration_ms": int((perf_counter() - task_started_at) * 1000),
+                        },
+                    )
                     return {"status": "canceled", "completed": completed, "total": total}
                 if refreshed is not None:
                     evaluation = refreshed
@@ -143,6 +192,17 @@ async def _run_evaluation_async(
                     continue
 
                 try:
+                    persona_started_at = perf_counter()
+                    logger.info(
+                        "evaluation_persona_started",
+                        extra={
+                            "event": "evaluation_persona_started",
+                            "evaluation_id": evaluation.id,
+                            "user_id": user_id,
+                            "task_id": task_id,
+                            "persona_id": persona_id_int,
+                        },
+                    )
                     from app.services.evaluation_service import EvaluationService
 
                     svc = EvaluationService(session)
@@ -173,11 +233,30 @@ async def _run_evaluation_async(
                             "cost_yuan": 0,
                         }
                     )
+                    logger.info(
+                        "evaluation_persona_finished",
+                        extra={
+                            "event": "evaluation_persona_finished",
+                            "evaluation_id": evaluation.id,
+                            "user_id": user_id,
+                            "task_id": task_id,
+                            "persona_id": persona_id_int,
+                            "duration_ms": int((perf_counter() - persona_started_at) * 1000),
+                        },
+                    )
                 except Exception as exc:
                     failed_count += 1
                     logger.exception(
-                        "celery_persona_answer_failed persona_id=%d",
-                        persona_id_int,
+                        "evaluation_persona_failed",
+                        extra={
+                            "event": "evaluation_persona_failed",
+                            "evaluation_id": evaluation.id,
+                            "user_id": user_id,
+                            "task_id": task_id,
+                            "persona_id": persona_id_int,
+                            "duration_ms": int((perf_counter() - persona_started_at) * 1000),
+                            "error_message": str(exc)[:200],
+                        },
                     )
                     await answers.create(
                         {
@@ -213,11 +292,15 @@ async def _run_evaluation_async(
             await session.commit()
 
             logger.info(
-                "celery_evaluation_finished evaluation_id=%d completed=%d/%d failed=%d",
-                evaluation_id,
-                completed,
-                total,
-                failed_count,
+                "evaluation_finalized",
+                extra={
+                    "event": "evaluation_finalized",
+                    "evaluation_id": evaluation_id,
+                    "user_id": user_id,
+                    "task_id": task_id,
+                    "to_status": evaluation.status,
+                    "duration_ms": int((perf_counter() - task_started_at) * 1000),
+                },
             )
             return {
                 "status": evaluation.status,
@@ -226,7 +309,17 @@ async def _run_evaluation_async(
                 "total": total,
             }
         except Exception as exc:
-            logger.exception("celery_evaluation_failed evaluation_id=%d", evaluation_id)
+            logger.exception(
+                "evaluation_task_failed",
+                extra={
+                    "event": "evaluation_task_failed",
+                    "evaluation_id": evaluation_id,
+                    "user_id": user_id,
+                    "task_id": task_id,
+                    "duration_ms": int((perf_counter() - task_started_at) * 1000),
+                    "error_message": str(exc)[:200],
+                },
+            )
             refreshed = await evaluations.get_by_id(evaluation_id)
             if refreshed is not None and refreshed.status != "canceled":
                 refreshed.status = "failed"

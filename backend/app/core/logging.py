@@ -48,6 +48,20 @@ class JsonFormatter(py_logging.Formatter):
             payload["request_id"] = record.request_id
         if hasattr(record, "user_id"):
             payload["user_id"] = record.user_id
+        for field_name in (
+            "event",
+            "evaluation_id",
+            "task_id",
+            "persona_id",
+            "from_status",
+            "to_status",
+            "duration_ms",
+            "error_code",
+            "error_message",
+            "provider",
+        ):
+            if hasattr(record, field_name):
+                payload[field_name] = getattr(record, field_name)
         return json.dumps(payload, ensure_ascii=False)
 
 

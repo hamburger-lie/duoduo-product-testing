@@ -38,6 +38,18 @@ RUNNING_STATUSES = {"answering", "generating_report"}
 FINAL_STATUSES = {"done", "canceled"}
 
 
+def can_run_evaluation(status_value: str) -> bool:
+    """Return whether an evaluation may start or restart answering."""
+
+    return status_value not in RUNNING_STATUSES | FINAL_STATUSES
+
+
+def can_cancel_evaluation(status_value: str) -> bool:
+    """Return whether an evaluation may be canceled."""
+
+    return status_value in {"pending", "generating_survey", "answering"}
+
+
 class EvaluationService:
     """Evaluation use cases with mock-or-AI persona answer generation."""
 
@@ -173,7 +185,7 @@ class EvaluationService:
         evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
         if evaluation.status in RUNNING_STATUSES:
             raise self._evaluation_already_running(evaluation_id)
-        if evaluation.status in FINAL_STATUSES:
+        if not can_run_evaluation(evaluation.status):
             raise self._evaluation_not_editable(evaluation_id)
         if evaluation.survey_id is None or not evaluation.selected_persona_ids:
             raise self._evaluation_not_ready(evaluation_id)
@@ -185,14 +197,13 @@ class EvaluationService:
             raise self._evaluation_not_ready(evaluation_id)
 
         now = datetime.now(UTC)
-        evaluation.status = "answering"
-        evaluation.progress = 0
-        evaluation.started_at = now
-        evaluation.queued_at = None
-        evaluation.finished_at = None
-        evaluation.error_message = None
-        evaluation.task_id = None
-        evaluation.run_mode = "sync"
+        self._mark_answering(
+            evaluation,
+            now=now,
+            queued_at=None,
+            task_id=None,
+            run_mode="sync",
+        )
         await self.session.flush()
 
         product = await self.products.get_by_id_and_user_id(
@@ -240,9 +251,7 @@ class EvaluationService:
                 }
             )
 
-        evaluation.progress = 100
-        evaluation.status = "done"
-        evaluation.finished_at = datetime.now(UTC)
+        self._mark_finished(evaluation, status_value="done")
         await self.session.commit()
         return EvaluationRunResponse(
             id=str(evaluation.id),
@@ -263,7 +272,7 @@ class EvaluationService:
         evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
         if evaluation.status in RUNNING_STATUSES:
             raise self._evaluation_already_running(evaluation_id)
-        if evaluation.status in FINAL_STATUSES:
+        if not can_run_evaluation(evaluation.status):
             raise self._evaluation_not_editable(evaluation_id)
         if evaluation.survey_id is None or not evaluation.selected_persona_ids:
             raise self._evaluation_not_ready(evaluation_id)
@@ -276,12 +285,13 @@ class EvaluationService:
             raise self._evaluation_not_ready(evaluation_id)
 
         now = datetime.now(UTC)
-        evaluation.status = "answering"
-        evaluation.progress = 0
-        evaluation.started_at = now
-        evaluation.queued_at = now
-        evaluation.finished_at = None
-        evaluation.error_message = None
+        self._mark_answering(
+            evaluation,
+            now=now,
+            queued_at=now,
+            task_id=evaluation.task_id,
+            run_mode=evaluation.run_mode,
+        )
 
         from app.tasks.evaluation_tasks import run_evaluation_task
 
@@ -307,13 +317,12 @@ class EvaluationService:
         evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
         if evaluation.status == "done":
             raise self._evaluation_not_editable(evaluation_id)
-        if evaluation.status in {"pending", "generating_survey", "answering"}:
+        if can_cancel_evaluation(evaluation.status):
             if evaluation.task_id:
                 from app.tasks.celery_app import celery_app
 
                 celery_app.control.revoke(evaluation.task_id, terminate=False)
-            evaluation.status = "canceled"
-            evaluation.finished_at = datetime.now(UTC)
+            self._mark_finished(evaluation, status_value="canceled")
             await self.session.commit()
         return self.to_response(evaluation)
 
@@ -508,6 +517,41 @@ class EvaluationService:
         if overall_intent == 3:
             return "neutral"
         return "negative"
+
+    def _mark_answering(
+        self,
+        evaluation: Evaluation,
+        *,
+        now: datetime,
+        queued_at: datetime | None,
+        task_id: str | None,
+        run_mode: str | None,
+    ) -> None:
+        """Move an evaluation into answering state with reset execution fields."""
+
+        evaluation.status = "answering"
+        evaluation.progress = 0
+        evaluation.started_at = now
+        evaluation.queued_at = queued_at
+        evaluation.finished_at = None
+        evaluation.error_message = None
+        evaluation.task_id = task_id
+        evaluation.run_mode = run_mode
+
+    def _mark_finished(
+        self,
+        evaluation: Evaluation,
+        *,
+        status_value: str,
+        error_message: str | None = None,
+    ) -> None:
+        """Move an evaluation into a terminal state."""
+
+        evaluation.status = status_value
+        if status_value == "done":
+            evaluation.progress = 100
+        evaluation.finished_at = datetime.now(UTC)
+        evaluation.error_message = error_message
 
     def _answer_to_response(self, *, answer: Answer, persona: Persona) -> EvaluationAnswerResponse:
         return EvaluationAnswerResponse(

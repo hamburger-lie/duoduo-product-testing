@@ -151,6 +151,7 @@ async def _run_evaluation_async(
                         overall_intent,
                         sentiment,
                         summary_comment,
+                        thinking_process,
                     ) = await svc._generate_answer(
                         survey=survey,
                         persona=persona,
@@ -165,6 +166,7 @@ async def _run_evaluation_async(
                             "overall_intent": overall_intent,
                             "sentiment": sentiment,
                             "summary_comment": summary_comment,
+                            "thinking_process": thinking_process,
                             "status": "done",
                             "token_input": 0,
                             "token_output": 0,

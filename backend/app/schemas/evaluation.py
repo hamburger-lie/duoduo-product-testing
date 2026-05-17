@@ -103,6 +103,7 @@ class EvaluationAnswerResponse(BaseModel):
     overall_intent: int | None
     sentiment: str | None
     summary_comment: str | None = None
+    thinking_process: str | None = None
     answers: list[AnswerItem]
     created_at: str
 

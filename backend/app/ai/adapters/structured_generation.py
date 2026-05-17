@@ -186,7 +186,7 @@ class PersonaAnswerGenerationAdapter:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str, str | None]:
+    ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
         """Generate validated persona answer output."""
 
         from app.ai.factory import get_ai_client
@@ -248,4 +248,6 @@ class PersonaAnswerGenerationAdapter:
 
         summary_comment_raw = data.get("summary_comment")
         summary_comment: str | None = str(summary_comment_raw) if summary_comment_raw else None
-        return answers, overall_intent, sentiment, summary_comment
+        thinking_process_raw = data.get("thinking_process")
+        thinking_process: str | None = str(thinking_process_raw) if thinking_process_raw else None
+        return answers, overall_intent, sentiment, summary_comment, thinking_process

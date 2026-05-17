@@ -45,6 +45,7 @@ class Answer(Base, BaseModelMixin):
     status: Mapped[str | None] = mapped_column(String(16), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    thinking_process: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     evaluation: Mapped["Evaluation"] = relationship(back_populates="answers")
     survey: Mapped["Survey"] = relationship(back_populates="answers")

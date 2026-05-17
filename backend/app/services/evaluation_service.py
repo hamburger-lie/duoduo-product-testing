@@ -218,10 +218,12 @@ class EvaluationService:
             if persona is None or not self._can_use_persona(user=user, persona=persona):
                 continue
 
-            answers, overall_intent, sentiment, summary_comment = await self._generate_answer(
-                survey=survey,
-                persona=persona,
-                product_summary=product_summary,
+            answers, overall_intent, sentiment, summary_comment, thinking_process = (
+                await self._generate_answer(
+                    survey=survey,
+                    persona=persona,
+                    product_summary=product_summary,
+                )
             )
 
             await self.answers.create(
@@ -233,6 +235,7 @@ class EvaluationService:
                     "overall_intent": overall_intent,
                     "sentiment": sentiment,
                     "summary_comment": summary_comment,
+                    "thinking_process": thinking_process,
                     "status": "done",
                     "token_input": 0,
                     "token_output": 0,
@@ -421,7 +424,7 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str, str | None]:
+    ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
         """Route to mock or AI answer generation based on AI_PROVIDER."""
 
         import logging
@@ -447,6 +450,7 @@ class EvaluationService:
             overall_intent,
             self._mock_sentiment(overall_intent),
             None,
+            None,
         )
 
     async def _generate_answer_with_ai(
@@ -455,7 +459,7 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str, str | None]:
+    ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
         """Call AI (via persona_answer.j2) to generate one persona's answers."""
 
         from app.ai.adapters.structured_generation import PersonaAnswerGenerationAdapter
@@ -517,6 +521,7 @@ class EvaluationService:
             overall_intent=answer.overall_intent,
             sentiment=answer.sentiment,
             summary_comment=answer.summary_comment,
+            thinking_process=answer.thinking_process,
             answers=[AnswerItem(**item) for item in answer.answers],
             created_at=self._format_required_dt(answer.created_at),
         )

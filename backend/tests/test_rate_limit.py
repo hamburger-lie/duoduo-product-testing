@@ -29,8 +29,8 @@ from app.main import app as main_app
 def _mock_redis_counter(counter: int) -> patch:
     """Return a context-manager patch that makes Redis return ``counter``."""
     pipe_mock = AsyncMock()
-    pipe_mock.incr = AsyncMock()
-    pipe_mock.expire = AsyncMock()
+    pipe_mock.incr = MagicMock()
+    pipe_mock.expire = MagicMock()
     pipe_mock.execute = AsyncMock(return_value=[counter, True])
 
     client_mock = AsyncMock()
@@ -196,10 +196,13 @@ async def test_rate_limiter_fails_open_when_redis_down() -> None:
         limiter = RateLimiter("gen")
         request = MagicMock()
 
+        bad_pipe = MagicMock()
+        bad_pipe.incr = MagicMock()
+        bad_pipe.expire = MagicMock()
+        bad_pipe.execute = AsyncMock(side_effect=ConnectionRefusedError())
+
         bad_client = AsyncMock()
-        bad_client.pipeline = MagicMock(
-            return_value=AsyncMock(execute=AsyncMock(side_effect=ConnectionRefusedError()))
-        )
+        bad_client.pipeline = MagicMock(return_value=bad_pipe)
 
         with patch("app.core.rate_limit._get_redis_client", return_value=bad_client):
             # Should NOT raise even though Redis is down

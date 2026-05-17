@@ -80,7 +80,7 @@ class ProductService:
             raise AppException(
                 code="IMAGE_REQUIRED",
                 message="Provide at least one image via image_object_keys or image_base64_list",
-                http_status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                http_status=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
 
         moderator = get_moderation_adapter()

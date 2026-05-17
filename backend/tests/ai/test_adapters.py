@@ -146,7 +146,7 @@ async def test_persona_answer_adapter_returns_normalized_tuple() -> None:
     from app.ai.adapters.structured_generation import PersonaAnswerGenerationAdapter
 
     adapter = PersonaAnswerGenerationAdapter(ai_client=_GoodPersonaClient())
-    answers, intent, sentiment, summary_comment = await adapter.generate_answer(
+    answers, intent, sentiment, summary_comment, thinking_process = await adapter.generate_answer(
         survey=_fake_survey(),
         persona=_fake_persona(),
         product_summary={"id": 1, "name": "面霜"},
@@ -158,3 +158,4 @@ async def test_persona_answer_adapter_returns_normalized_tuple() -> None:
     assert intent == 4
     assert sentiment == "positive"
     assert summary_comment == "整体愿意尝试"
+    assert thinking_process is None

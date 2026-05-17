@@ -259,6 +259,7 @@
 
 {
   "persona_id": "{{ persona.id or persona.name }}",
+  "thinking_process": "你的内心思考过程（详见下方说明）",
   "overall_intent": 1到5的整数,
   "sentiment": "positive 或 neutral 或 negative",
   "one_sentence_verdict": "15字以内的一句话态度",
@@ -272,3 +273,17 @@
     }
   ]
 }
+
+## thinking_process 说明
+
+thinking_process 是你作为这个角色，从看到产品信息到形成最终态度的完整内心独白。
+用第一人称写，口语化，体现你的 expression_dna 和 mind_model。
+
+必须按照你的「注意力偏向扫描顺序」逐步展开思考，每一步包含：
+1. 你注意到了什么（对应 attention_bias 的每一步）
+2. 你的即时反应和情绪（喜欢/无感/不爽/担心）
+3. 你的判断依据（来自 decision_heuristics / price_anchors / tradeoff_rules）
+
+最后用 1-2 句话收尾：综合以上，你的总体态度是什么。
+
+长度要求：200-400字。不要写成分析报告，要像真人在脑子里过了一遍的感觉。

@@ -8,6 +8,10 @@
 
 当前版本面向前端联调和产品闭环验证，默认使用 mock/规则实现外部依赖；真实微信、真实 TOS、Celery、mem0、内容审核、支付、PDF/分享等能力后续迭代接入。
 
+## 工程状态
+
+截至 PR 10，后端可维护化第一阶段已完成：CI、文档事实、错误结构、权限护栏、AI / storage 边界、evaluation 状态边界和基础 observability 已收口。当前仓库可作为可维护后端 MVP 继续演进，但这不等于生产级可靠性或商业闭环已经完成。阶段结论见 [docs/BACKEND_MAINTAINABILITY_PHASE1_CLOSEOUT.md](docs/BACKEND_MAINTAINABILITY_PHASE1_CLOSEOUT.md)。
+
 ## 当前状态
 
 | 模块 | 状态 | 说明 |
@@ -89,6 +93,7 @@ E2E_MOCK_FLOW_OK
 | [docs/FRONTEND_HANDOFF.md](docs/FRONTEND_HANDOFF.md) | 前端联调指南 |
 | [docs/API_STATUS.md](docs/API_STATUS.md) | 接口实现状态冻结表 |
 | [docs/DELIVERY_CHECKLIST.md](docs/DELIVERY_CHECKLIST.md) | MVP-Lite 交付验收清单 |
+| [docs/BACKEND_MAINTAINABILITY_PHASE1_CLOSEOUT.md](docs/BACKEND_MAINTAINABILITY_PHASE1_CLOSEOUT.md) | 后端可维护化第一阶段收口 |
 | [docs/openapi.v0.1.json](docs/openapi.v0.1.json) | 冻结版 OpenAPI |
 | [API_CONTRACT.md](API_CONTRACT.md) | 前后端接口唯一契约 |
 

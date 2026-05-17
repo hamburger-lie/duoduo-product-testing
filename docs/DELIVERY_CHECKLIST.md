@@ -45,6 +45,24 @@
 | 管理后台 | MVP 不做 |
 | 生产部署 | 需后续 Dockerfile/compose 生产化、HTTPS、密钥治理 |
 
+## 3.1 工程化收口状态
+
+截至 PR 10，后端可维护化第一阶段已完成：
+
+| 工程护栏 | 状态 |
+|---|---|
+| 统一验收命令与 CI | 已完成 |
+| 文档契约对齐 | 已完成 |
+| 统一错误结构 | 已完成 |
+| 权限隔离测试矩阵 | 已完成 |
+| AI adapter 边界 | 已完成 |
+| storage adapter 边界 | 已完成 |
+| evaluation 状态边界 | 已完成 |
+| pytest warning 清理 | 已完成 |
+| evaluation 基础 observability | 已完成 |
+
+阶段收口说明见 `docs/BACKEND_MAINTAINABILITY_PHASE1_CLOSEOUT.md`。后续真实 TOS、真实微信、watchdog / retry、支付闭环等事项属于新的产品化或生产化路线，不再归入本阶段。
+
 ## 4. 前端联调前必须确认
 
 在 `backend/` 目录执行：

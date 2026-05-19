@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class WechatLoginRequest(BaseModel):
@@ -8,7 +8,7 @@ class WechatLoginRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    code: str
+    code: str = Field(max_length=128)
 
 
 class UserResponse(BaseModel):

@@ -387,7 +387,13 @@ async def test_rate_limited_error_format(ctx: EC) -> None:
     client_mock.pipeline = MagicMock(return_value=pipe_mock)
     client_mock.aclose = AsyncMock()
 
-    with patch("app.core.rate_limit._get_redis_client", return_value=client_mock):
+    settings_mock = MagicMock()
+    settings_mock.app_env = "development"
+
+    with (
+        patch("app.core.rate_limit.get_settings", return_value=settings_mock),
+        patch("app.core.rate_limit._get_redis_client", return_value=client_mock),
+    ):
         r = await ctx.client.post(
             "/api/v1/surveys/generate",
             headers=_h(token),

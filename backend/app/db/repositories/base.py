@@ -63,9 +63,16 @@ class BaseRepository(Generic[ModelT]):
         return entity
 
     async def soft_delete(self, entity: ModelT) -> ModelT:
-        """Mark an entity deleted without removing the row."""
+        """Mark an entity deleted without removing the row.
 
-        cast(Any, entity).deleted_at = datetime.now(UTC)
+        Both ``deleted_at`` and ``updated_at`` are set explicitly so the
+        change is always visible regardless of SQLAlchemy's ``onupdate``
+        hook firing order.
+        """
+
+        now = datetime.now(UTC)
+        cast(Any, entity).deleted_at = now
+        cast(Any, entity).updated_at = now
         await self.session.flush()
         return entity
 

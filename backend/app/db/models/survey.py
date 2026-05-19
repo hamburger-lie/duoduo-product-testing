@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import JSONB_TYPE, Base, BaseModelMixin, JsonList
@@ -14,9 +14,17 @@ if TYPE_CHECKING:
 
 
 class Survey(Base, BaseModelMixin):
-    """Generated survey bound to an evaluation and product."""
+    """Generated survey bound to an evaluation and product.
+
+    Each evaluation may only have one survey (enforced at application layer via
+    ``evaluation.survey_id`` and at DB layer via the unique constraint below).
+    The ``version`` column tracks edit history on the *same* row.
+    """
 
     __tablename__ = "surveys"
+    __table_args__ = (
+        UniqueConstraint("evaluation_id", name="uq_surveys_evaluation_id"),
+    )
 
     evaluation_id: Mapped[int] = mapped_column(ForeignKey("evaluations.id"), nullable=False)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)

@@ -8,6 +8,7 @@ exceeds the limit.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -24,6 +25,15 @@ from app.main import app as main_app
 # ------------------------------------------------------------------ #
 # Helper: build a patched redis that returns a given counter value
 # ------------------------------------------------------------------ #
+
+
+@contextmanager  # type: ignore[arg-type]
+def _force_non_testing_env():
+    """Temporarily set APP_ENV to 'development' so rate limiters actually run."""
+    settings = MagicMock()
+    settings.app_env = "development"
+    with patch("app.core.rate_limit.get_settings", return_value=settings):
+        yield
 
 
 def _mock_redis_counter(counter: int) -> patch:
@@ -114,7 +124,7 @@ async def test_rate_limiter_allows_when_under_limit() -> None:
         limiter = RateLimiter("gen")
         request = MagicMock()
 
-        with _mock_redis_counter(1):
+        with _force_non_testing_env(), _mock_redis_counter(1):
             # Should not raise
             await limiter(request=request, current_user=user)
 
@@ -139,7 +149,7 @@ async def test_rate_limiter_blocks_when_over_limit() -> None:
         limiter = RateLimiter("gen")  # limit = 20
         request = MagicMock()
 
-        with _mock_redis_counter(21):
+        with _force_non_testing_env(), _mock_redis_counter(21):
             with pytest.raises(AppException) as exc_info:
                 await limiter(request=request, current_user=user)
 
@@ -168,11 +178,15 @@ async def test_rate_limiter_std_allows_up_to_100() -> None:
         request = MagicMock()
 
         # 100 exactly → ok
-        with _mock_redis_counter(100):
+        with _force_non_testing_env(), _mock_redis_counter(100):
             await limiter(request=request, current_user=user)  # no raise
 
         # 101 → blocked
-        with _mock_redis_counter(101), pytest.raises(AppException) as exc_info:
+        with (
+            _force_non_testing_env(),
+            _mock_redis_counter(101),
+            pytest.raises(AppException) as exc_info,
+        ):
             await limiter(request=request, current_user=user)
 
         assert exc_info.value.code == "RATE_LIMITED"
@@ -204,7 +218,10 @@ async def test_rate_limiter_fails_open_when_redis_down() -> None:
         bad_client = AsyncMock()
         bad_client.pipeline = MagicMock(return_value=bad_pipe)
 
-        with patch("app.core.rate_limit._get_redis_client", return_value=bad_client):
+        with (
+            _force_non_testing_env(),
+            patch("app.core.rate_limit._get_redis_client", return_value=bad_client),
+        ):
             # Should NOT raise even though Redis is down
             await limiter(request=request, current_user=user)
 
@@ -228,7 +245,7 @@ async def test_rate_limited_api_returns_429(
     token = token_resp.json()["token"]
 
     # Generate endpoint — patch Redis to return counter = 5 (well under gen limit of 20)
-    with _mock_redis_counter(5):
+    with _force_non_testing_env(), _mock_redis_counter(5):
         r = await client.post(
             "/api/v1/surveys/generate",
             json={"evaluation_id": 9999999, "regenerate": False},
@@ -238,7 +255,7 @@ async def test_rate_limited_api_returns_429(
     assert r.status_code != 429
 
     # Now simulate limit exceeded
-    with _mock_redis_counter(999):
+    with _force_non_testing_env(), _mock_redis_counter(999):
         r2 = await client.post(
             "/api/v1/surveys/generate",
             json={"evaluation_id": 9999999, "regenerate": False},

@@ -27,6 +27,13 @@ def create_celery_app() -> Celery:
         task_soft_time_limit=300,
         task_time_limit=600,
         result_expires=3600,
+        imports=("app.tasks.evaluation_tasks", "app.tasks.watchdog"),
+        beat_schedule={
+            "watchdog-stale-evaluations": {
+                "task": "watchdog.check_stale_evaluations",
+                "schedule": 300.0,
+            },
+        },
     )
     app.autodiscover_tasks(["app.tasks"])
     return app

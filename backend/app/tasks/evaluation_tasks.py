@@ -139,6 +139,8 @@ async def _run_evaluation_locked(
         evaluation.error_message = None
         await session.commit()
 
+        total = len(evaluation.selected_persona_ids)
+
         survey = await surveys.get_by_id(evaluation.survey_id) if evaluation.survey_id else None
         if survey is None:
             logger.error(
@@ -156,7 +158,16 @@ async def _run_evaluation_locked(
             evaluation.status = "failed"
             evaluation.error_message = "Survey not found"
             evaluation.finished_at = datetime.now(UTC)
-            await session.commit()
+            if evaluation.credit_cost > 0 and total > 0:
+                await _refund_failed_credits(
+                    session=session,
+                    evaluation=evaluation,
+                    user_id=user_id,
+                    failed_count=total,
+                    total=total,
+                )
+            else:
+                await session.commit()
             return {"status": "error", "message": "Survey not found"}
 
         product = await products.get_by_id(evaluation.product_id)
@@ -168,7 +179,6 @@ async def _run_evaluation_locked(
         if product and product.ai_summary:
             product_summary = {**product_summary, **product.ai_summary}
 
-        total = len(evaluation.selected_persona_ids)
         completed = 0
         failed_count = 0
 
@@ -328,6 +338,16 @@ async def _run_evaluation_locked(
             )
             await session.commit()
 
+            # Refund credits for failed personas
+            if failed_count > 0 and evaluation.credit_cost > 0:
+                await _refund_failed_credits(
+                    session=session,
+                    evaluation=evaluation,
+                    user_id=user_id,
+                    failed_count=failed_count,
+                    total=total,
+                )
+
             logger.info(
                 "evaluation_finalized",
                 extra={
@@ -363,8 +383,76 @@ async def _run_evaluation_locked(
                 refreshed.status = "failed"
                 refreshed.error_message = str(exc)[:200]
                 refreshed.finished_at = datetime.now(UTC)
+                # Full refund on catastrophic failure
+                if refreshed.credit_cost > 0:
+                    await _refund_failed_credits(
+                        session=session,
+                        evaluation=refreshed,
+                        user_id=user_id,
+                        failed_count=total,
+                        total=total,
+                    )
                 await session.commit()
             return {"status": "failed", "message": str(exc)[:200]}
+
+
+async def _refund_failed_credits(
+    *,
+    session: object,
+    evaluation: object,
+    user_id: int,
+    failed_count: int,
+    total: int,
+) -> None:
+    """Refund credits proportional to failed personas."""
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.core.config import get_settings
+    from app.db.models.evaluation import Evaluation
+    from app.db.repositories.user import UserRepository
+    from app.services.credit_service import CreditService
+
+    assert isinstance(session, AsyncSession)
+    assert isinstance(evaluation, Evaluation)
+
+    if total <= 0 or failed_count <= 0:
+        return
+
+    cost_per_persona = get_settings().credit_cost_per_persona
+    refund_amount = min(evaluation.credit_cost, cost_per_persona * failed_count)
+    if refund_amount <= 0:
+        return
+
+    user = await UserRepository(session).get_by_id(user_id)
+    if user is None:
+        logger.warning(
+            "credit_refund_user_not_found",
+            extra={"user_id": user_id, "evaluation_id": evaluation.id},
+        )
+        return
+
+    credit_svc = CreditService(session)
+    await credit_svc.refund(
+        user,
+        refund_amount,
+        reason="refund",
+        ref_type="evaluation",
+        ref_id=evaluation.id,
+        note=f"测评退款: {failed_count}/{total} 个人设失败, 退还 {refund_amount} 积分",
+    )
+    await session.commit()
+    logger.info(
+        "credit_refund_completed",
+        extra={
+            "event": "credit_refund_completed",
+            "evaluation_id": evaluation.id,
+            "user_id": user_id,
+            "refund_amount": refund_amount,
+            "failed_count": failed_count,
+            "total": total,
+        },
+    )
 
 
 def _finalize_evaluation(

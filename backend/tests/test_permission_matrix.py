@@ -411,7 +411,11 @@ async def test_lists_do_not_leak_other_user_data(permission_context: PermissionC
     assert [item["evaluation_id"] for item in conversations.json()["items"]] == [
         owner_evaluation_id
     ]
-    assert credits.json()["items"] == []
+    credit_items = credits.json()["items"]
+    assert len(credit_items) == 1
+    assert credit_items[0]["amount"] == -10
+    assert credit_items[0]["ref_type"] == "evaluation"
+    assert str(credit_items[0]["ref_id"]) == owner_evaluation_id
     assert [item["evaluation_id"] for item in history.json()["items"]] == [owner_evaluation_id]
     assert other_product_id != owner_product_id
     assert other_private_persona_id != owner_private_persona_id

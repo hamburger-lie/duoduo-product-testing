@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.deps import get_db_session
 from app.db.models.answer import Answer
 from app.db.models.conversation import Conversation, ConversationMessage
+from app.db.models.credit import CreditTransaction
 from app.db.models.evaluation import Evaluation
 from app.db.models.persona import Persona
 from app.db.models.product import Product
@@ -46,6 +47,7 @@ async def ctx() -> AsyncIterator[E2EContext]:
         await conn.run_sync(Report.__table__.create)
         await conn.run_sync(Conversation.__table__.create)
         await conn.run_sync(ConversationMessage.__table__.create)
+        await conn.run_sync(CreditTransaction.__table__.create)
 
     async def override_get_db() -> AsyncIterator[AsyncSession]:
         async with session_factory() as session:

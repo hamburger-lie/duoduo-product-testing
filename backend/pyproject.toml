@@ -17,6 +17,7 @@ dependencies = [
     "redis>=6.0.0",
     "sqlalchemy[asyncio]>=2.0.40",
     "uvicorn>=0.34.0",
+    "prometheus-client>=0.25.0",
 ]
 
 [dependency-groups]

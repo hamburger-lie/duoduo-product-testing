@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Protocol, runtime_checkable
 
@@ -14,6 +15,7 @@ from app.ai.exceptions import (
     AIServiceTimeout,
     AIServiceUnavailable,
 )
+from app.core.metrics import record_ai_request
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +93,7 @@ class ArkOpenAIClient:
         connect=30.0, read=600.0, write=30.0, pool=30.0,
     )
     _MAX_RETRIES = 1
+    _METRICS_PROVIDER = "ark"
 
     def __init__(
         self,
@@ -287,14 +290,31 @@ class ArkOpenAIClient:
         or HTTPS URL). Requires a vision-capable endpoint (e.g. GLM-4.6V).
         """
 
-        return await self._circuit_breaker.call(
-            lambda: self._complete(
-                system=system,
-                user=user,
-                endpoint_id=endpoint_id,
-                images=images,
+        started_at = time.monotonic()
+        try:
+            result = await self._circuit_breaker.call(
+                lambda: self._complete(
+                    system=system,
+                    user=user,
+                    endpoint_id=endpoint_id,
+                    images=images,
+                )
             )
+        except Exception:
+            record_ai_request(
+                self._METRICS_PROVIDER,
+                endpoint_id,
+                "error",
+                time.monotonic() - started_at,
+            )
+            raise
+        record_ai_request(
+            self._METRICS_PROVIDER,
+            endpoint_id,
+            "success",
+            time.monotonic() - started_at,
         )
+        return result
 
     async def _complete(
         self,
@@ -363,15 +383,32 @@ class ArkOpenAIClient:
         instruction to reduce the chance of another format error.
         """
 
-        return await self._circuit_breaker.call(
-            lambda: self._complete_json(
-                system=system,
-                user=user,
-                endpoint_id=endpoint_id,
-                images=images,
-                max_retries=max_retries,
+        started_at = time.monotonic()
+        try:
+            result = await self._circuit_breaker.call(
+                lambda: self._complete_json(
+                    system=system,
+                    user=user,
+                    endpoint_id=endpoint_id,
+                    images=images,
+                    max_retries=max_retries,
+                )
             )
+        except Exception:
+            record_ai_request(
+                self._METRICS_PROVIDER,
+                endpoint_id,
+                "error",
+                time.monotonic() - started_at,
+            )
+            raise
+        record_ai_request(
+            self._METRICS_PROVIDER,
+            endpoint_id,
+            "success",
+            time.monotonic() - started_at,
         )
+        return result
 
     async def _complete_json(
         self,
@@ -427,14 +464,30 @@ class ArkOpenAIClient:
         """Streaming completion — yields content chunks to the caller."""
 
         async def _protected_gen() -> AsyncGenerator[str, None]:
-            async with self._circuit_breaker.protect():
-                gen = await self._stream(
-                    system=system,
-                    user=user,
-                    endpoint_id=endpoint_id,
+            started_at = time.monotonic()
+            try:
+                async with self._circuit_breaker.protect():
+                    gen = await self._stream(
+                        system=system,
+                        user=user,
+                        endpoint_id=endpoint_id,
+                    )
+                    async for chunk in gen:
+                        yield chunk
+            except Exception:
+                record_ai_request(
+                    self._METRICS_PROVIDER,
+                    endpoint_id,
+                    "error",
+                    time.monotonic() - started_at,
                 )
-                async for chunk in gen:
-                    yield chunk
+                raise
+            record_ai_request(
+                self._METRICS_PROVIDER,
+                endpoint_id,
+                "success",
+                time.monotonic() - started_at,
+            )
 
         return _protected_gen()
 

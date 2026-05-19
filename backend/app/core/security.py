@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import token_blacklist
 from app.core.config import get_settings
 from app.core.deps import get_db_session
 from app.core.exceptions import AppException
@@ -59,11 +60,10 @@ def decode_access_token(token: str) -> dict[str, Any]:
     return dict(payload)
 
 
-async def get_current_user(
+def get_bearer_token(
     credentials: HTTPAuthorizationCredentials | None = credentials_dependency,
-    session: AsyncSession = db_session_dependency,
-) -> User:
-    """Resolve the current authenticated user."""
+) -> str:
+    """Extract the bearer token from the Authorization header."""
 
     if credentials is None:
         raise AppException(
@@ -71,8 +71,27 @@ async def get_current_user(
             message="Authentication is required",
             http_status=status.HTTP_401_UNAUTHORIZED,
         )
+    return credentials.credentials
 
-    payload = decode_access_token(credentials.credentials)
+
+token_dependency = Depends(get_bearer_token)
+
+
+async def get_current_user(
+    token: str = token_dependency,
+    session: AsyncSession = db_session_dependency,
+) -> User:
+    """Resolve the current authenticated user."""
+
+    payload = decode_access_token(token)
+    raw_jti = payload.get("jti")
+    if isinstance(raw_jti, str) and await token_blacklist.is_blacklisted(raw_jti):
+        raise AppException(
+            code="AUTH_TOKEN_INVALID",
+            message="Token is invalid",
+            http_status=status.HTTP_401_UNAUTHORIZED,
+        )
+
     raw_user_id = payload.get("user_id")
     if not isinstance(raw_user_id, str) or not raw_user_id.isdigit():
         raise AppException(

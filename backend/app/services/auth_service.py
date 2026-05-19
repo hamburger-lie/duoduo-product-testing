@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from hashlib import sha256
 
 import httpx
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppException
 from app.core.security import create_access_token
+from app.core.token_blacklist import blacklist_token
 from app.db.models.user import User
 from app.db.repositories.user import UserRepository
 from app.schemas.auth import (
@@ -113,6 +115,13 @@ class AuthService:
 
         token, expires_in = create_access_token(user_id=user.id)
         return RefreshTokenResponse(token=token, expires_in=expires_in)
+
+    async def logout(self, *, jti: str | None, expires_at: datetime) -> dict[str, str]:
+        """Revoke the current access token when it has a JWT ID."""
+
+        if jti:
+            await blacklist_token(jti, expires_at)
+        return {"message": "ok"}
 
     def get_me(self, user: User) -> UserResponse:
         """Return the authenticated user."""

@@ -60,6 +60,30 @@ async def _run_evaluation_async(
 ) -> dict[str, object]:
     """Async implementation of the evaluation run."""
 
+    from app.core.distributed_lock import DistributedLock
+
+    async with DistributedLock(key=f"eval:{evaluation_id}", ttl=1800) as acquired:
+        if not acquired:
+            logger.warning(
+                "evaluation_task_skipped_duplicate",
+                extra={
+                    "event": "evaluation_task_skipped_duplicate",
+                    "evaluation_id": evaluation_id,
+                    "user_id": user_id,
+                    "task_id": task_id,
+                },
+            )
+            return {"status": "skipped", "reason": "duplicate"}
+        return await _run_evaluation_locked(evaluation_id, user_id, task_id)
+
+
+async def _run_evaluation_locked(
+    evaluation_id: int,
+    user_id: int,
+    task_id: str,
+) -> dict[str, object]:
+    """Core evaluation logic, executed under distributed lock."""
+
     from app.db.session import AsyncSessionFactory
 
     task_started_at = perf_counter()

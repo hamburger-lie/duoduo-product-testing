@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, BaseModelMixin
@@ -20,7 +20,12 @@ class Conversation(Base, BaseModelMixin):
 
     __tablename__ = "conversations"
     __table_args__ = (
-        Index("ix_conversations_user_evaluation_persona", "user_id", "evaluation_id", "persona_id"),
+        UniqueConstraint(
+            "user_id",
+            "evaluation_id",
+            "persona_id",
+            name="uq_conversations_user_eval_persona",
+        ),
     )
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)

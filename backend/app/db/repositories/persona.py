@@ -29,8 +29,19 @@ class PersonaRepository(BaseRepository[Persona]):
             ),
         )
 
-    async def list_visible_to_user(self, *, user_id: int) -> list[Persona]:
-        """Return system personas and private personas owned by a user."""
+    async def list_visible_to_user(
+        self,
+        *,
+        user_id: int,
+        limit: int = 500,
+    ) -> list[Persona]:
+        """Return system personas and private personas owned by a user.
+
+        ``limit`` caps the result set to prevent accidental full-table loads.
+        The default of 500 comfortably covers the 1000-user launch scale
+        (≈20 system personas + user-created ones).  Service-layer filtering
+        and pagination are applied on top of this slice.
+        """
 
         result = await self.session.scalars(
             select(Persona)
@@ -40,6 +51,7 @@ class PersonaRepository(BaseRepository[Persona]):
                 Persona.status == "active",
             )
             .order_by(Persona.owner_id.is_not(None), Persona.created_at.desc(), Persona.id.desc())
+            .limit(limit)
         )
         return list(result.all())
 

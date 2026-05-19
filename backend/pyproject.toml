@@ -24,6 +24,7 @@ dev = [
     "aiosqlite>=0.21.0",
     "mypy>=1.15.0",
     "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.0.0",
     "pytest>=8.3.0",
     "ruff>=0.11.0",
 ]
@@ -36,9 +37,23 @@ build-backend = "hatchling.build"
 packages = ["app"]
 
 [tool.pytest.ini_options]
+# To run with coverage: uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=60
 addopts = "-q"
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/db/migrations/*", "app/db/versions/*"]
+
+[tool.coverage.report]
+fail_under = 60
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]
 
 [tool.ruff]
 target-version = "py311"

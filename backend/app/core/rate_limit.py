@@ -108,6 +108,53 @@ class RateLimiter:
             )
 
 
+class IPRateLimiter:
+    """IP-based rate limiter for public (unauthenticated) endpoints.
+
+    Uses the same Redis sliding-window strategy as ``RateLimiter`` but
+    keys on the client IP address instead of a user ID.  Designed for
+    login / public endpoints where no JWT is available yet.
+
+    Parameters
+    ----------
+    limit : int
+        Max requests per window (default: 10 — conservative for login).
+    window : int
+        Window size in seconds (default: 60).
+    """
+
+    def __init__(self, limit: int = 10, window: int = 60) -> None:
+        self.limit = limit
+        self.window = window
+
+    async def __call__(self, request: Request) -> None:
+        client_ip = (request.client.host if request.client else None) or "unknown"
+        window_slot = int(time.time()) // self.window
+        key = f"rl:ip:{client_ip}:{window_slot}"
+
+        try:
+            client = _get_redis_client()
+            pipe = client.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, self.window * 2)
+            results = await pipe.execute()
+            await client.aclose()
+            count: int = results[0]
+        except Exception as exc:
+            logger.warning("ip_rate_limit_redis_error error=%s", exc)
+            return  # Fail open
+
+        if count > self.limit:
+            retry_after = self.window - (int(time.time()) % self.window)
+            raise AppException(
+                code="RATE_LIMITED",
+                message=f"请求过于频繁，请 {retry_after} 秒后重试",
+                http_status=status.HTTP_429_TOO_MANY_REQUESTS,
+                details={"retry_after": retry_after, "limit": self.limit},
+            )
+
+
 # Pre-built dependency instances for convenience
 std_rate_limit = RateLimiter("std")
 gen_rate_limit = RateLimiter("gen")
+login_rate_limit = IPRateLimiter(limit=10, window=60)

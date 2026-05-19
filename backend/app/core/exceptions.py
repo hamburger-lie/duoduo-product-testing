@@ -92,12 +92,23 @@ async def ai_content_blocked_handler(request: Request, exc: Exception) -> JSONRe
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Render unexpected exceptions using the contract error format."""
+    """Render unexpected exceptions using the contract error format.
+
+    In non-production environments the exception class name is included in
+    ``details`` to ease debugging.  In production it is omitted so internal
+    implementation details are never leaked to clients.
+    """
+
+    from app.core.config import get_settings
+
+    details: dict[str, str] | None = None
+    if get_settings().app_env != "production":
+        details = {"error": exc.__class__.__name__}
 
     return _build_error_response(
         request=request,
         code="INTERNAL_ERROR",
         message="Internal server error",
         http_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        details={"error": exc.__class__.__name__},
+        details=details,
     )

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db_session
+from app.core.rate_limit import IPRateLimiter
 from app.core.security import get_current_user
 from app.db.models.user import User
 from app.schemas.auth import (
@@ -18,11 +19,13 @@ from app.services.auth_service import AuthService
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 db_session_dependency = Depends(get_db_session)
 current_user_dependency = Depends(get_current_user)
+login_rate_limit_dependency = Depends(IPRateLimiter(limit=10, window=60))
 
 
 @router.post("/wechat/login", response_model=WechatLoginResponse)
 async def wechat_login(
     payload: WechatLoginRequest,
+    _rl: None = login_rate_limit_dependency,
     session: AsyncSession = db_session_dependency,
 ) -> WechatLoginResponse:
     """Mock WeChat mini-program login."""

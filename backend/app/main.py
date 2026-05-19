@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
@@ -39,6 +40,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     logger.info("application_startup")
     yield
     logger.info("application_shutdown")
+    from app.db.session import dispose_engine
+
+    await dispose_engine()
 
 
 def create_app() -> FastAPI:
@@ -47,6 +51,16 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         lifespan=lifespan,
+    )
+
+    origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["X-Request-Id"],
     )
 
     @app.middleware("http")

@@ -55,3 +55,11 @@ packages = ["app"]
 [[tool.mypy.overrides]]
 module = ["jinja2", "jinja2.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["redis", "redis.*"]
+ignore_missing_imports = true

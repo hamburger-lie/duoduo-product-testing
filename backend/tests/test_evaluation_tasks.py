@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.db.models.answer import Answer
+from app.db.models.credit import CreditTransaction
 from app.db.models.evaluation import Evaluation
 from app.db.models.persona import Persona
 from app.db.models.product import Product
@@ -34,6 +35,7 @@ async def task_context(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[TaskCon
         await connection.run_sync(Evaluation.__table__.create)
         await connection.run_sync(Survey.__table__.create)
         await connection.run_sync(Answer.__table__.create)
+        await connection.run_sync(CreditTransaction.__table__.create)
 
     monkeypatch.setattr("app.db.session.AsyncSessionFactory", session_factory)
 

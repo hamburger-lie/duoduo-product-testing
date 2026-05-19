@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     wechat_app_id: str = Field(default="", alias="WECHAT_APP_ID")
     wechat_app_secret: str = Field(default="", alias="WECHAT_APP_SECRET")
 
+    # Credit cost per persona in an evaluation run
+    credit_cost_per_persona: int = Field(default=10, alias="CREDIT_COST_PER_PERSONA")
+
     # AI provider: "mock" | "deepseek" | "ark" (deprecated)
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
 

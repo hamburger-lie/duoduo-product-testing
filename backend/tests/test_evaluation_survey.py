@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.config import get_settings
 from app.core.deps import get_db_session
 from app.db.models.answer import Answer
+from app.db.models.credit import CreditTransaction
 from app.db.models.evaluation import Evaluation
 from app.db.models.persona import Persona
 from app.db.models.product import Product
@@ -37,6 +38,7 @@ async def evaluation_survey_context() -> AsyncIterator[EvaluationSurveyContext]:
         await connection.run_sync(Evaluation.__table__.create)
         await connection.run_sync(Survey.__table__.create)
         await connection.run_sync(Answer.__table__.create)
+        await connection.run_sync(CreditTransaction.__table__.create)
 
     async def override_get_db_session() -> AsyncIterator[AsyncSession]:
         async with session_factory() as session:

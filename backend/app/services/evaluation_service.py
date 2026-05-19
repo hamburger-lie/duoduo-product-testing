@@ -18,6 +18,7 @@ from app.db.repositories.evaluation import EvaluationRepository
 from app.db.repositories.persona import PersonaRepository
 from app.db.repositories.product import ProductRepository
 from app.db.repositories.survey import SurveyRepository
+from app.services.credit_service import CreditService
 
 if TYPE_CHECKING:
     from app.ai.client import AIClient
@@ -173,7 +174,11 @@ class EvaluationService:
         evaluation_id: int,
         request_id: str | None = None,
     ) -> EvaluationRunResponse:
-        """Run an evaluation using sync or Celery mode."""
+        """Run an evaluation using sync or Celery mode.
+
+        Deducts credits before dispatching. Insufficient balance raises
+        INSUFFICIENT_CREDITS (400).
+        """
 
         from app.core.config import get_settings
 
@@ -186,7 +191,45 @@ class EvaluationService:
                 "evaluation_id": evaluation_id,
             },
         )
-        mode = get_settings().evaluation_run_mode.strip().lower()
+
+        # --- pre-flight: validate and deduct credits ---
+        evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
+        if evaluation.status in RUNNING_STATUSES:
+            raise self._evaluation_already_running(evaluation_id)
+        if not can_run_evaluation(evaluation.status):
+            raise self._evaluation_not_editable(evaluation_id)
+        if evaluation.survey_id is None or not evaluation.selected_persona_ids:
+            raise self._evaluation_not_ready(evaluation_id)
+
+        settings = get_settings()
+        cost_per = settings.credit_cost_per_persona
+        total_cost = cost_per * len(evaluation.selected_persona_ids)
+
+        if total_cost > 0 and user.credit_balance < total_cost:
+            raise AppException(
+                code="INSUFFICIENT_CREDITS",
+                message="Insufficient credits",
+                http_status=status.HTTP_400_BAD_REQUEST,
+                details={
+                    "required": total_cost,
+                    "balance": user.credit_balance,
+                },
+            )
+
+        if total_cost > 0:
+            credit_svc = CreditService(self.session)
+            await credit_svc.deduct(
+                user,
+                total_cost,
+                reason="evaluation",
+                ref_type="evaluation",
+                ref_id=evaluation.id,
+                note=f"测评扣费: {len(evaluation.selected_persona_ids)} 个人设 × {cost_per} 积分",
+            )
+            evaluation.credit_cost = total_cost
+            await self.session.flush()
+
+        mode = settings.evaluation_run_mode.strip().lower()
         if mode == "celery":
             return await self._enqueue_evaluation(
                 user=user,
@@ -206,17 +249,19 @@ class EvaluationService:
         evaluation_id: int,
         request_id: str | None = None,
     ) -> EvaluationRunResponse:
-        """Run the evaluation synchronously for local tests and mock mode."""
+        """Run the evaluation synchronously for local tests and mock mode.
+
+        Pre-flight validation (status, personas, credits) is done in
+        ``run_evaluation`` before this method is called.
+        """
 
         evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
-        if evaluation.status in RUNNING_STATUSES:
-            raise self._evaluation_already_running(evaluation_id)
-        if not can_run_evaluation(evaluation.status):
-            raise self._evaluation_not_editable(evaluation_id)
-        if evaluation.survey_id is None or not evaluation.selected_persona_ids:
+        survey_id = evaluation.survey_id
+        if survey_id is None:
             raise self._evaluation_not_ready(evaluation_id)
+
         survey = await self.surveys.get_by_id_for_user(
-            survey_id=evaluation.survey_id,
+            survey_id=survey_id,
             user_id=user.id,
         )
         if survey is None:
@@ -321,18 +366,20 @@ class EvaluationService:
         evaluation_id: int,
         request_id: str | None = None,
     ) -> EvaluationRunResponse:
-        """Validate and enqueue evaluation answering into Celery."""
+        """Enqueue evaluation answering into Celery.
+
+        Pre-flight validation (status, personas, credits) is done in
+        ``run_evaluation`` before this method is called.
+        """
 
         evaluation = await self._get_owned_evaluation(user=user, evaluation_id=evaluation_id)
-        if evaluation.status in RUNNING_STATUSES:
-            raise self._evaluation_already_running(evaluation_id)
-        if not can_run_evaluation(evaluation.status):
-            raise self._evaluation_not_editable(evaluation_id)
-        if evaluation.survey_id is None or not evaluation.selected_persona_ids:
+
+        survey_id = evaluation.survey_id
+        if survey_id is None:
             raise self._evaluation_not_ready(evaluation_id)
 
         survey = await self.surveys.get_by_id_for_user(
-            survey_id=evaluation.survey_id,
+            survey_id=survey_id,
             user_id=user.id,
         )
         if survey is None:

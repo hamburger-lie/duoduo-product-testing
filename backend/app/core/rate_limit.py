@@ -82,6 +82,10 @@ class RateLimiter:
         request: Request,
         current_user: User = current_user_dependency,
     ) -> None:
+        settings = get_settings()
+        if settings.app_env == "testing":
+            return
+
         window = int(time.time()) // _WINDOW_SECONDS
         key = f"rl:{self.tier}:{current_user.id}:{window}"
 
@@ -128,6 +132,10 @@ class IPRateLimiter:
         self.window = window
 
     async def __call__(self, request: Request) -> None:
+        settings = get_settings()
+        if settings.app_env == "testing":
+            return
+
         client_ip = (request.client.host if request.client else None) or "unknown"
         window_slot = int(time.time()) // self.window
         key = f"rl:ip:{client_ip}:{window_slot}"

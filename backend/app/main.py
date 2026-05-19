@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
 from app.ai.exceptions import AIContentBlocked
@@ -21,6 +22,7 @@ from app.core.exceptions import (
     unhandled_exception_handler,
 )
 from app.core.logging import configure_logging, get_logger
+from app.core.metrics import record_http_request
 from app.routers.auth import router as auth_router
 from app.routers.conversation import router as conversation_router
 from app.routers.credit import router as credit_router
@@ -91,6 +93,24 @@ def create_app() -> FastAPI:
         return response
 
     @app.middleware("http")
+    async def metrics_middleware(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        started_at = time.monotonic()
+        response = await call_next(request)
+        if not request.url.path.startswith("/health/"):
+            route = request.scope.get("route")
+            path_template = getattr(route, "path", request.url.path)
+            record_http_request(
+                method=request.method,
+                path_template=str(path_template),
+                status_code=response.status_code,
+                duration=time.monotonic() - started_at,
+            )
+        return response
+
+    @app.middleware("http")
     async def request_logging_middleware(
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
@@ -129,6 +149,12 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def handle_unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
         return await unhandled_exception_handler(request, exc)
+
+    @app.get("/metrics", include_in_schema=False)
+    async def get_metrics() -> Response:
+        """Return Prometheus metrics in text format."""
+
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     app.include_router(auth_router)
     app.include_router(product_router)

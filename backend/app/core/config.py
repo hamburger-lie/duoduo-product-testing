@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -82,6 +82,23 @@ class Settings(BaseSettings):
     ark_ep_doubao_15_lite: str = Field(default="", alias="ARK_EP_DOUBAO_15_LITE")
     ark_ep_vision_pro: str = Field(default="", alias="ARK_EP_VISION_PRO")
     ark_ep_embedding: str = Field(default="", alias="ARK_EP_EMBEDDING")
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> Settings:
+        """Validate production-only secret requirements."""
+
+        if self.app_env == "production":
+            if self.app_secret_key == "change_me_for_local_development_only":
+                raise ValueError(
+                    "APP_SECRET_KEY must be changed from default in production. "
+                    'Generate one with: python -c "import secrets; '
+                    'print(secrets.token_urlsafe(32))"'
+                )
+            if len(self.app_secret_key) < 32:
+                raise ValueError(
+                    "APP_SECRET_KEY must be at least 32 characters in production"
+                )
+        return self
 
 
 @lru_cache(maxsize=1)

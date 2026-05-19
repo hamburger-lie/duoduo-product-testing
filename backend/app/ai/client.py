@@ -8,6 +8,7 @@ from typing import Protocol, runtime_checkable
 
 import httpx
 
+from app.ai.circuit_breaker import CircuitBreaker
 from app.ai.exceptions import (
     AIRateLimited,
     AIServiceTimeout,
@@ -106,6 +107,7 @@ class ArkOpenAIClient:
             s = get_settings()
             self._api_key = s.ark_api_key
             self._base_url = s.ark_base_url.rstrip("/")
+        self._circuit_breaker = CircuitBreaker()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -285,6 +287,25 @@ class ArkOpenAIClient:
         or HTTPS URL). Requires a vision-capable endpoint (e.g. GLM-4.6V).
         """
 
+        return await self._circuit_breaker.call(
+            lambda: self._complete(
+                system=system,
+                user=user,
+                endpoint_id=endpoint_id,
+                images=images,
+            )
+        )
+
+    async def _complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+    ) -> str:
+        """Completion implementation without circuit breaker wrapping."""
+
         max_attempts = 1 + self._MAX_RETRIES
         last_exc: Exception | None = None
         for attempt in range(max_attempts):
@@ -342,6 +363,27 @@ class ArkOpenAIClient:
         instruction to reduce the chance of another format error.
         """
 
+        return await self._circuit_breaker.call(
+            lambda: self._complete_json(
+                system=system,
+                user=user,
+                endpoint_id=endpoint_id,
+                images=images,
+                max_retries=max_retries,
+            )
+        )
+
+    async def _complete_json(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+        max_retries: int = 2,
+    ) -> str:
+        """JSON completion implementation without circuit breaker wrapping."""
+
         import logging as _logging
 
         from app.ai.exceptions import AIResponseInvalid
@@ -364,7 +406,7 @@ class ArkOpenAIClient:
                     attempt,
                     endpoint_id,
                 )
-            text = await self.complete(
+            text = await self._complete(
                 system=retry_system,
                 user=user,
                 endpoint_id=endpoint_id,
@@ -383,6 +425,23 @@ class ArkOpenAIClient:
         self, *, system: str, user: str, endpoint_id: str,
     ) -> AsyncIterator[str]:
         """Streaming completion — yields content chunks to the caller."""
+
+        async def _protected_gen() -> AsyncGenerator[str, None]:
+            async with self._circuit_breaker.protect():
+                gen = await self._stream(
+                    system=system,
+                    user=user,
+                    endpoint_id=endpoint_id,
+                )
+                async for chunk in gen:
+                    yield chunk
+
+        return _protected_gen()
+
+    async def _stream(
+        self, *, system: str, user: str, endpoint_id: str,
+    ) -> AsyncIterator[str]:
+        """Streaming implementation without circuit breaker wrapping."""
 
         url = self._chat_url()
         headers = self._headers()

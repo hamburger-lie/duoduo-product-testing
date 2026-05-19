@@ -25,7 +25,7 @@ def _run_async(coro: object) -> dict[str, object]:
 def run_evaluation_task(self: object, evaluation_id: int, user_id: int) -> dict[str, object]:
     """Celery task that runs evaluation answering asynchronously."""
 
-    from celery import Task  # type: ignore[import-untyped]
+    from celery import Task
 
     assert isinstance(self, Task)
     logger.info(
@@ -320,6 +320,7 @@ async def _run_evaluation_async(
                     "error_message": str(exc)[:200],
                 },
             )
+            await session.rollback()
             refreshed = await evaluations.get_by_id(evaluation_id)
             if refreshed is not None and refreshed.status != "canceled":
                 refreshed.status = "failed"

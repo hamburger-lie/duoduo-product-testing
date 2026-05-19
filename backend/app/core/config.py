@@ -25,10 +25,14 @@ class Settings(BaseSettings):
         alias="APP_SECRET_KEY",
     )
     app_jwt_expire_days: int = Field(default=7, alias="APP_JWT_EXPIRE_DAYS")
+    cors_allowed_origins: str = Field(default="*", alias="CORS_ALLOWED_ORIGINS")
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/duoduo",
         alias="DATABASE_URL",
     )
+    db_pool_size: int = Field(default=10, alias="DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, alias="DB_MAX_OVERFLOW")
+    db_pool_recycle: int = Field(default=1800, alias="DB_POOL_RECYCLE")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     qdrant_url: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from uuid import uuid4
@@ -72,6 +73,27 @@ def create_app() -> FastAPI:
         request.state.request_id = request_id or f"req_{uuid4().hex}"
         response = await call_next(request)
         response.headers["X-Request-Id"] = request.state.request_id
+        return response
+
+    @app.middleware("http")
+    async def request_logging_middleware(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        started_at = time.monotonic()
+        response = await call_next(request)
+        elapsed_ms = (time.monotonic() - started_at) * 1000
+        logger.info(
+            "http_request",
+            extra={
+                "event": "http_request",
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "latency_ms": round(elapsed_ms, 1),
+                "request_id": getattr(request.state, "request_id", ""),
+            },
+        )
         return response
 
     @app.exception_handler(AIContentBlocked)

@@ -21,9 +21,22 @@ def _run_async(coro: object) -> dict[str, object]:
         loop.close()
 
 
-@celery_app.task(bind=True, name="evaluation.run", max_retries=0)  # type: ignore[untyped-decorator]
+@celery_app.task(  # type: ignore[untyped-decorator]
+    bind=True,
+    name="evaluation.run",
+    max_retries=3,
+    default_retry_delay=10,
+    autoretry_for=(ConnectionError, TimeoutError, OSError),
+    retry_backoff=True,
+    retry_backoff_max=60,
+)
 def run_evaluation_task(self: object, evaluation_id: int, user_id: int) -> dict[str, object]:
-    """Celery task that runs evaluation answering asynchronously."""
+    """Celery task that runs evaluation answering asynchronously.
+
+    Automatically retries up to 3 times on transient connection/timeout errors
+    with exponential backoff (10s → 20s → 40s, capped at 60s).
+    Business-logic failures (e.g. evaluation not found) are NOT retried.
+    """
 
     from celery import Task
 

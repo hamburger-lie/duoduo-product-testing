@@ -3,15 +3,15 @@ services:
     image: postgres:15
     container_name: duoduo-postgres
     environment:
-      POSTGRES_DB: duoduo
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-duoduo}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d duoduo"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-duoduo}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -60,12 +60,13 @@ services:
       qdrant:
         condition: service_started
     environment:
-      APP_ENV: development
-      APP_SECRET_KEY: change_me_for_local_development_only
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/duoduo
+      APP_ENV: ${APP_ENV:-development}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-change_me_for_local_development_only}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-duoduo}
       REDIS_URL: redis://redis:6379/0
-      AI_PROVIDER: mock
-      EVALUATION_RUN_MODE: celery
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      EVALUATION_RUN_MODE: ${EVALUATION_RUN_MODE:-celery}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
     ports:
       - "8000:8000"
     command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -83,12 +84,12 @@ services:
       redis:
         condition: service_healthy
     environment:
-      APP_ENV: development
-      APP_SECRET_KEY: change_me_for_local_development_only
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/duoduo
+      APP_ENV: ${APP_ENV:-development}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-change_me_for_local_development_only}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-duoduo}
       REDIS_URL: redis://redis:6379/0
-      AI_PROVIDER: mock
-      EVALUATION_RUN_MODE: celery
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      EVALUATION_RUN_MODE: ${EVALUATION_RUN_MODE:-celery}
     command: uv run celery -A app.tasks.celery_app.celery_app worker -Q evaluations -l info -c 4
     profiles:
       - worker

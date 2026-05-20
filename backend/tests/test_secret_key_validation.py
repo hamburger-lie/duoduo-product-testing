@@ -19,7 +19,16 @@ def test_production_short_key_raises() -> None:
 
 
 def test_production_valid_key_ok() -> None:
-    settings = Settings(APP_ENV="production", APP_SECRET_KEY=VALID_SECRET_KEY)
+    settings = Settings(
+        APP_ENV="production",
+        APP_SECRET_KEY=VALID_SECRET_KEY,
+        CORS_ALLOWED_ORIGINS="https://example.com",
+        AI_PROVIDER="deepseek",
+        DEEPSEEK_API_KEY="sk-test-key",
+        EVALUATION_RUN_MODE="celery",
+        WECHAT_APP_ID="wx1234567890",
+        WECHAT_APP_SECRET="test_secret_value",
+    )
 
     assert settings.app_env == "production"
     assert settings.app_secret_key == VALID_SECRET_KEY

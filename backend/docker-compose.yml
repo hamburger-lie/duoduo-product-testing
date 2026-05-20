@@ -19,6 +19,7 @@ services:
   redis:
     image: redis:7
     container_name: duoduo-redis
+    command: redis-server --appendonly yes --appendfsync everysec
     ports:
       - "6380:6379"
     volumes:
@@ -91,6 +92,25 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       EVALUATION_RUN_MODE: ${EVALUATION_RUN_MODE:-celery}
     command: uv run celery -A app.tasks.celery_app.celery_app worker -Q evaluations -l info -c 4
+    profiles:
+      - worker
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: duoduo-beat
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-change_me_for_local_development_only}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-duoduo}
+      REDIS_URL: redis://redis:6379/0
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      EVALUATION_RUN_MODE: ${EVALUATION_RUN_MODE:-celery}
+    command: uv run celery -A app.tasks.celery_app.celery_app beat -l info
     profiles:
       - worker
 

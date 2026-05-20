@@ -88,19 +88,61 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_secrets(self) -> Settings:
-        """Validate production-only secret requirements."""
+        """Validate production-only secret and configuration requirements.
 
-        if self.app_env == "production":
-            if self.app_secret_key == "change_me_for_local_development_only":
-                raise ValueError(
-                    "APP_SECRET_KEY must be changed from default in production. "
-                    'Generate one with: python -c "import secrets; '
-                    'print(secrets.token_urlsafe(32))"'
-                )
-            if len(self.app_secret_key) < 32:
-                raise ValueError(
-                    "APP_SECRET_KEY must be at least 32 characters in production"
-                )
+        Prevents production from starting with insecure defaults such as
+        mock AI, wildcard CORS, sync evaluation mode, or missing WeChat
+        credentials.
+        """
+
+        if self.app_env != "production":
+            return self
+
+        # --- Secret key ---
+        if self.app_secret_key == "change_me_for_local_development_only":
+            raise ValueError(
+                "APP_SECRET_KEY must be changed from default in production. "
+                'Generate one with: python -c "import secrets; '
+                'print(secrets.token_urlsafe(32))"'
+            )
+        if len(self.app_secret_key) < 32:
+            raise ValueError(
+                "APP_SECRET_KEY must be at least 32 characters in production"
+            )
+
+        # --- CORS ---
+        if self.cors_allowed_origins.strip() == "*":
+            raise ValueError(
+                "CORS_ALLOWED_ORIGINS must not be '*' in production. "
+                "Set to comma-separated allowed origins, e.g. "
+                "'https://your-domain.com'"
+            )
+
+        # --- AI provider ---
+        if self.ai_provider == "mock":
+            raise ValueError(
+                "AI_PROVIDER must not be 'mock' in production. "
+                "Set to 'deepseek' or another real provider."
+            )
+        if self.ai_provider == "deepseek" and not self.deepseek_api_key:
+            raise ValueError(
+                "DEEPSEEK_API_KEY is required when AI_PROVIDER='deepseek'"
+            )
+
+        # --- Evaluation run mode ---
+        if self.evaluation_run_mode.strip().lower() == "sync":
+            raise ValueError(
+                "EVALUATION_RUN_MODE must not be 'sync' in production. "
+                "Set to 'celery' for async task execution."
+            )
+
+        # --- WeChat credentials ---
+        if not self.wechat_app_id or not self.wechat_app_secret:
+            raise ValueError(
+                "WECHAT_APP_ID and WECHAT_APP_SECRET are required in production. "
+                "Without them, mock login is enabled, allowing unauthenticated access."
+            )
+
         return self
 
 

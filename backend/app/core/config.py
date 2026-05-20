@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     # Credit cost per persona in an evaluation run
     credit_cost_per_persona: int = Field(default=10, alias="CREDIT_COST_PER_PERSONA")
 
+    # Sentry error tracking (leave empty to disable)
+    sentry_dsn: str = Field(default="", alias="SENTRY_DSN")
+    sentry_traces_sample_rate: float = Field(
+        default=0.1, alias="SENTRY_TRACES_SAMPLE_RATE"
+    )
+
     # AI provider: "mock" | "deepseek" | "ark" (deprecated)
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
 

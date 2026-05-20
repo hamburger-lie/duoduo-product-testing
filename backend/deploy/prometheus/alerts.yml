@@ -1,0 +1,107 @@
+# Prometheus alerting rules for duoduo-product-testing
+# Load via prometheus.yml:
+#   rule_files:
+#     - "alerts.yml"
+
+groups:
+  - name: duoduo_api
+    rules:
+      # --- HTTP 层 ---
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+          / sum(rate(http_requests_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx 错误率超过 5%"
+          description: "过去 5 分钟 5xx 占比 {{ $value | humanizePercentage }}"
+
+      - alert: HighP99Latency
+        expr: |
+          histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P99 延迟超过 5 秒"
+
+      # --- AI 调用 ---
+      - alert: AIProviderHighFailureRate
+        expr: |
+          sum(rate(ai_requests_total{status="error"}[10m]))
+          / sum(rate(ai_requests_total[10m])) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI 调用失败率超过 20%"
+          description: "provider={{ $labels.provider }} 过去 10 分钟失败率 {{ $value | humanizePercentage }}"
+
+      - alert: AIProviderHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(ai_request_duration_seconds_bucket[5m])) > 30
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI 调用 P95 延迟超过 30 秒"
+
+      # --- Celery 任务 ---
+      - alert: CeleryTaskHighFailureRate
+        expr: |
+          sum(rate(celery_tasks_total{status="failed"}[15m]))
+          / sum(rate(celery_tasks_total[15m])) > 0.3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Celery 任务失败率超过 30%"
+
+      - alert: WatchdogRecoveringTasks
+        expr: |
+          sum(increase(celery_tasks_total{task_name="watchdog.check_stale_evaluations", status="recovered"}[1h])) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Watchdog 1 小时内恢复了超过 3 个僵尸任务"
+
+      # --- 数据库连接池 ---
+      - alert: DBPoolExhaustion
+        expr: db_pool_checked_out / db_pool_size > 0.85
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库连接池使用率超过 85%"
+          description: "checked_out={{ $value }} / size={{ $labels.db_pool_size }}"
+
+      - alert: DBPoolFullyExhausted
+        expr: db_pool_checked_out >= db_pool_size
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "数据库连接池已满"
+
+  - name: duoduo_infra
+    rules:
+      # --- Redis ---
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis 实例不可用"
+
+      # --- PostgreSQL ---
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL 实例不可用"

@@ -51,6 +51,11 @@ class Settings(BaseSettings):
         default=0.1, alias="SENTRY_TRACES_SAMPLE_RATE"
     )
 
+    # OpenTelemetry tracing (leave disabled by default)
+    otel_enabled: bool = Field(default=False, alias="OTEL_ENABLED")
+    otel_endpoint: str = Field(default="", alias="OTEL_EXPORTER_OTLP_ENDPOINT")
+    otel_service_name: str = Field(default="duoduo-api", alias="OTEL_SERVICE_NAME")
+
     # AI provider: "mock" | "deepseek" | "ark" (deprecated)
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
 

@@ -84,7 +84,7 @@ async def test_upload_url_invalid_file_type(product_client: AsyncClient) -> None
     response = await product_client.post(
         "/api/v1/products/upload-url",
         headers={"Authorization": f"Bearer {token}"},
-        json={"filename": "front.gif", "mime_type": "image/gif", "size_bytes": 1024},
+        json={"filename": "malware.exe", "mime_type": "application/exe", "size_bytes": 1024},
     )
 
     assert response.status_code == 400

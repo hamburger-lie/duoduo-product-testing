@@ -43,7 +43,16 @@ def check_stale_evaluations() -> dict[str, object]:
 
     async def _run() -> dict[str, object]:
         async with AsyncSessionFactory() as session:
-            return await _recover_stale_evaluations(session)
+            recovery_result = await _recover_stale_evaluations(session)
+
+        # Check DLQ length and log warning if non-empty
+        from app.tasks.dlq import dlq_length
+
+        dlq_len = await dlq_length()
+        if dlq_len > 0:
+            logger.warning("dlq_pending count=%d", dlq_len)
+        recovery_result["dlq_length"] = dlq_len
+        return recovery_result
 
     result = _run_async(_run())
 

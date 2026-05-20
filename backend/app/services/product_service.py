@@ -25,7 +25,7 @@ from app.storage.adapters import MockProductStorageAdapter, ProductStorageAdapte
 if TYPE_CHECKING:
     from app.ai.client import AIClient
 
-ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png"}
+ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"}
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,7 @@ class ProductService:
         """
 
         from app.ai.moderation import get_moderation_adapter
+        from app.storage.file_validation import validate_base64_image
 
         has_object_keys = bool(payload.image_object_keys)
         has_base64 = bool(payload.image_base64_list)
@@ -82,6 +83,19 @@ class ProductService:
                 message="Provide at least one image via image_object_keys or image_base64_list",
                 http_status=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
+
+        # Validate base64 images by checking file magic numbers
+        if payload.image_base64_list:
+            for idx, b64_img in enumerate(payload.image_base64_list):
+                if b64_img.startswith("http://") or b64_img.startswith("https://"):
+                    continue  # URL references are not validated here
+                detected = validate_base64_image(b64_img)
+                if detected is None:
+                    raise AppException(
+                        code="INVALID_FILE_TYPE",
+                        message=f"Image #{idx + 1} is not a valid image (JPEG/PNG/GIF/WebP/BMP)",
+                        http_status=status.HTTP_400_BAD_REQUEST,
+                    )
 
         moderator = get_moderation_adapter()
         await moderator.check_input(

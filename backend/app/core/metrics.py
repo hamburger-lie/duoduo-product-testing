@@ -84,6 +84,18 @@ def record_celery_task(task_name: str, status: str) -> None:
     celery_tasks_total.labels(task_name=task_name, status=status).inc()
 
 
+sse_streams_total = Counter(
+    "sse_streams_total",
+    "Total SSE streams by completion status.",
+    ["status"],  # complete | interrupted | error
+)
+
+
+def record_sse_stream(status: str) -> None:
+    """Record one SSE stream completion. status: complete|interrupted|error."""
+    sse_streams_total.labels(status=status).inc()
+
+
 def update_db_pool_metrics(pool_size: int, checked_out: int) -> None:
     """Update database pool gauges."""
 

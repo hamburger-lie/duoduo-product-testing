@@ -1,0 +1,134 @@
+<view class="page">
+
+  <!-- Full-page loading (normal entry) -->
+  <view wx:if="{{loading}}" class="state-center">
+    <view class="loading-dot-wrap">
+      <view class="dot d1"></view>
+      <view class="dot d2"></view>
+      <view class="dot d3"></view>
+    </view>
+    <text class="state-text">加载中…</text>
+  </view>
+
+  <block wx:else>
+    <!-- Questions generating -->
+    <view wx:if="{{questionsLoading}}" class="section-card">
+      <view class="section-title">调研问卷生成中</view>
+      <view class="q-generating">
+        <view class="q-gen-anim">
+          <view class="q-gen-bar" style="width:{{genProgress}}%"></view>
+        </view>
+        <view class="loading-dot-wrap small">
+          <view class="dot d1"></view>
+          <view class="dot d2"></view>
+          <view class="dot d3"></view>
+        </view>
+        <view class="q-generating-progress">
+          <text>{{genMsg || 'AI 正在生成问卷'}} · {{genProgress}}%</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Persona selection -->
+    <view class="section-card">
+      <view class="section-title">
+        测品官阵容
+        <text class="sel-count">已选 {{selectedCount}} / {{personas.length}}</text>
+      </view>
+      <view class="persona-grid">
+        <view
+          wx:for="{{personas}}"
+          wx:key="id"
+          class="persona-chip {{item.selected ? 'selected' : ''}}"
+          data-idx="{{index}}"
+          bind:tap="onTogglePersona"
+        >
+          <view class="pc-check">
+            <view wx:if="{{item.selected}}" class="pc-check-fill"></view>
+          </view>
+          <image class="pc-avatar-img" src="{{item.avatarSrc}}" mode="aspectFill" />
+          <view class="pc-info">
+            <view class="pc-name">{{item.persona_tag}}</view>
+            <view class="pc-tag">{{item.occupation}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{!questionsLoading && questions.length > 0}}" class="question-ready-card" bind:tap="onToggleQuestions">
+      <view class="question-ready-icon"></view>
+      <view class="question-ready-main">
+        <view class="question-ready-title">问卷已就绪 · {{questions.length}} 题</view>
+        <view class="question-ready-sub">{{questionsExpanded ? '点击收起' : '点击展开查看，可编辑任意题目'}}</view>
+      </view>
+      <view class="question-ready-arrow">{{questionsExpanded ? '▴' : '▾'}}</view>
+    </view>
+
+    <!-- Survey questions -->
+    <view wx:if="{{questionsExpanded}}" class="section-card">
+      <view class="section-title">
+        调研问卷
+        <text class="q-count">{{questions.length}} 题</text>
+        <text class="q-edit-hint">点击题目可修改</text>
+      </view>
+
+      <view class="q-list">
+        <view
+          wx:for="{{questions}}"
+          wx:key="id"
+          class="q-item {{editingIdx === index ? 'editing' : ''}} {{item.changed ? 'changed' : ''}}"
+          data-idx="{{index}}"
+          bind:tap="onTapQuestion"
+        >
+          <view class="q-num {{item.changed ? 'q-num-changed' : ''}}">{{index + 1}}</view>
+          <view class="q-body">
+            <!-- 编辑态 -->
+            <block wx:if="{{editingIdx === index}}">
+              <textarea
+                class="q-edit-input"
+                value="{{editingText}}"
+                bindinput="onEditQuestionInput"
+                auto-height
+                focus="{{true}}"
+              />
+              <view class="q-edit-actions">
+                <view class="q-cancel-btn" catch:tap="onCancelEditQuestion">取消</view>
+                <view class="q-save-btn" catch:tap="onSaveQuestion">保存修改</view>
+              </view>
+            </block>
+            <!-- 只读态 -->
+            <block wx:else>
+              <view class="q-text">{{item.question || item.text}}</view>
+              <!-- 选项列表（单选/多选） -->
+              <view wx:if="{{item.options && item.options.length > 0 && (item.type === 'single' || item.type === 'multi')}}" class="q-options">
+                <view wx:for="{{item.options}}" wx:key="*this" wx:for-item="opt" class="q-option-row">
+                  <view class="q-option-dot {{item.type === 'multi' ? 'dot-check' : 'dot-radio'}}"></view>
+                  <text class="q-option-text">{{opt.text || opt}}</text>
+                </view>
+              </view>
+              <!-- 评分提示 -->
+              <view wx:if="{{item.type === 'scale_1_5'}}" class="q-scale-hint">
+                <text>1 非常不满意</text><text class="scale-sep">—</text><text>5 非常满意</text>
+              </view>
+              <view class="q-foot">
+                <view class="q-type-tag">{{item.type === 'open' ? '开放题' : item.type === 'scale_1_5' ? '评分 1-5' : item.type === 'single' ? '单选' : '多选'}}</view>
+                <text wx:if="{{item.changed}}" class="q-changed-tag">已修改</text>
+              </view>
+            </block>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Confirm button -->
+    <view class="bottom-bar">
+      <view
+        class="confirm-btn {{(confirming || questionsLoading) ? 'disabled' : ''}}"
+        bind:tap="onConfirm"
+      >
+        {{confirming ? '启动中…' : questionsLoading ? '等待问卷生成…' : '下一步'}}
+      </view>
+    </view>
+  </block>
+
+</view>

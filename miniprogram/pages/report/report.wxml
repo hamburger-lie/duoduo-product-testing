@@ -1,0 +1,90 @@
+<view class="rp-page">
+  <view wx:if="{{phase === 'loading'}}" class="rp-state">
+    <view class="rp-state-title">正在打开调研报告</view>
+    <view class="rp-state-hint">读取历史档案中的完整报告</view>
+  </view>
+
+  <view wx:if="{{phase === 'error'}}" class="rp-state rp-state--error">
+    <view class="rp-state-title">{{error || '加载失败'}}</view>
+    <button class="rp-btn rp-btn--ghost" bindtap="onTapRetry">重试</button>
+  </view>
+
+  <view wx:if="{{phase === 'ready'}}" class="rp-ready">
+    <view class="rp-hero">
+      <view class="rp-hero-top">
+        <view>
+          <view class="rp-kicker">测品调研报告</view>
+          <view class="rp-title">{{vm.productName}}</view>
+        </view>
+        <view class="rp-verdict rp-verdict--{{vm.verdictClass}}">{{vm.verdictText}}</view>
+      </view>
+      <view class="rp-score-row">
+        <view class="rp-score">{{vm.score}}</view>
+        <view class="rp-score-unit">/100</view>
+      </view>
+      <view class="rp-metrics">
+        <view class="rp-metric">
+          <view class="rp-metric-value">{{vm.intent}}</view>
+          <view class="rp-metric-label">购买意向</view>
+        </view>
+        <view class="rp-metric">
+          <view class="rp-metric-value">{{vm.nps}}</view>
+          <view class="rp-metric-label">NPS</view>
+        </view>
+      </view>
+      <view class="rp-date" wx:if="{{vm.generatedAt}}">生成时间：{{vm.generatedAt}}</view>
+    </view>
+
+    <view class="rp-section">
+      <view class="rp-section-title">核心结论</view>
+      <view class="rp-bullets">
+        <view class="rp-bullet" wx:for="{{vm.summary}}" wx:key="index">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="rp-split">
+      <view class="rp-section rp-section--half">
+        <view class="rp-section-title">机会点</view>
+        <view class="rp-insight rp-insight--good" wx:for="{{vm.opportunities}}" wx:key="title">
+          <view class="rp-insight-title">{{item.title}}</view>
+          <view class="rp-insight-note">{{item.note}}</view>
+        </view>
+      </view>
+      <view class="rp-section rp-section--half">
+        <view class="rp-section-title">风险点</view>
+        <view class="rp-insight rp-insight--risk" wx:for="{{vm.risks}}" wx:key="title">
+          <view class="rp-insight-title">{{item.title}}</view>
+          <view class="rp-insight-note">{{item.note}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="rp-section">
+      <view class="rp-section-title">优先人群与渠道</view>
+      <view class="rp-tags">
+        <view class="rp-tag" wx:for="{{vm.audiences}}" wx:key="index">{{item}}</view>
+      </view>
+      <view class="rp-channel" wx:for="{{vm.channels}}" wx:key="index">{{item}}</view>
+    </view>
+
+    <view class="rp-section">
+      <view class="rp-section-title">用户原声</view>
+      <view class="rp-quote" wx:for="{{vm.quotes}}" wx:key="index">{{item}}</view>
+    </view>
+
+    <view class="rp-section">
+      <view class="rp-section-title">下一步策略</view>
+      <view class="rp-step" wx:for="{{vm.nextSteps}}" wx:key="index">
+        <view class="rp-step-num">{{index + 1}}</view>
+        <view class="rp-step-text">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="rp-actions">
+      <button class="rp-btn rp-btn--primary" bindtap="onTapExport">查看完整报告 / 导出 PDF</button>
+      <button class="rp-btn rp-btn--ghost" bindtap="onTapFollowUp">继续追问产品</button>
+    </view>
+
+    <view class="rp-disclaimer">{{vm.disclaimer}}</view>
+  </view>
+</view>

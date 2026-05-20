@@ -1,0 +1,6 @@
+<view
+  class="avatar {{ring ? 'ring' : ''}}"
+  style="width:{{size}}rpx;height:{{size}}rpx;"
+>
+  <image class="avatar-img" src="{{imageSrc}}" mode="aspectFill" />
+</view>

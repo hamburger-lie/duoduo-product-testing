@@ -1,0 +1,68 @@
+<view class="page">
+
+  <!-- Balance card -->
+  <view class="balance-card">
+    <view class="balance-label">当前积分</view>
+    <view class="balance-row">
+      <view class="balance-coin"></view>
+      <text class="balance-num">{{balance}}</text>
+    </view>
+  </view>
+
+  <!-- Recharge section -->
+  <view class="recharge-section">
+    <view class="recharge-title">充值积分</view>
+    <view class="recharge-grid">
+      <view
+        wx:for="{{rechargeOptions}}"
+        wx:key="*this"
+        class="recharge-opt {{item === selectedAmount ? 'selected' : ''}}"
+        data-amount="{{item}}"
+        bind:tap="onSelectAmount"
+      >
+        <text class="recharge-num">{{item}}</text>
+        <text class="recharge-unit">积分</text>
+      </view>
+    </view>
+    <view class="recharge-btn {{recharging ? 'disabled' : ''}}" bind:tap="onRecharge">
+      {{recharging ? '处理中…' : '立即充值 ' + selectedAmount + ' 积分'}}
+    </view>
+    <view class="recharge-tip">* 积分用于发起 AI 调研，每次消耗 10 积分</view>
+  </view>
+
+  <!-- Loading -->
+  <view wx:if="{{loading}}" class="state-center">
+    <view class="loading-dot-wrap">
+      <view class="dot d1"></view>
+      <view class="dot d2"></view>
+      <view class="dot d3"></view>
+    </view>
+  </view>
+
+  <!-- Empty -->
+  <view wx:elif="{{empty}}" class="state-center">
+    <view class="empty-icon"></view>
+    <text class="empty-text">暂无积分记录</text>
+  </view>
+
+  <!-- Transaction list -->
+  <view wx:else class="tx-list">
+    <view
+      wx:for="{{transactions}}"
+      wx:key="id"
+      class="tx-item"
+    >
+      <view class="tx-left">
+        <text class="tx-desc">{{item.description}}</text>
+        <text class="tx-date">{{item.dateStr}}</text>
+      </view>
+      <view class="tx-right">
+        <text class="tx-amount {{item.isIncome ? 'income' : 'expense'}}">
+          {{item.isIncome ? '+' : ''}}{{item.amount}}
+        </text>
+        <text class="tx-balance">余额 {{item.balance_after}}</text>
+      </view>
+    </view>
+  </view>
+
+</view>

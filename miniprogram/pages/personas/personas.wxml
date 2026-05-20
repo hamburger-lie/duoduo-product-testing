@@ -1,0 +1,45 @@
+<view class="page">
+  <view class="top-bar">
+    <view class="page-title">我的测品官</view>
+    <view class="create-btn" bind:tap="onTapCreate">+ 新建</view>
+  </view>
+
+  <!-- Loading -->
+  <view wx:if="{{loading}}" class="state-center">
+    <view class="loading-dot-wrap">
+      <view class="dot d1"></view>
+      <view class="dot d2"></view>
+      <view class="dot d3"></view>
+    </view>
+  </view>
+
+  <!-- Empty -->
+  <view wx:elif="{{personas.length === 0}}" class="state-center">
+    <view class="empty-icon"></view>
+    <text class="empty-text">还没有自定义测品官</text>
+    <view class="empty-btn" bind:tap="onTapCreate">立即创建</view>
+  </view>
+
+  <!-- List -->
+  <view wx:else class="list">
+    <view
+      wx:for="{{personas}}"
+      wx:key="id"
+      class="pcard"
+      data-id="{{item.id}}"
+      bind:tap="onTapCard"
+    >
+      <avatar personaKey="{{item.avatar}}" personaId="{{item.id}}" size="{{88}}" />
+      <view class="pcard-body">
+        <view class="pcard-name">{{item.persona_tag}}</view>
+        <view class="pcard-meta">{{item.age}}岁 · {{item.gender === 'female' ? '女' : item.gender === 'male' ? '男' : '未知'}} · {{item.city}}</view>
+        <view class="pcard-tag">多角色测品官</view>
+      </view>
+      <view
+        class="delete-btn"
+        data-id="{{item.id}}"
+        catch:tap="onDeletePersona"
+      ></view>
+    </view>
+  </view>
+</view>

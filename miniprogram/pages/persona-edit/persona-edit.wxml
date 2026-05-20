@@ -1,0 +1,69 @@
+<view class="page">
+
+  <view wx:if="{{loading}}" class="state-center">
+    <view class="loading-dot-wrap">
+      <view class="dot d1"></view>
+      <view class="dot d2"></view>
+      <view class="dot d3"></view>
+    </view>
+  </view>
+
+  <view wx:else class="form">
+
+    <view class="section-card">
+      <view class="field">
+        <view class="field-label">名称</view>
+        <input class="field-input" value="{{form.name}}" data-field="name" bindinput="onInput" placeholder="例：云云" maxlength="12"/>
+      </view>
+      <view class="field">
+        <view class="field-label">标签（一句话描述）</view>
+        <input class="field-input" value="{{form.persona_tag}}" data-field="persona_tag" bindinput="onInput" placeholder="例：Z世代精致女生" maxlength="20"/>
+      </view>
+    </view>
+
+    <view class="section-card">
+      <view class="field">
+        <view class="field-label">年龄</view>
+        <input class="field-input" type="number" value="{{form.age}}" bindinput="onAgeInput" placeholder="25"/>
+      </view>
+      <view class="field">
+        <view class="field-label">性别</view>
+        <picker mode="selector" range="{{genderLabels}}" value="{{genderIndex}}" bindchange="onGenderChange">
+          <view class="picker-val">{{genderLabels[genderIndex]}} ›</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="field-label">城市</view>
+        <input class="field-input" value="{{form.city}}" data-field="city" bindinput="onInput" placeholder="例：上海" maxlength="20"/>
+      </view>
+      <view class="field">
+        <view class="field-label">职业</view>
+        <input class="field-input" value="{{form.occupation}}" data-field="occupation" bindinput="onInput" placeholder="例：互联网运营" maxlength="30"/>
+      </view>
+      <view class="field">
+        <view class="field-label">月收入（元）</view>
+        <input class="field-input" type="number" value="{{form.income_monthly}}" bindinput="onIncomeInput" placeholder="8000"/>
+      </view>
+    </view>
+
+    <view class="section-card">
+      <view class="field field-col">
+        <view class="field-label">简介</view>
+        <textarea
+          class="field-textarea"
+          value="{{form.bio}}"
+          data-field="bio"
+          bindinput="onInput"
+          placeholder="描述这位测品官的消费习惯、性格特点…"
+          maxlength="300"
+          auto-height
+        />
+      </view>
+    </view>
+
+    <view class="save-btn {{saving ? 'disabled' : ''}}" bind:tap="onSave">
+      {{saving ? '保存中…' : (isEdit ? '保存修改' : '创建测品官')}}
+    </view>
+
+  </view>
+</view>

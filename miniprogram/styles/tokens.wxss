@@ -1,0 +1,53 @@
+/* ===== 测品官 设计 Token（白底） ===== */
+page {
+  /* 底色 */
+  --bg-page:          #FFFFFF;
+  --bg-card:          #F7F7F8;
+  --bg-card-hover:    #EFEEF3;
+  --bg-soft:          #FAF9FC;
+
+  /* 边框 */
+  --border:           rgba(0, 0, 0, 0.08);
+  --border-strong:    rgba(123, 111, 168, 0.35);
+
+  /* 主色 雾紫 + 渐变端 */
+  --accent:           #7B6FA8;
+  --accent-bright:    #9B8BD0;
+  --accent-soft:      #EFEAF7;
+  --accent-glow:      rgba(123, 111, 168, 0.20);
+
+  /* Hero 渐变（白底版：浅紫雾 → 白） */
+  --hero-start:       #EFEAF7;
+  --hero-mid:         #F6F2FB;
+  --hero-end:         #FFFFFF;
+
+  /* 文字 */
+  --text-primary:     #1A1A1F;
+  --text-sub:         rgba(0, 0, 0, 0.55);
+  --text-muted:       rgba(0, 0, 0, 0.35);
+  --text-on-accent:   #FFFFFF;
+
+  /* 状态色 */
+  --success:          #3F9D5C;
+  --success-soft:     #E6F4EA;
+  --warning:          #D88A2C;
+  --warning-soft:     #FCEFDD;
+  --danger:           #D14A4A;
+
+  /* 圆角 / 间距 */
+  --r-xs:             8rpx;
+  --r-sm:             16rpx;
+  --r-card:           24rpx;
+  --r-lg:             32rpx;
+  --r-pill:           100rpx;
+
+  /* 间距 */
+  --gap-xs:           8rpx;
+  --gap-sm:           16rpx;
+  --gap-md:           24rpx;
+  --gap-lg:           32rpx;
+  --gap-xl:           48rpx;
+
+  /* 高度 */
+  --nav-h:            120rpx;
+}

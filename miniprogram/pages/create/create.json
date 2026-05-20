@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "新建调研",
+  "usingComponents": {
+    "avatar": "/components/avatar/avatar",
+    "chip": "/components/chip/chip"
+  }
+}

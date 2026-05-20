@@ -1,0 +1,186 @@
+.page {
+  min-height: 100vh;
+  background: #F5F5F5;
+  padding-bottom: 60rpx;
+}
+
+/* Balance card */
+.balance-card {
+  background: #1E1B2E;
+  margin: 24rpx 32rpx 24rpx;
+  border-radius: 24rpx;
+  padding: 40rpx 36rpx;
+}
+.balance-label {
+  font-size: 24rpx;
+  color: rgba(245,230,192,0.65);
+  margin-bottom: 16rpx;
+}
+.balance-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+.balance-coin {
+  width: 48rpx;
+  height: 48rpx;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F5E6C0' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cline x1='12' y1='7' x2='12' y2='9'/%3E%3Cline x1='12' y1='15' x2='12' y2='17'/%3E%3Cpath d='M9.5 9H14a2 2 0 0 1 0 4H9.5'/%3E%3Cpath d='M9.5 13H14a2 2 0 0 1 0 4H9.5'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.balance-num {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #F5E6C0;
+  letter-spacing: 2rpx;
+}
+
+/* Loading dots */
+.state-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 0;
+  gap: 20rpx;
+}
+.loading-dot-wrap {
+  display: flex;
+  gap: 12rpx;
+}
+.dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: #C4B5FD;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.d1 { animation-delay: 0s; }
+.d2 { animation-delay: 0.2s; }
+.d3 { animation-delay: 0.4s; }
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Empty */
+.empty-icon {
+  width: 80rpx;
+  height: 80rpx;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23CCCCCC' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cline x1='12' y1='7' x2='12' y2='9'/%3E%3Cline x1='12' y1='12' x2='12' y2='16'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.empty-text {
+  font-size: 26rpx;
+  color: #BBBBBB;
+}
+
+/* Recharge section */
+.recharge-section {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  margin: 0 32rpx 24rpx;
+  padding: 28rpx 24rpx;
+}
+.recharge-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+  margin-bottom: 20rpx;
+}
+.recharge-grid {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+  flex-wrap: wrap;
+}
+.recharge-opt {
+  flex: 1;
+  min-width: 120rpx;
+  height: 100rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid #E5E7EB;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+  background: #F9F9F9;
+}
+.recharge-opt.selected {
+  border-color: #7B6FA8;
+  background: #EDE9FE;
+}
+.recharge-num {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1A1A1A;
+}
+.recharge-opt.selected .recharge-num { color: #7B6FA8; }
+.recharge-unit { font-size: 20rpx; color: #888888; }
+.recharge-opt.selected .recharge-unit { color: #7B6FA8; }
+
+.recharge-btn {
+  height: 88rpx;
+  border-radius: 44rpx;
+  background: #7B6FA8;
+  color: #FFFFFF;
+  font-size: 30rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16rpx;
+}
+.recharge-btn:active { opacity: 0.85; }
+.recharge-btn.disabled { opacity: 0.55; }
+.recharge-tip { font-size: 22rpx; color: #AAAAAA; text-align: center; }
+
+/* Transaction list */
+.tx-list {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  margin: 0 32rpx;
+  overflow: hidden;
+}
+.tx-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 28rpx;
+  border-bottom: 1rpx solid #F4F4F4;
+}
+.tx-item:last-child { border-bottom: none; }
+
+.tx-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  flex: 1;
+  min-width: 0;
+}
+.tx-desc {
+  font-size: 28rpx;
+  color: #1A1A1A;
+  font-weight: 500;
+}
+.tx-date {
+  font-size: 22rpx;
+  color: #AAAAAA;
+}
+
+.tx-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8rpx;
+  flex-shrink: 0;
+  margin-left: 24rpx;
+}
+.tx-amount {
+  font-size: 32rpx;
+  font-weight: 700;
+}
+.tx-amount.income { color: #22C55E; }
+.tx-amount.expense { color: #EF4444; }
+.tx-balance {
+  font-size: 22rpx;
+  color: #AAAAAA;
+}

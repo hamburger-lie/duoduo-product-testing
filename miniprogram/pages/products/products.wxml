@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="top-bar">
+    <view class="page-title">我的产品</view>
+  </view>
+
+  <!-- Loading -->
+  <view wx:if="{{loading && products.length === 0}}" class="state-center">
+    <view class="loading-dot-wrap">
+      <view class="dot d1"></view>
+      <view class="dot d2"></view>
+      <view class="dot d3"></view>
+    </view>
+  </view>
+
+  <!-- Empty -->
+  <view wx:elif="{{products.length === 0}}" class="state-center">
+    <view class="empty-icon"></view>
+    <text class="empty-text">还没有产品，去创建调研时添加</text>
+  </view>
+
+  <!-- List -->
+  <view wx:else class="list">
+    <view
+      wx:for="{{products}}"
+      wx:key="id"
+      class="pcard"
+      data-id="{{item.id}}"
+      bind:tap="onTapCard"
+    >
+      <image
+        wx:if="{{item.has_image}}"
+        class="pcard-img"
+        src="{{item.image_url}}"
+        mode="aspectFill"
+      />
+      <view class="pcard-body {{item.has_image ? '' : 'pcard-body-text-only'}}">
+        <view class="pcard-name">{{item.name}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{hasMore}}" class="load-more" bind:tap="onLoadMore">加载更多</view>
+  </view>
+</view>

@@ -1,0 +1,240 @@
+.page { min-height: 100vh; padding-bottom: 40rpx; }
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx 8rpx;
+}
+.logo-mark { display: flex; align-items: center; gap: 12rpx; }
+.logo-icon {
+  width: 56rpx; height: 56rpx;
+  border-radius: 16rpx;
+  background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237B6FA8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='21 8 21 21 3 21 3 8'/%3E%3Crect x='1' y='3' width='22' height='5'/%3E%3Cline x1='10' y1='12' x2='14' y2='12'/%3E%3C/svg%3E") center/32rpx no-repeat;
+}
+.logo-text { font-size: 34rpx; font-weight: 700; }
+.icon-btn {
+  width: 64rpx; height: 64rpx;
+  border-radius: 50%;
+  background: var(--bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='5' cy='12' r='1'/%3E%3Ccircle cx='12' cy='12' r='1'/%3E%3Ccircle cx='19' cy='12' r='1'/%3E%3C/svg%3E") center/36rpx no-repeat;
+}
+
+.content-pad { padding: 16rpx 32rpx 40rpx; }
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  height: 80rpx;
+  padding: 0 24rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  border-radius: var(--r-pill);
+  margin-bottom: 24rpx;
+}
+.search-icon {
+  width: 36rpx; height: 36rpx; flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.search-input { flex: 1; font-size: 28rpx; }
+
+.filter-tabs {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+.filter-tab {
+  flex: 1;
+  height: 64rpx;
+  border-radius: var(--r-pill);
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  font-size: 24rpx;
+  color: var(--text-sub);
+  display: flex; align-items: center; justify-content: center;
+}
+.filter-tab.active {
+  background: var(--accent-soft);
+  border-color: var(--border-strong);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* History card */
+.hc {
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  border-radius: var(--r-card);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.hc:active { background: var(--bg-card-hover); }
+
+.hc-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+}
+.hc-thumb {
+  width: 88rpx; height: 88rpx;
+  border-radius: 20rpx;
+  background: var(--accent-soft);
+  flex-shrink: 0;
+}
+.hc-thumb-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hc-initial-text {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #7B6FA8;
+  line-height: 1;
+}
+.hc-mid { flex: 1; min-width: 0; }
+.hc-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6rpx;
+  line-height: 1.4;
+}
+.hc-meta {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+.hc-brand {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-bottom: 4rpx;
+}
+.hc-badge {
+  font-size: 20rpx;
+  border-radius: 20rpx;
+  padding: 6rpx 18rpx;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.badge-done { background: #E8F5E9; color: #388E3C; }
+.badge-active { background: #EDE9FE; color: #7B6FA8; }
+.badge-fail { background: #FEECEC; color: #E53935; }
+
+.hc-progress-wrap {
+  height: 6rpx;
+  background: var(--border);
+  border-radius: 4rpx;
+  margin: 12rpx 0;
+  overflow: hidden;
+}
+.hc-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #7B6FA8, #A78BFA);
+  border-radius: 4rpx;
+  transition: width 0.3s;
+}
+
+.hc-summary {
+  font-size: 24rpx;
+  color: var(--text-sub);
+  line-height: 1.5;
+  margin: 8rpx 0 12rpx;
+}
+
+.hc-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--border);
+}
+
+.hc-info-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex: 1;
+}
+.hc-info-chip {
+  font-size: 20rpx;
+  color: var(--text-muted);
+  background: var(--bg-page);
+  border-radius: 20rpx;
+  padding: 4rpx 16rpx;
+}
+.chip-report {
+  color: #7B6FA8;
+  background: #EDE9FE;
+}
+
+.hc-thumb-img {
+  width: 88rpx; height: 88rpx;
+  border-radius: 20rpx;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.hc-actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-shrink: 0;
+}
+.hc-cancel-btn {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  border: 1rpx solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 6rpx 20rpx;
+  flex-shrink: 0;
+}
+.hc-delete-btn {
+  width: 48rpx; height: 48rpx;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23CCCCCC' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6l-1 14H6L5 6'/%3E%3Cpath d='M10 11v6'/%3E%3Cpath d='M14 11v6'/%3E%3Cpath d='M9 6V4h6v2'/%3E%3C/svg%3E") center/28rpx no-repeat;
+}
+.hc-delete-btn:active { opacity: 0.5; }
+
+.empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 80rpx 0;
+  font-size: 26rpx;
+}
+
+/* 聊天记录入口（卡片内嵌） */
+.hc-conv-entry {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--border);
+}
+.hc-conv-entry:active { opacity: 0.7; }
+
+.hc-conv-entry-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237B6FA8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.hc-conv-entry-text {
+  font-size: 24rpx;
+  color: var(--text-sub);
+}
+.hc-conv-entry-count {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  background: var(--bg-page);
+  border-radius: 20rpx;
+  padding: 2rpx 14rpx;
+}
+.hc-conv-entry-arrow {
+  margin-left: auto;
+  font-size: 32rpx;
+  color: var(--text-muted);
+  line-height: 1;
+}

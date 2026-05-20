@@ -1,0 +1,84 @@
+<view class="bs {{self ? 'bs-self' : ''}}">
+  <avatar wx:if="{{!self}}" personaKey="{{personaKey}}" personaId="{{personaId}}" slot="{{avatarSlot}}" size="{{72}}" bind:tap="onAvatarTap"/>
+  <view class="bs-col">
+    <view wx:if="{{!self && personaName}}" class="bs-name">{{personaName}}</view>
+
+    <view wx:if="{{qaItems && qaItems.length}}" class="bs-qa-card">
+      <view wx:if="{{summaryComment}}" class="bs-thoughts-section">
+        <view class="bs-section-title">
+          <view class="bs-icon-thought"></view>
+          <text class="bs-section-label">总体倾向</text>
+        </view>
+        <text class="bs-thought-text" user-select>{{summaryComment}}</text>
+      </view>
+
+      <view class="bs-answers-section">
+        <view class="bs-section-title bs-section-title-answers">
+          <view class="bs-icon-list"></view>
+          <text class="bs-section-label">逐题回答</text>
+        </view>
+
+        <view wx:if="{{qaAnswersCollapsed}}" class="bs-answer-preview" bind:tap="onToggleQaAnswers">
+          <text class="bs-answer-preview-text">{{qaAnswerPreview}}</text>
+          <text class="bs-answer-preview-dots">......</text>
+          <text class="bs-answer-preview-arrow" decode="{{true}}">&gt;</text>
+        </view>
+
+        <block wx:if="{{!qaAnswersCollapsed}}" wx:for="{{qaItems}}" wx:key="index" wx:for-index="qi">
+          <view class="bs-qa-item {{qi > 0 ? 'bs-qa-item-sep' : ''}}">
+            <view class="bs-q-header">
+              <text class="bs-q-num">Q{{qi + 1}}：</text>
+              <text class="bs-q-text">{{item.question}}</text>
+            </view>
+
+            <view wx:if="{{item.type === 'scale_1_5' && item.scaleDots && item.scaleDots.length}}" class="bs-scale-row">
+              <view class="bs-scale-head">
+                <text class="bs-scale-title">评分回答</text>
+                <text class="bs-scale-value">{{item.scaleValue}} / 5</text>
+              </view>
+              <view class="bs-scale-dots" aria-label="评分 {{item.scaleValue}} / 5">
+                <block wx:for="{{item.scaleDots}}" wx:key="index" wx:for-item="dot" wx:for-index="di">
+                  <view class="bs-scale-dot {{dot.filled ? 'bs-scale-dot-filled' : ''}}"></view>
+                </block>
+              </view>
+            </view>
+
+            <view wx:elif="{{item.answer}}" class="bs-ans-bubble">
+              <text class="bs-ans-title">简述回答</text>
+              <text class="bs-ans-text" user-select>{{item.answer}}</text>
+            </view>
+
+            <view wx:if="{{item.reason}}" class="bs-reason-wrap" data-qi="{{qi}}" bind:tap="onToggleReason">
+              <text class="bs-reason-label">依据：</text>
+              <view class="bs-reason-body">
+                <text wx:if="{{item.reasonDone && !expandedMap[qi]}}" class="bs-reason-preview" user-select>{{item.reasonPreview}}</text>
+                <text wx:if="{{item.reasonDone && !expandedMap[qi]}}" class="bs-reason-arrow" decode="{{true}}">&gt;</text>
+                <text wx:else class="bs-reason-text" user-select>{{item.reason}}</text>
+              </view>
+              <text wx:if="{{item.reasonDone && expandedMap[qi]}}" class="bs-reason-toggle bs-arrow-down" decode="{{true}}">&gt;</text>
+            </view>
+          </view>
+        </block>
+        <text wx:if="{{!qaAnswersCollapsed}}" class="bs-answer-toggle-bottom bs-arrow-down" bind:tap="onToggleQaAnswers" decode="{{true}}">&gt;</text>
+      </view>
+    </view>
+
+    <view wx:else class="bs-bubble">
+      <view wx:if="{{thinkContent}}" class="bs-think-wrap">
+        <view class="bs-think-header" bind:tap="onToggleFlatThink">
+          <view class="bs-think-dot-row">
+            <view class="bs-think-dot"></view>
+            <view class="bs-think-dot"></view>
+            <view class="bs-think-dot"></view>
+          </view>
+          <text class="bs-think-label">思考过程</text>
+          <text class="bs-think-toggle {{flatThinkExpanded ? 'bs-arrow-down' : ''}}" decode="{{true}}">{{flatThinkExpanded ? '&gt;' : '展开'}}</text>
+        </view>
+        <text class="bs-think-text {{flatThinkExpanded ? '' : 'bs-one-line-clamp'}}" user-select>{{thinkContent}}</text>
+      </view>
+      <view wx:if="{{thinkContent}}" class="bs-divider"></view>
+      <text class="bs-content {{flatContentCollapsed ? 'bs-one-line-clamp' : ''}}" user-select>{{content || '…'}}</text>
+      <text wx:if="{{content && !self}}" class="bs-content-toggle {{flatContentCollapsed ? '' : 'bs-arrow-down'}}" bind:tap="onToggleFlatContent" decode="{{true}}">{{flatContentCollapsed ? '展开回答' : '&gt;'}}</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,55 @@
+# Backend 独立 git 仓库，单独管理
+backend/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.npm/
+
+# 微信开发者工具
+miniprogram/node_modules/
+miniprogram/.tsbuildinfo
+
+# 环境变量 / 密钥
+.env
+.env.*
+*.pem
+*.key
+
+# 构建产物
+miniprogram/miniprogram_npm/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 微信私有配置（本机专属，不上传）
+miniprogram/project.private.config.json
+
+# Docker 数据卷
+postgres_data/
+redis_data/
+qdrant_data/
+
+# 日志
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code 本地配置
+.claude/
+
+# 打包产物
+*.zip

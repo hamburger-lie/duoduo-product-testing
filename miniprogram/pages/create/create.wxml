@@ -1,0 +1,56 @@
+<view class="page">
+
+  <view class="section-head">
+    <text class="section-title">产品图片</text>
+    <text class="section-required optional-pill">选填</text>
+  </view>
+  <view wx:if="{{productImages.length === 0}}" class="upload-zone" bind:tap="onChooseImages">
+    <view class="upload-icon">+</view>
+    <view class="upload-text">添加产品图</view>
+    <view class="upload-sub">没有图片也可以先开始产品调研</view>
+  </view>
+  <view wx:else class="thumb-grid">
+    <block wx:for="{{productImages}}" wx:key="*this">
+      <view class="thumb">
+        <image class="thumb-img" src="{{item}}" mode="aspectFill" data-idx="{{index}}" bind:tap="onPreviewImage"/>
+        <view class="thumb-remove" data-idx="{{index}}" catch:tap="onRemoveImage">×</view>
+      </view>
+    </block>
+    <view wx:if="{{productImages.length < 5}}" class="thumb thumb-add" bind:tap="onChooseImages">
+      <text class="thumb-plus">+</text>
+    </view>
+  </view>
+
+  <view class="field-card">
+    <view class="field-label">产品名 <text class="required">*</text></view>
+    <input
+      class="field-input"
+      value="{{productName}}"
+      bindinput="onProductNameInput"
+      placeholder="例如：焕颜修护面霜"
+      placeholder-class="field-placeholder"
+    />
+  </view>
+
+  <view class="field-card">
+    <view class="field-label">产品描述 <text class="required">*</text></view>
+    <textarea
+      class="field-textarea"
+      value="{{researchDesc}}"
+      bindinput="onDescInput"
+      placeholder="例如：添加 5% 烟酰胺和神经酰胺，主打温和修护和提亮，价格 199 元，适合敏感肌日常使用。"
+      placeholder-class="field-placeholder"
+      maxlength="500"
+      auto-height
+    />
+    <view class="field-count">{{researchDesc.length}}/500</view>
+  </view>
+
+
+  <view class="submit-wrap">
+    <view
+      class="btn-primary {{submitting ? 'disabled' : ''}}"
+      bind:tap="onSubmit"
+    >{{submitting ? '创建中...' : '创建产品并生成问卷'}}</view>
+  </view>
+</view>

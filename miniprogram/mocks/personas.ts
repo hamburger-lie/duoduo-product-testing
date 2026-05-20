@@ -1,0 +1,58 @@
+// 3 位固定测品官 — 用于 Phase A 写死数据
+// Phase B 切真后端后，本文件不再使用（pages 仅通过 services/api.ts 获取）
+
+import type { PersonaWithKey } from '../types/domain';
+
+export const MOCK_PERSONAS: PersonaWithKey[] = [
+  {
+    key: 'yun',
+    id: 'persona_yun',
+    name: '小芸',
+    avatar: 'yun',
+    age: 28,
+    gender: 'female',
+    city: '上海',
+    city_tier: 1,
+    occupation: '职场白领',
+    income_monthly: 15000,
+    persona_tag: '护肤达人 / 成分党',
+    categories: ['美妆', '护肤'],
+    is_critical: true,
+    is_system: true,
+    trait: '关注成分党、精华效果、性价比',
+  },
+  {
+    key: 'jie',
+    id: 'persona_jie',
+    name: '王姐',
+    avatar: 'jie',
+    age: 38,
+    gender: 'female',
+    city: '杭州',
+    city_tier: 2,
+    occupation: '全职妈妈',
+    income_monthly: 8000,
+    persona_tag: '家庭护肤主导',
+    categories: ['美妆', '家清', '母婴'],
+    is_critical: false,
+    is_system: true,
+    trait: '重视品牌口碑、家庭场景、实用性',
+  },
+  {
+    key: 'cong',
+    id: 'persona_cong',
+    name: '丛丛',
+    avatar: 'cong',
+    age: 21,
+    gender: 'female',
+    city: '广州',
+    city_tier: 1,
+    occupation: '大学生',
+    income_monthly: 2000,
+    persona_tag: 'Z世代潮流先锋',
+    categories: ['美妆', '潮流', '社交'],
+    is_critical: true,
+    is_system: true,
+    trait: '看重颜值包装、社媒种草、尝鲜',
+  },
+];

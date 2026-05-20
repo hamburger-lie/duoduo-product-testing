@@ -1,0 +1,102 @@
+<view class="page">
+
+  <!-- Logged in: user card -->
+  <view wx:if="{{isLoggedIn}}" class="ucard">
+    <view class="ucard-av">
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image
+          wx:if="{{user.avatar_url}}"
+          class="avatar-img"
+          src="{{user.avatar_url}}"
+          mode="aspectFill"
+        />
+        <view wx:else class="avatar-circle">
+          <view class="av-head"></view>
+          <view class="av-body"></view>
+        </view>
+      </button>
+      <view class="avatar-hint" wx:if="{{!user.avatar_url}}">点此设置头像</view>
+    </view>
+    <view class="ucard-body">
+      <view class="ucard-name-row">
+        <input
+          class="ucard-name-input"
+          type="nickname"
+          value="{{user.nickname}}"
+          bindchange="onNicknameChange"
+          placeholder="点击设置昵称"
+        />
+        <view class="ucard-edit-icon"></view>
+      </view>
+      <view class="ucard-credits">
+        <view class="ucard-coin"></view>
+        <text class="ucard-credits-num">{{user.credit_balance}}积分</text>
+      </view>
+    </view>
+    <view class="ucard-arrow">›</view>
+  </view>
+
+  <!-- Not logged in: visual card + invisible button overlay -->
+  <view wx:else class="ucard ucard-login">
+    <view class="ucard-av">
+      <view class="avatar-circle">
+        <view class="av-head"></view>
+        <view class="av-body"></view>
+      </view>
+    </view>
+    <view class="ucard-body">
+      <view class="ucard-name-row">
+        <text class="ucard-name">登录 / 注册</text>
+      </view>
+      <view class="ucard-sub">授权手机号，一键登录</view>
+    </view>
+    <view class="ucard-arrow">›</view>
+    <button
+      class="ucard-phone-overlay"
+      open-type="getPhoneNumber"
+      bindgetphonenumber="onGetPhoneNumber"
+    ></button>
+  </view>
+
+  <!-- Common features -->
+  <view class="section-title">常用功能</view>
+  <view class="menu-list">
+    <view class="menu-item" bind:tap="onTapPersonas">
+      <view class="menu-icon-wrap mi-persona"></view>
+      <view class="menu-label">我的测品官</view>
+      <view class="menu-arrow">›</view>
+    </view>
+    <view class="menu-item" bind:tap="onTapProducts">
+      <view class="menu-icon-wrap mi-product"></view>
+      <view class="menu-label">我的产品</view>
+      <view class="menu-arrow">›</view>
+    </view>
+    <view class="menu-item" bind:tap="onTapCredits">
+      <view class="menu-icon-wrap mi-coin"></view>
+      <view class="menu-label">我的积分</view>
+      <view class="menu-arrow">›</view>
+    </view>
+    <view class="menu-item" bind:tap="onTapReportPdfs">
+      <view class="menu-icon-wrap mi-pdf"></view>
+      <view class="menu-label">调研报告 PDF</view>
+      <view class="menu-arrow">›</view>
+    </view>
+    <view class="menu-item share-item">
+      <view class="menu-icon-wrap mi-share"></view>
+      <view class="menu-label">分享赢积分活动</view>
+      <view class="menu-arrow">›</view>
+      <button class="share-overlay-btn" open-type="share"></button>
+    </view>
+    <view class="menu-item" bind:tap="onTapContact">
+      <view class="menu-icon-wrap mi-chat"></view>
+      <view class="menu-label">联系我们</view>
+      <view class="menu-arrow">›</view>
+    </view>
+    <view class="menu-item menu-item-last" bind:tap="onTapSettings">
+      <view class="menu-icon-wrap mi-settings"></view>
+      <view class="menu-label">设置</view>
+      <view class="menu-arrow">›</view>
+    </view>
+  </view>
+
+</view>

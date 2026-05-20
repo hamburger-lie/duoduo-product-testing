@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "调研对话",
+  "usingComponents": {
+    "avatar": "/components/avatar/avatar",
+    "progress-bar": "/components/progress-bar/progress-bar",
+    "bubble-think": "/components/bubble-think/bubble-think",
+    "bubble-speak": "/components/bubble-speak/bubble-speak"
+  }
+}

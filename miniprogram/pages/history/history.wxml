@@ -1,0 +1,96 @@
+<view class="page">
+  <view class="top-bar">
+    <view class="logo-mark">
+      <view class="logo-icon"></view>
+      <text class="logo-text">历史档案</text>
+    </view>
+    <view class="icon-btn"></view>
+  </view>
+
+  <view class="content-pad">
+    <view class="search-bar">
+      <view class="search-icon"></view>
+      <input
+        class="search-input"
+        placeholder="搜索调研项目…"
+        value="{{keyword}}"
+        bindinput="onSearch"
+      />
+    </view>
+
+    <view class="filter-tabs">
+      <view
+        class="filter-tab {{filter === 'all' ? 'active' : ''}}"
+        data-f="all"
+        bind:tap="onSetFilter"
+      >全部 ({{countAll}})</view>
+      <view
+        class="filter-tab {{filter === 'done' ? 'active' : ''}}"
+        data-f="done"
+        bind:tap="onSetFilter"
+      >已完成 ({{countDone}})</view>
+      <view
+        class="filter-tab {{filter === 'active' ? 'active' : ''}}"
+        data-f="active"
+        bind:tap="onSetFilter"
+      >进行中 ({{countActive}})</view>
+    </view>
+
+    <view wx:if="{{loading}}" class="empty">加载中…</view>
+
+    <block wx:for="{{filtered}}" wx:key="evaluation_id">
+      <view class="hc" data-id="{{item.evaluation_id}}" bind:tap="onTapCard">
+        <view class="hc-top">
+          <image wx:if="{{item.product_image}}" class="hc-thumb hc-thumb-img" src="{{item.product_image}}" mode="aspectFill"/>
+          <view wx:else class="hc-thumb hc-thumb-initial">
+            <text class="hc-initial-text">{{item.product_initial}}</text>
+          </view>
+          <view class="hc-mid">
+            <view class="hc-title ellipsis-2">{{item.product_name}}</view>
+            <view class="hc-brand" wx:if="{{item.product_brand}}">{{item.product_brand}}</view>
+            <view class="hc-meta">{{item.dateStr}} · {{item.persona_count}}位测品官</view>
+          </view>
+          <view class="hc-badge {{item.status === 'done' ? 'badge-done' : item.is_active ? 'badge-active' : 'badge-fail'}}">{{item.status_label}}</view>
+        </view>
+
+        <!-- progress bar for active evals -->
+        <view wx:if="{{item.is_active}}" class="hc-progress-wrap">
+          <view class="hc-progress-bar" style="width:{{item.progress}}%"></view>
+        </view>
+
+        <!-- report summary snippet -->
+        <view wx:if="{{item.report_summary}}" class="hc-summary">{{item.report_summary}}…</view>
+
+        <!-- meta row -->
+        <view class="hc-bottom">
+          <view class="hc-info-row">
+            <view wx:if="{{item.question_count > 0}}" class="hc-info-chip">{{item.question_count}}题问卷</view>
+            <view wx:if="{{item.status === 'done'}}" class="hc-info-chip chip-report">查看调研报告</view>
+          </view>
+          <view class="hc-actions">
+            <view
+              wx:if="{{item.is_active}}"
+              class="hc-cancel-btn"
+              data-id="{{item.evaluation_id}}"
+              catch:tap="onCancelEval"
+            >取消</view>
+            <view
+              class="hc-delete-btn"
+              data-id="{{item.evaluation_id}}"
+              catch:tap="onDeleteEval"
+            ></view>
+          </view>
+        </view>
+
+        <!-- 聊天记录入口 -->
+        <view wx:if="{{item.convs.length > 0}}" class="hc-conv-entry" data-eval-id="{{item.evaluation_id}}" catch:tap="onTapConvEntry">
+          <view class="hc-conv-entry-icon"></view>
+          <text class="hc-conv-entry-text">聊天记录</text>
+          <text class="hc-conv-entry-arrow">›</text>
+        </view>
+      </view>
+    </block>
+
+    <view wx:if="{{filtered.length === 0 && !loading}}" class="empty">没有匹配的调研</view>
+  </view>
+</view>

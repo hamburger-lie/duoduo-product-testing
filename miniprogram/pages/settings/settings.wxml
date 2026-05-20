@@ -1,0 +1,22 @@
+<view class="page">
+
+  <view class="section">
+    <view class="menu-item">
+      <text class="menu-label">当前版本</text>
+      <text class="menu-value">{{version}}</text>
+    </view>
+    <view class="menu-item" bind:tap="onTapPrivacy">
+      <text class="menu-label">隐私政策</text>
+      <view class="menu-arrow">›</view>
+    </view>
+    <view class="menu-item menu-last" bind:tap="onTapAgreement">
+      <text class="menu-label">用户协议</text>
+      <view class="menu-arrow">›</view>
+    </view>
+  </view>
+
+  <view class="logout-wrap">
+    <view class="logout-btn" bind:tap="onTapLogout">退出登录</view>
+  </view>
+
+</view>

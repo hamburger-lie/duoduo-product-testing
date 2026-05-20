@@ -22,7 +22,7 @@ from app.core.exceptions import (
     unhandled_exception_handler,
 )
 from app.core.logging import configure_logging, get_logger
-from app.core.metrics import record_http_request
+from app.core.metrics import record_http_request, update_db_pool_metrics
 from app.routers.auth import router as auth_router
 from app.routers.conversation import router as conversation_router
 from app.routers.credit import router as credit_router
@@ -66,6 +66,19 @@ def create_app() -> FastAPI:
         expose_headers=["X-Request-Id"],
     )
 
+    def _update_pool_metrics() -> None:
+        """Sample DB connection pool gauges (best-effort, no-op on failure)."""
+        try:
+            from app.db.session import _engine
+
+            if _engine is not None:
+                pool = _engine.pool
+                pool_size = getattr(pool, "size", lambda: 0)()
+                pool_checked_out = getattr(pool, "checkedout", lambda: 0)()
+                update_db_pool_metrics(pool_size, pool_checked_out)
+        except Exception:
+            pass
+
     @app.middleware("http")
     async def request_context_middleware(
         request: Request,
@@ -108,6 +121,8 @@ def create_app() -> FastAPI:
                 status_code=response.status_code,
                 duration=time.monotonic() - started_at,
             )
+            # Sample DB pool metrics on each non-health request
+            _update_pool_metrics()
         return response
 
     @app.middleware("http")

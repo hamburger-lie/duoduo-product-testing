@@ -45,7 +45,17 @@ def check_stale_evaluations() -> dict[str, object]:
         async with AsyncSessionFactory() as session:
             return await _recover_stale_evaluations(session)
 
-    return _run_async(_run())
+    result = _run_async(_run())
+
+    from app.core.metrics import record_celery_task
+
+    raw_recovered = result.get("recovered", 0)
+    recovered = int(raw_recovered) if isinstance(raw_recovered, (int, float, str)) else 0
+    record_celery_task(
+        "watchdog.check_stale_evaluations",
+        "recovered" if recovered > 0 else "ok",
+    )
+    return result
 
 
 async def _recover_stale_evaluations(

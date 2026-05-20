@@ -50,7 +50,13 @@ def run_evaluation_task(self: object, evaluation_id: int, user_id: int) -> dict[
             "task_id": str(self.request.id),
         },
     )
-    return _run_async(_run_evaluation_async(evaluation_id, user_id, str(self.request.id)))
+    result = _run_async(_run_evaluation_async(evaluation_id, user_id, str(self.request.id)))
+
+    from app.core.metrics import record_celery_task
+
+    task_status = str(result.get("status", "unknown"))
+    record_celery_task("evaluation.run", task_status)
+    return result
 
 
 async def _run_evaluation_async(

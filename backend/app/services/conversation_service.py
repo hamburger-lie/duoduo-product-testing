@@ -441,6 +441,10 @@ class ConversationService:
                 )
                 yield sse_done()
 
+                from app.core.metrics import record_sse_stream
+
+                record_sse_stream("complete")
+
             except AIError as exc:
                 log_extra["error_code"] = exc.code
                 logger.exception("conversation_ai_stream_failed", extra=log_extra)
@@ -448,12 +452,20 @@ class ConversationService:
                 yield sse_done()
                 await self.session.commit()
 
+                from app.core.metrics import record_sse_stream
+
+                record_sse_stream("error")
+
             except Exception:
                 log_extra["error_code"] = "AI_ERROR"
                 logger.exception("conversation_ai_stream_failed", extra=log_extra)
                 yield sse_error("AI_ERROR", "Internal AI service error")
                 yield sse_done()
                 await self.session.commit()
+
+                from app.core.metrics import record_sse_stream
+
+                record_sse_stream("interrupted")
 
         return _gen()
 
@@ -499,6 +511,10 @@ class ConversationService:
                 cost_yuan=cost_yuan,
             ):
                 yield event
+
+            from app.core.metrics import record_sse_stream
+
+            record_sse_stream("complete")
 
         return _mock_gen()
 

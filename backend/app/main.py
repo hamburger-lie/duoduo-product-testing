@@ -66,6 +66,9 @@ def _init_sentry() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     _init_sentry()
+    from app.core.tracing import init_tracing
+
+    init_tracing()
     logger.info("application_startup")
     yield
     logger.info("application_shutdown")
@@ -170,6 +173,12 @@ def create_app() -> FastAPI:
                 "request_id": getattr(request.state, "request_id", ""),
             },
         )
+        # Attach trace_id header if tracing is enabled
+        from app.core.tracing import get_current_trace_id
+
+        trace_id = get_current_trace_id()
+        if trace_id:
+            response.headers["X-Trace-Id"] = trace_id
         return response
 
     @app.exception_handler(AIContentBlocked)

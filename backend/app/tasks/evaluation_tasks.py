@@ -419,6 +419,15 @@ async def _run_evaluation_locked(
                         total=total,
                     )
                 await session.commit()
+
+            # Push to dead letter queue for monitoring
+            from app.tasks.dlq import push_to_dlq
+
+            await push_to_dlq(
+                evaluation_id=evaluation_id,
+                error=str(exc)[:500],
+                task_id=task_id,
+            )
             return {"status": "failed", "message": str(exc)[:200]}
 
 

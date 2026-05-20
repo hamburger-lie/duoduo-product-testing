@@ -52,6 +52,21 @@ def test_scrub_passes_through_normal_text() -> None:
     assert _scrub(text) == text
 
 
+def test_scrub_redacts_wechat_code_in_json() -> None:
+    """WeChat login code in JSON body should be redacted."""
+    text = '{"code": "0a1B2cDeFgHiJkLmNoPqRsTuVwXyZ"}'
+    result = _scrub(text)
+    assert "0a1B2cDeFg" not in result
+    assert '"code": "***"' in result
+
+
+def test_scrub_preserves_short_code_in_json() -> None:
+    """Short code values (< 4 chars) should not be redacted."""
+    text = '{"code": "ab"}'
+    result = _scrub(text)
+    assert '"code": "ab"' in result
+
+
 def test_scrub_passes_through_short_codes() -> None:
     """Short alphanumeric strings (< 32 chars) are not redacted."""
     text = "code=abc123"

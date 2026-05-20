@@ -58,6 +58,9 @@ jobs:
           docker compose ps
           exit 1
 
+      - name: Security audit
+        run: uv run pip-audit --desc --skip-editable
+
       - name: Ruff
         run: uv run ruff check .
 

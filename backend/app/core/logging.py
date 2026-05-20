@@ -23,6 +23,8 @@ _SENSITIVE_PATTERNS: list[tuple[re.Pattern[str], Replacement]] = [
     # Signed upload URLs (TOS / S3)
     (re.compile(r"https?://[^\s]+X-Amz-Signature=[^\s&]+[^\s]*"), "***SIGNED_URL***"),
     (re.compile(r"https?://[^\s]+Signature=[^\s&]+[^\s]*"), "***SIGNED_URL***"),
+    # WeChat login code in JSON (e.g. "code": "0a1B2c...")
+    (re.compile(r'("code"\s*:\s*")[^"]{4,}(")', re.IGNORECASE), r"\1***\2"),
 ]
 
 

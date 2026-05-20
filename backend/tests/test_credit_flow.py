@@ -398,3 +398,43 @@ async def test_successful_evaluation_does_not_refund(
             )
         ).all()
         assert transactions == []
+
+
+async def test_canceled_evaluation_refunds_uncompleted_personas(
+    credit_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Canceled evaluation should refund credits for uncompleted personas."""
+
+    user_id, evaluation_id = await _create_charged_evaluation(
+        credit_session_factory,
+        balance=970,
+        credit_cost=30,
+        persona_count=3,
+    )
+
+    # Simulate: 1 completed, 2 remaining (canceled before finishing)
+    async with credit_session_factory() as session:
+        evaluation = await session.get(Evaluation, evaluation_id)
+        assert evaluation is not None
+        await _refund_failed_credits(
+            session=session,
+            evaluation=evaluation,
+            user_id=user_id,
+            failed_count=2,  # 2 uncompleted personas
+            total=3,
+        )
+
+    async with credit_session_factory() as session:
+        user = await session.get(User, user_id)
+        assert user is not None
+        # Refunded 2 * 10 = 20, so 970 + 20 = 990
+        assert user.credit_balance == 990
+        transactions = (
+            await session.scalars(
+                select(CreditTransaction).where(CreditTransaction.user_id == user_id)
+            )
+        ).all()
+        assert len(transactions) == 1
+        assert transactions[0].amount == 20
+        assert transactions[0].reason == "refund"
+        assert "失败" in (transactions[0].note or "")

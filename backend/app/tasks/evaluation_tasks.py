@@ -198,6 +198,16 @@ async def _run_evaluation_locked(
                             "duration_ms": int((perf_counter() - task_started_at) * 1000),
                         },
                     )
+                    # Refund credits for uncompleted personas
+                    remaining = total - completed
+                    if remaining > 0 and evaluation.credit_cost > 0:
+                        await _refund_failed_credits(
+                            session=session,
+                            evaluation=evaluation,
+                            user_id=user_id,
+                            failed_count=remaining,
+                            total=total,
+                        )
                     return {"status": "canceled", "completed": completed, "total": total}
                 if refreshed is not None:
                     evaluation = refreshed
@@ -327,6 +337,16 @@ async def _run_evaluation_locked(
 
             refreshed = await evaluations.get_by_id(evaluation_id)
             if refreshed and refreshed.status == "canceled":
+                # Refund credits for uncompleted personas
+                remaining = total - completed
+                if remaining > 0 and refreshed.credit_cost > 0:
+                    await _refund_failed_credits(
+                        session=session,
+                        evaluation=refreshed,
+                        user_id=user_id,
+                        failed_count=remaining,
+                        total=total,
+                    )
                 return {"status": "canceled", "completed": completed, "total": total}
             if refreshed is not None:
                 evaluation = refreshed

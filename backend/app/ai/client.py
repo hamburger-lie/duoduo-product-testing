@@ -216,12 +216,17 @@ class ArkOpenAIClient:
         user: str,
         endpoint_id: str,
         images: list[str] | None = None,
+        json_mode: bool = False,
     ) -> str:
         """Stream the response and collect all content into a single string.
 
         Using streaming avoids client-side read timeouts: each SSE chunk
         resets the httpx read timer even if the model takes minutes to
         finish generating.
+
+        When *json_mode* is True, ``response_format: {"type": "json_object"}``
+        is added to the request payload so the model is constrained to output
+        valid JSON only (supported by DeepSeek / OpenAI-compatible APIs).
         """
 
         url = self._chat_url()
@@ -232,6 +237,8 @@ class ArkOpenAIClient:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
 
         collected: list[str] = []
         async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
@@ -323,6 +330,7 @@ class ArkOpenAIClient:
         user: str,
         endpoint_id: str,
         images: list[str] | None = None,
+        json_mode: bool = False,
     ) -> str:
         """Completion implementation without circuit breaker wrapping."""
 
@@ -332,7 +340,7 @@ class ArkOpenAIClient:
             try:
                 return await self._stream_collect(
                     system=system, user=user, endpoint_id=endpoint_id,
-                    images=images,
+                    images=images, json_mode=json_mode,
                 )
             except AIRateLimited as exc:
                 last_exc = exc
@@ -448,6 +456,7 @@ class ArkOpenAIClient:
                 user=user,
                 endpoint_id=endpoint_id,
                 images=images,
+                json_mode=True,
             )
             try:
                 parse_json_response(text)

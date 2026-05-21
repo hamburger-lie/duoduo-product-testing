@@ -385,6 +385,7 @@ async def _run_evaluation_locked(
                     "duration_ms": int((perf_counter() - task_started_at) * 1000),
                 },
             )
+            await _create_followup_webhook_event(evaluation_id=evaluation_id)
             return {
                 "status": evaluation.status,
                 "completed": completed,
@@ -419,6 +420,7 @@ async def _run_evaluation_locked(
                         total=total,
                     )
                 await session.commit()
+                await _create_followup_webhook_event(evaluation_id=evaluation_id)
 
             # Push to dead letter queue for monitoring
             from app.tasks.dlq import push_to_dlq
@@ -507,3 +509,36 @@ def _finalize_evaluation(
     evaluation.error_message = (
         "All persona answers failed" if evaluation.status == "failed" else None
     )
+
+
+async def _create_followup_webhook_event(*, evaluation_id: int) -> None:
+    """Persist and enqueue an outbound follow-up webhook event if enabled."""
+
+    from app.db.session import AsyncSessionFactory
+    from app.services.followup_webhook_service import FollowupWebhookService
+    from app.tasks.followup_webhook_tasks import deliver_followup_webhook_event_task
+
+    async with AsyncSessionFactory() as session:
+        event = await FollowupWebhookService(session).create_event_for_evaluation(
+            evaluation_id=evaluation_id,
+        )
+        if event is None:
+            return
+        await session.commit()
+        event_id = event.id
+
+    try:
+        deliver_followup_webhook_event_task.apply_async(
+            args=[event_id],
+            queue="webhooks",
+        )
+    except Exception as exc:
+        logger.warning(
+            "followup_webhook_enqueue_failed",
+            extra={
+                "event": "followup_webhook_enqueue_failed",
+                "evaluation_id": evaluation_id,
+                "webhook_event_id": event_id,
+                "error_message": str(exc)[:200],
+            },
+        )

@@ -241,6 +241,7 @@ class ArkOpenAIClient:
             payload["response_format"] = {"type": "json_object"}
 
         collected: list[str] = []
+        reasoning_collected: list[str] = []
         async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
             async with client.stream(
                 "POST", url, json=payload, headers=headers,
@@ -274,10 +275,33 @@ class ArkOpenAIClient:
                         content = delta.get("content", "")
                         if content:
                             collected.append(str(content))
+                        # DeepSeek-v4-flash sometimes emits the full
+                        # response inside ``reasoning_content`` instead
+                        # of ``content``.  Collect it as a fallback.
+                        reasoning = delta.get("reasoning_content", "")
+                        if reasoning:
+                            reasoning_collected.append(str(reasoning))
                     except (json.JSONDecodeError, KeyError):
                         continue
 
-        return "".join(collected)
+        result = "".join(collected)
+        if not result.strip() and reasoning_collected:
+            # Model placed entire output in reasoning_content —
+            # fall back so the caller still gets usable text.
+            logger.warning(
+                "ark_content_in_reasoning endpoint=%s reasoning_len=%d",
+                endpoint_id,
+                sum(len(c) for c in reasoning_collected),
+            )
+            result = "".join(reasoning_collected)
+        if not result.strip():
+            logger.warning(
+                "ark_empty_response endpoint=%s", endpoint_id,
+            )
+            raise AIServiceUnavailable(
+                "Ark API returned empty response"
+            )
+        return result
 
     # ------------------------------------------------------------------
     # Public interface
@@ -342,14 +366,15 @@ class ArkOpenAIClient:
                     system=system, user=user, endpoint_id=endpoint_id,
                     images=images, json_mode=json_mode,
                 )
-            except AIRateLimited as exc:
+            except (AIRateLimited, AIServiceUnavailable) as exc:
                 last_exc = exc
                 if attempt < max_attempts - 1:
                     wait = 5.0 * (attempt + 1)
                     logger.warning(
-                        "ark_rate_limited_retry attempt=%d wait=%.1fs",
+                        "ark_transient_retry attempt=%d wait=%.1fs error=%s",
                         attempt + 1,
                         wait,
+                        type(exc).__name__,
                     )
                     await asyncio.sleep(wait)
                     continue
@@ -555,6 +580,12 @@ class ArkOpenAIClient:
                                 if not isinstance(delta, dict):
                                     continue
                                 content = delta.get("content", "")
+                                if not content:
+                                    # Fallback: DeepSeek may put
+                                    # output in reasoning_content.
+                                    content = delta.get(
+                                        "reasoning_content", "",
+                                    )
                                 if content:
                                     yield str(content)
                             except (json.JSONDecodeError, KeyError):

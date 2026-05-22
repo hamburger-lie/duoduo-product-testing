@@ -2,8 +2,7 @@ import { api } from '../../services/api';
 import { BASE_URL, getToken } from '../../services/http';
 import type { BackendReport, BusinessReport } from '../../types/api';
 
-const WHITEPAPER_PORT = 5678;
-const WHITEPAPER_VIEWER_PATH = '/static/index.html';
+const WHITEPAPER_VIEWER_PATH = '/whitepaper-static/index.html';
 const REPORT_CACHE_PREFIX = 'business_report_cache_';
 
 interface CachedReportSnapshot {
@@ -12,10 +11,7 @@ interface CachedReportSnapshot {
 }
 
 function whitepaperBase(): string {
-  const m = BASE_URL.match(/^(https?:\/\/)([^/:]+)(?::\d+)?/);
-  const protocol = m?.[1] || 'http://';
-  const host = m?.[2] || '127.0.0.1';
-  return `${protocol}${host}:${WHITEPAPER_PORT}`;
+  return BASE_URL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
 }
 
 function verdictMeta(verdict: string): { text: string; cls: string } {
@@ -50,6 +46,43 @@ function firstBaseQuote(items: BackendReport['top_pros'] | BackendReport['top_co
 function nonEmpty(items: Array<string | undefined>, fallback: string): string[] {
   const filtered = items.map(x => String(x || '').trim()).filter(Boolean);
   return filtered.length ? filtered : [fallback];
+}
+
+function normalizeText(text: string): string {
+  return String(text || '').replace(/[，。、“”\s]/g, '').trim();
+}
+
+function uniqueText(items: string[], fallback: string): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of items) {
+    const text = String(item || '').trim();
+    const key = normalizeText(text);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(text);
+  }
+  return result.length ? result : [fallback];
+}
+
+function uniqueCards<T extends { title: string; note: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    const key = normalizeText(`${item.title}${item.note}`);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function actionTitleFromRecommendation(text: string): string {
+  const value = String(text || '').trim();
+  if (value.includes('控油')) return '验证控油持久度';
+  if (value.includes('价格') || value.includes('定价')) return '复测价格接受度';
+  if (value.includes('包装')) return '优化包装表达';
+  if (value.includes('渠道')) return '验证渠道素材';
+  if (value.includes('卖点')) return '复测核心卖点';
+  return '明确下一轮验证';
 }
 
 function shortProductName(name: string): string {
@@ -100,6 +133,9 @@ Page({
       audiences: [] as string[],
       channels: [] as string[],
       quotes: [] as string[],
+      evidenceChains: [] as Array<{ conclusion: string; roles: string; action: string; quote: string }>,
+      focusCards: [] as Array<{ label: string; title: string; text: string }>,
+      evidenceExpanded: false,
       nextSteps: [] as string[],
       disclaimer: '',
     },
@@ -214,6 +250,7 @@ Page({
       audiences: nonEmpty(report.persona_segments?.most_positive || [], '高潜购买人群待进一步验证').slice(0, 3),
       channels: nonEmpty(report.persona_segments?.highest_value || [], '建议结合核心渠道继续验证').slice(0, 3),
       quotes: nonEmpty(quoteList, '暂无可展示的用户原声，建议回到调研对话查看角色回答。').slice(0, 3),
+      evidenceChains: [],
       nextSteps: [
         '优先复核购买意向较低的问题，定位价格、功效或信任阻碍。',
         '围绕高频机会点制作 2-3 个卖点表达版本进行复测。',
@@ -239,6 +276,24 @@ Page({
       firstQuote(report.top_pros || []),
       firstQuote(report.top_cons || []),
     ].filter(Boolean);
+    const evidenceChains = (report.evidence_chains || []).slice(0, 6).map(chain => ({
+      conclusion: chain.conclusion,
+      roles: (chain.source_roles || []).join('、'),
+      action: chain.business_action,
+      quote: chain.source_answers?.[0]?.quote || '',
+    }));
+    const dedupedOpportunities = uniqueCards(opportunities);
+    const dedupedRisks = uniqueCards(risks);
+    const nextSteps = uniqueText(
+      report.next_test_recommendations || [],
+      '继续验证价格、卖点和渠道表达。',
+    ).slice(0, 4);
+    const firstAction = nextSteps[0] || '继续验证价格、卖点和渠道表达。';
+    const focusCards = [
+      { label: '首要机会', title: dedupedOpportunities[0]?.title || '机会点待识别', text: dedupedOpportunities[0]?.note || '优先从高意向角色反馈中找可放大的卖点。' },
+      { label: '主要风险', title: dedupedRisks[0]?.title || '风险点待识别', text: dedupedRisks[0]?.note || '优先从低意向角色反馈中找转化阻力。' },
+      { label: '优先动作', title: actionTitleFromRecommendation(firstAction), text: firstAction },
+    ];
     return {
       productName: shortProductName(productName) || '本次测品',
       generatedAt: String(report.generated_at || '').slice(0, 10),
@@ -255,12 +310,15 @@ Page({
         ],
         '本轮调研已完成，建议结合机会点、风险点和用户原声判断下一步动作。',
       ).slice(0, 3),
-      opportunities,
-      risks,
+      opportunities: dedupedOpportunities,
+      risks: dedupedRisks,
       audiences: nonEmpty(report.target_audience?.most_likely_to_buy || [], '高潜购买人群待进一步验证').slice(0, 3),
       channels: nonEmpty(report.target_audience?.channel_recommendation || [], '建议结合核心渠道继续验证').slice(0, 3),
       quotes: nonEmpty(quoteList, '暂无可展示的用户原声，建议回到调研对话查看角色回答。').slice(0, 3),
-      nextSteps: nonEmpty(report.next_test_recommendations || [], '继续验证价格、卖点和渠道表达。').slice(0, 4),
+      evidenceChains,
+      focusCards,
+      evidenceExpanded: false,
+      nextSteps,
       disclaimer: report.ai_disclaimer || '报告由 AI 聚合调研回答生成，仅供决策参考。',
     };
   },
@@ -269,13 +327,17 @@ Page({
     this.loadReport();
   },
 
+  onToggleEvidence() {
+    this.setData({ 'vm.evidenceExpanded': !this.data.vm.evidenceExpanded });
+  },
+
   onTapFollowUp() {
     wx.navigateTo({
       url: `/pages/chat/chat?evaluation_id=${this.data.evaluationId}&auto=0`,
     });
   },
 
-  onTapExport() {
+  async onTapExport() {
     const evalId = this.data.evaluationId;
     if (!evalId) {
       wx.showToast({ title: '缺少调研 ID', icon: 'none' });
@@ -286,6 +348,19 @@ Page({
       + `?eid=${encodeURIComponent(evalId)}`
       + `&token=${encodeURIComponent(token)}`
       + `&api=${encodeURIComponent(BASE_URL)}`;
+    const ok = await new Promise<boolean>(resolve => {
+      wx.request({
+        url: `${whitepaperBase()}${WHITEPAPER_VIEWER_PATH}`,
+        method: 'GET',
+        timeout: 5000,
+        success: res => resolve(res.statusCode >= 200 && res.statusCode < 400),
+        fail: () => resolve(false),
+      });
+    });
+    if (!ok) {
+      wx.showToast({ title: '白皮书页面服务未启动', icon: 'none' });
+      return;
+    }
     wx.navigateTo({
       url: `/pages/webview/webview?url=${encodeURIComponent(reportUrl)}`,
     });

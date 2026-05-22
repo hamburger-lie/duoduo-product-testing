@@ -37,8 +37,12 @@
 
     <view class="rp-section">
       <view class="rp-section-title">核心结论</view>
-      <view class="rp-bullets">
-        <view class="rp-bullet" wx:for="{{vm.summary}}" wx:key="index">{{item}}</view>
+      <view class="rp-focus-grid">
+        <view class="rp-focus" wx:for="{{vm.focusCards}}" wx:key="label">
+          <view class="rp-focus-label">{{item.label}}</view>
+          <view class="rp-focus-title">{{item.title}}</view>
+          <view class="rp-focus-text">{{item.text}}</view>
+        </view>
       </view>
     </view>
 
@@ -70,6 +74,19 @@
     <view class="rp-section">
       <view class="rp-section-title">用户原声</view>
       <view class="rp-quote" wx:for="{{vm.quotes}}" wx:key="index">{{item}}</view>
+    </view>
+
+    <view class="rp-section" wx:if="{{vm.evidenceChains.length}}">
+      <view class="rp-section-title">证据链</view>
+      <view class="rp-evidence" wx:for="{{vm.evidenceExpanded ? vm.evidenceChains : [vm.evidenceChains[0]]}}" wx:key="conclusion">
+        <view class="rp-evidence-title">{{item.conclusion}}</view>
+        <view class="rp-evidence-meta" wx:if="{{item.roles}}">来源角色：{{item.roles}}</view>
+        <view class="rp-evidence-quote" wx:if="{{item.quote}}">“{{item.quote}}”</view>
+        <view class="rp-evidence-action">{{item.action}}</view>
+      </view>
+      <button class="rp-evidence-toggle" bindtap="onToggleEvidence">
+        {{vm.evidenceExpanded ? '收起证据链' : '展开完整证据链'}}
+      </button>
     </view>
 
     <view class="rp-section">

@@ -121,16 +121,34 @@ export interface PersonaSummary {
 export interface PersonaDetail extends PersonaSummary {
   ocean: { o: number; c: number; e: number; a: number; n: number };
   profile: {
+    // 基础人物介绍
     bio: string;
+    lifestyle: string;
+    personality_traits: string[];       // 性格特征标签
+
+    // 消费行为
     shopping_habits: string;
+    decision_style: string;
+    price_sensitivity: string;
+    purchase_triggers: string[];        // 促成购买的关键因素
+    trust_signals: string[];            // 哪些信号让TA产生信任
+    objection_patterns: string[];       // 常见的异议 / 顾虑模式
+
+    // 品类与品牌偏好
     skincare_concerns: string[];
     brand_preferences: string[];
-    price_sensitivity: string;
+    evaluation_criteria: string[];      // 评估产品的核心维度
+
+    // 信息与内容行为
     info_channels: string[];
-    decision_style: string;
-    pet_phrases: string[];
+    content_preferences: string[];      // 偏好的内容类型和形式
+    social_media_behavior: string;      // 社媒使用习惯
+
+    // 场景与表达
+    typical_scenario: string;           // 典型使用/购买场景
     pain_points: string[];
-    lifestyle: string;
+    pet_phrases: string[];
+    communication_style: string;        // 表达风格（直白/含蓄/数据驱动…）
   };
   version: number;
   created_at: string;
@@ -318,6 +336,14 @@ export interface BusinessReport {
     angle: string;
     suitable_segment: string;
     risk_note: string;
+  }>;
+  evidence_chains: Array<{
+    evidence_type: 'opportunity' | 'risk' | 'audience' | 'strategy' | string;
+    conclusion: string;
+    support_count: number;
+    source_roles: string[];
+    source_answers: Array<{ persona_name: string; quote: string }>;
+    business_action: string;
   }>;
   next_test_recommendations: string[];
   generated_at: string;

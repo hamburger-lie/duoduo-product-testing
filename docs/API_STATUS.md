@@ -49,7 +49,7 @@
 | partial | Credit（balance / transactions 已实现，recharge 未实现） |
 | p1_planned | PDF export、share |
 | p1_not_implemented | Credit/recharge |
-| partial | local keyword moderation、DB-backed memory adapter、Celery evaluation run（需 EVALUATION_RUN_MODE=celery + worker） |
+| partial | local keyword moderation、DB-backed memory adapter、Celery evaluation run（需 EVALUATION_RUN_MODE=celery + worker）、Follow-up webhook（需配置 FOLLOWUP_WEBHOOK_URL/SECRET + worker） |
 
 ## Health
 
@@ -115,6 +115,12 @@
 | 方法 | 路径 | 状态 | 说明 |
 |---|---|---|---|
 | GET | /api/v1/reports/by-evaluation/{evaluation_id} | done/mock | metrics 真实聚合，summary/top_pros/top_cons 为规则生成，可后续 AI 化 |
+
+## Server-to-server Webhook
+
+| 能力 | 状态 | 说明 |
+|---|---|---|
+| evaluation.done / evaluation.failed 回传 | partial | 配置 `FOLLOWUP_WEBHOOK_URL` 后，Celery 测评终态会写入 `webhook_events` 并异步投递签名 JSON；包含用户 openid/nickname、图片 key、原始答题、token/cost；失败不影响测评结果 |
 
 ## Conversation
 

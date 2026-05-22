@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.config import get_settings
 from app.db.models.answer import Answer
 from app.db.models.credit import CreditTransaction
 from app.db.models.evaluation import Evaluation
@@ -15,6 +16,7 @@ from app.db.models.persona import Persona
 from app.db.models.product import Product
 from app.db.models.survey import Survey
 from app.db.models.user import User
+from app.db.models.webhook_event import WebhookEvent
 from app.tasks.evaluation_tasks import _run_evaluation_async
 
 
@@ -36,6 +38,7 @@ async def task_context(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[TaskCon
         await connection.run_sync(Survey.__table__.create)
         await connection.run_sync(Answer.__table__.create)
         await connection.run_sync(CreditTransaction.__table__.create)
+        await connection.run_sync(WebhookEvent.__table__.create)
 
     monkeypatch.setattr("app.db.session.AsyncSessionFactory", session_factory)
 
@@ -238,3 +241,23 @@ async def test_evaluation_task_does_not_finalize_canceled_evaluation(
         assert evaluation is not None
         assert evaluation.status == "canceled"
         assert evaluation.finished_at is None
+
+
+async def test_evaluation_task_creates_followup_webhook_event_when_done(
+    task_context: TaskContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FOLLOWUP_WEBHOOK_URL", "https://crm.example.test/webhook")
+    monkeypatch.setenv("FOLLOWUP_WEBHOOK_SECRET", "secret-key")
+    get_settings.cache_clear()
+    evaluation_id, user_id, _ = await create_task_fixture(task_context)
+
+    result = await _run_evaluation_async(evaluation_id, user_id, "celery-task-id")
+
+    assert result["status"] == "done"
+    async with task_context.session_factory() as session:
+        events = (await session.scalars(select(WebhookEvent))).all()
+        assert len(events) == 1
+        assert events[0].event_type == "evaluation.done"
+        assert events[0].status == "pending"
+        assert events[0].payload["status"] == "done"

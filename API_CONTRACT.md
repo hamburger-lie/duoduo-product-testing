@@ -110,6 +110,77 @@ data: {"event":"done"}
 ### 0.9 幂等性
 - `POST` 创建类接口支持 `Idempotency-Key` header（uuid），24h 内重复请求返回首次结果
 
+### 0.10 服务端回传 Webhook
+**适用**：后端向已配置的 `FOLLOWUP_WEBHOOK_URL` 推送测评跟进事件。该能力不是客户端 API，不使用 `/api/v1` 路径。
+
+**触发时机**：
+- `evaluation.done`：测评任务完成，至少部分角色答题成功。
+- `evaluation.failed`：测评任务终态失败。
+- `canceled` 暂不回传。
+
+**请求 Header**：
+| Header | 必填 | 说明 |
+|---|---|---|
+| `Content-Type` | 是 | `application/json` |
+| `X-Webhook-Event-Id` | 是 | 幂等键，格式如 `evaluation.done:456` |
+| `X-Webhook-Signature` | 是 | `sha256=<hmac>`，使用 `FOLLOWUP_WEBHOOK_SECRET` 对原始 body 做 HMAC-SHA256 |
+
+**Body 示例**：
+```json
+{
+  "event": "evaluation.done",
+  "event_id": "evaluation.done:456",
+  "occurred_at": "2026-05-21T10:00:00Z",
+  "user_id": "123",
+  "evaluation_id": "456",
+  "product_id": "789",
+  "status": "done",
+  "user": {
+    "id": "123",
+    "openid": "wx_openid_xxx",
+    "nickname": "用户昵称"
+  },
+  "product": {
+    "id": "789",
+    "image_keys": ["tos/products/demo-image.png"]
+  },
+  "summary": {
+    "total_personas": 5,
+    "completed_personas": 5,
+    "failed_personas": 0,
+    "average_intent": 4.2,
+    "overall_sentiment": "positive"
+  },
+  "answers": [
+    {
+      "persona_id": "101",
+      "status": "done",
+      "answers": [
+        { "qid": "q1", "type": "scale_1_5", "answer": 5 }
+      ],
+      "overall_intent": 5,
+      "sentiment": "positive",
+      "summary_comment": "喜欢温和成分",
+      "thinking_process": "判断过程",
+      "token_input": 100,
+      "token_output": 20,
+      "cost_yuan": "0.1200",
+      "error_message": null
+    }
+  ]
+}
+```
+
+**投递规则**：
+- 接收方返回任意 `2xx` 视为成功。
+- 非 `2xx` 或网络错误会记录失败、增加 `attempt_count`，并设置指数退避的 `next_attempt_at`。
+- 回传失败不影响测评状态、报告生成或用户可见结果。
+- 接收方必须按 `X-Webhook-Event-Id` 做幂等处理。
+
+**隐私边界**：
+- 当前回传包含用户 `openid`/`nickname`、产品图片存储 key、角色原始答题内容、token/cost 统计。
+- 仍禁止回传对话全文、prompt、内部 task id、数据库错误栈、API key、JWT、微信 code 或签名 URL。
+
 ---
 
 ## 1. Auth 鉴权

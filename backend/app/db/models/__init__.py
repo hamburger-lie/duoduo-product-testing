@@ -11,6 +11,7 @@ from app.db.models.prompt_version import PromptVersion
 from app.db.models.report import Report
 from app.db.models.survey import Survey
 from app.db.models.user import User
+from app.db.models.webhook_event import WebhookEvent
 
 
 def load_all_models() -> tuple[type[object], ...]:
@@ -29,4 +30,5 @@ def load_all_models() -> tuple[type[object], ...]:
         CreditTransaction,
         PromptVersion,
         PersonaMemory,
+        WebhookEvent,
     )

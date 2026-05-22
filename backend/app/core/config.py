@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     qdrant_url: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     evaluation_run_mode: str = Field(default="sync", alias="EVALUATION_RUN_MODE")
+    followup_webhook_url: str = Field(default="", alias="FOLLOWUP_WEBHOOK_URL")
+    followup_webhook_secret: str = Field(default="", alias="FOLLOWUP_WEBHOOK_SECRET")
+    followup_webhook_timeout_seconds: float = Field(
+        default=5.0,
+        alias="FOLLOWUP_WEBHOOK_TIMEOUT_SECONDS",
+    )
 
     # WeChat mini-program settings (leave empty to use mock login)
     wechat_app_id: str = Field(default="", alias="WECHAT_APP_ID")
@@ -145,6 +151,12 @@ class Settings(BaseSettings):
             raise ValueError(
                 "EVALUATION_RUN_MODE must not be 'sync' in production. "
                 "Set to 'celery' for async task execution."
+            )
+
+        if self.followup_webhook_url and len(self.followup_webhook_secret) < 32:
+            raise ValueError(
+                "FOLLOWUP_WEBHOOK_SECRET must be at least 32 characters when "
+                "FOLLOWUP_WEBHOOK_URL is set in production"
             )
 
         # --- WeChat credentials ---

@@ -86,7 +86,7 @@
             wx:key="label"
             style="background:{{cell.bg}}"
           >
-            <text class="rp-hm-cell-text">{{cell.score !== null ? cell.score : '—'}}</text>
+            <text class="rp-hm-cell-text">{{cell.score}}</text>
           </view>
         </view>
 

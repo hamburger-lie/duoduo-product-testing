@@ -444,7 +444,7 @@ function buildHeatmapRows(
     overall_intent?: number;
     answers?: Array<{ qid: string; answer: string | number | string[] }> | Record<string, any>;
   }> = [],
-): Array<{ segment: string; cells: Array<{ score: number | null; bg: string; label: string }> }> {
+): Array<{ segment: string; cells: Array<{ score: number; bg: string; label: string }> }> {
   const topDims = dims.slice(0, 5);
   const sortedSegs = [...segments].sort((a, b) => b.avg_intent - a.avg_intent).slice(0, 5);
   const sortedAnswers = [...answers].sort((a, b) => (b.overall_intent ?? 0) - (a.overall_intent ?? 0));
@@ -465,7 +465,9 @@ function buildHeatmapRows(
   }
 
   return sortedSegs.map((seg, i) => {
-    const segLabel = pickSegmentLabel(seg.segment, i, tagMap, sortedAnswers);
+    const fullLabel = pickSegmentLabel(seg.segment, i, tagMap, sortedAnswers);
+    // 只取第一个标签（/ 前面的部分）
+    const segLabel = fullLabel.split('/')[0].trim();
     const segTag = tagMap[seg.segment] || sortedAnswers[i]?.persona_tag || '';
     const dimScores = tagScoreMap[segTag] || {};
 
@@ -473,10 +475,11 @@ function buildHeatmapRows(
       segment: segLabel,
       cells: topDims.map(d => {
         const realVals = dimScores[d.dim];
-        const score: number | null =
+        // 优先用真实逐维度均值，无数据则用群体整体意向均值兜底
+        const score: number =
           realVals && realVals.length > 0
             ? parseFloat((realVals.reduce((s, v) => s + v, 0) / realVals.length).toFixed(1))
-            : null;
+            : parseFloat(seg.avg_intent.toFixed(1));
         return { score, bg: hmCellBg(score), label: dimLabel(d.dim) };
       }),
     };
@@ -680,7 +683,7 @@ function defaultVM() {
     stackedBar: [] as Array<{ key: string; color: string; width: number; count: number }>,
     segmentRows: [] as Array<{ label: string; count: number; value: string; width: number }>,
     heatmapDimHeaders: [] as string[],
-    heatmapRows: [] as Array<{ segment: string; cells: Array<{ score: number | null; bg: string; label: string }> }>,
+    heatmapRows: [] as Array<{ segment: string; cells: Array<{ score: number; bg: string; label: string }> }>,
     dimensionBars: [] as Array<{ label: string; value: string; width: number }>,
     prosRanked: [] as Array<{ title: string; count: number; pct: number; width: number }>,
     consRanked: [] as Array<{ title: string; count: number; pct: number; width: number }>,

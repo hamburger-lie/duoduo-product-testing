@@ -431,11 +431,17 @@ page { background: #F5F1FB; }
   display: flex;
   flex-direction: column;
 }
-.rp-hm-header-row,
+.rp-hm-header-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 52rpx;
+}
 .rp-hm-row {
   display: flex;
   flex-direction: row;
   align-items: stretch;
+  min-height: 60rpx;
 }
 .rp-hm-row-label {
   width: 160rpx;
@@ -443,13 +449,16 @@ page { background: #F5F1FB; }
   font-size: 20rpx;
   color: #4A3F7A;
   font-weight: 600;
-  padding: 8rpx 10rpx 8rpx 0;
+  padding-right: 10rpx;
   display: flex;
   align-items: center;
   line-height: 1.3;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .rp-hm-row-label--header {
-  min-height: 52rpx;
+  /* spacer, no content */
 }
 .rp-hm-col-header {
   flex: 1;
@@ -460,12 +469,12 @@ page { background: #F5F1FB; }
   padding: 6rpx 2rpx;
   line-height: 1.3;
   word-break: break-all;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 .rp-hm-cell {
   flex: 1;
-  margin: 3rpx;
-  border-radius: 8rpx;
-  min-height: 56rpx;
   display: flex;
   align-items: center;
   justify-content: center;

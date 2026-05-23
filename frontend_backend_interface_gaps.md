@@ -44,13 +44,10 @@
 
 - 前端入口：`api.getDeepAnalysis(evalId)`，在 `report.ts` 的 `onLoad` 中并行预取
 - 前端接口：`GET /api/v1/evaluations/{evaluation_id}/deep-analysis`
-- 当前状态：**前端已完整实现**（类型、端点、API 方法、UI、样式均已上线），**后端尚未实现该路由**。前端有完整降级：请求失败时面板展开后显示"深度分析生成失败，请稍后重试"，不影响主报告加载。
-- 后端需实现内容：
-  - 路由 `GET /evaluations/{evaluation_id}/deep-analysis`
-  - 基于该评测的 `top_pros`、`top_cons`、`persona_segments`、`evidence_chains`、`marketing_copy_angles` 调用 LLM 生成三节段落文字
-  - 返回结构：`{ sections: [{ title: string, content: string }, ...], generated_at: string }`
-  - 章节固定为三节：一、卖点与群体匹配 / 二、无人感兴趣的卖点 / 三、市场适配建议
-  - 文风要求：群体视角、分析师语气、每节 100-200 字、有具体数字支撑、不出现"AI/虚拟/置信度"等字样
+- 当前状态：**前后端均已完整实现**。
+  - 前端：类型、端点、API 方法、UI、样式均已上线，有完整降级（请求失败时面板展开后显示"深度分析生成失败，请稍后重试"）。
+  - 后端：commit `6bbeee2`，路由 `GET /evaluations/{evaluation_id}/deep-analysis`，`DeepAnalysisResponse`，`ReportService.get_deep_analysis()`。
+- 后端实现：`app/schemas/report.py`（新增 `DeepAnalysisSectionItem`、`DeepAnalysisResponse`），`app/services/report_service.py`（新增 `get_deep_analysis`，调用 LLM 生成三节叙述），`app/routers/evaluation.py`（新增路由）。
 - 完整契约见：`docs/superpowers/plans/2026-05-23-deep-analysis-panel.md` § Backend Contract Reference
 
 ## 接口存在但行为原来不兼容

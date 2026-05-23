@@ -10,8 +10,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.deps import get_db_session
 from app.core.config import get_settings
+from app.core.deps import get_db_session
 from app.db.models.credit import CreditRechargeOrder, CreditTransaction
 from app.db.models.user import User
 from app.main import app

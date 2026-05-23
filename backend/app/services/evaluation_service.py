@@ -599,7 +599,7 @@ class EvaluationService:
         provider = get_settings().ai_provider
         if provider in {"ark", "deepseek"}:
             try:
-                return await self._generate_answer_with_ai(
+                return await self._generate_answer_with_ai_usage(
                     survey=survey,
                     persona=persona,
                     product_summary=product_summary,
@@ -634,6 +634,22 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
+    ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
+        """Call AI to generate one persona's answers, preserving legacy tuple shape."""
+
+        result = await self._generate_answer_with_ai_usage(
+            survey=survey,
+            persona=persona,
+            product_summary=product_summary,
+        )
+        return result[:5]
+
+    async def _generate_answer_with_ai_usage(
+        self,
+        *,
+        survey: Survey,
+        persona: Persona,
+        product_summary: dict[str, object],
     ) -> tuple[
         list[dict[str, object]],
         int,
@@ -644,7 +660,7 @@ class EvaluationService:
         int,
         Decimal,
     ]:
-        """Call AI (via persona_answer.j2) to generate one persona's answers."""
+        """Call AI to generate one persona's answers with usage metadata."""
 
         from app.ai.adapters.structured_generation import PersonaAnswerGenerationAdapter
 

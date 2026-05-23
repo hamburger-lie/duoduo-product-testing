@@ -48,7 +48,7 @@ def load_personas(start: int = 1, end: int = 15) -> list[dict]:
     return personas
 
 
-TEST_PRODUCT = {
+TEST_PRODUCT_DETAILED = {
     "name": "薇诺娜舒敏保湿特护霜（第二代）",
     "brand": "薇诺娜（WINONA）",
     "category": "护肤",
@@ -136,6 +136,34 @@ TEST_PRODUCT = {
     ),
     "confidence": 0.95,
 }
+
+# 信息稀疏产品：只有基础字段，模拟用户提交很少信息的场景
+TEST_PRODUCT_SPARSE = {
+    "name": "珀莱雅双抗精华2.0",
+    "brand": "珀莱雅（PROYA）",
+    "category": "护肤",
+    "sub_category": "精华",
+    "price": 169,
+    "price_range": "100-200",
+    "target_channel": "ec",
+    "main_selling_points": [
+        "抗糖抗氧双重功效",
+        "早C晚A搭配使用",
+    ],
+    "key_ingredients_or_features": [
+        "虾青素",
+        "麦角硫因",
+    ],
+    "description": "珀莱雅双抗精华2.0，主打抗糖抗氧，含虾青素和麦角硫因。169元/30ml。",
+    "confidence": 0.6,
+}
+
+# ---- 选择测试产品 ----
+import argparse
+_parser = argparse.ArgumentParser()
+_parser.add_argument("--product", choices=["detailed", "sparse"], default="detailed")
+_args, _ = _parser.parse_known_args()
+TEST_PRODUCT = TEST_PRODUCT_DETAILED if _args.product == "detailed" else TEST_PRODUCT_SPARSE
 
 
 async def generate_survey(client, endpoint_id: str) -> list[dict] | None:
@@ -335,7 +363,7 @@ def save_results(questions: list[dict], results: dict[str, dict | None]):
 
 async def main():
     # Test all 15 personas
-    personas = load_personas(start=1, end=15)
+    personas = load_personas(start=1, end=25)
     client = get_ai_client()
     router = ModelRouter()
 

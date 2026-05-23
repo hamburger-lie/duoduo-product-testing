@@ -15,6 +15,7 @@ from app.ai.exceptions import (
     AIServiceTimeout,
     AIServiceUnavailable,
 )
+from app.ai.usage import AITextResult, AIUsage, estimate_cost_yuan
 from app.core.metrics import record_ai_request
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,15 @@ class AIClient(Protocol):
         endpoint_id: str,
         images: list[str] | None = None,
     ) -> str: ...
+
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+    ) -> AITextResult: ...
 
     async def stream(
         self, *, system: str, user: str, endpoint_id: str
@@ -70,6 +80,29 @@ class MockAIClient:
         images: list[str] | None = None,
     ) -> str:
         return f'{{"mock": true, "endpoint_id": "{endpoint_id}"}}'
+
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+    ) -> AITextResult:
+        if images is None:
+            content = await self.complete_json(
+                system=system,
+                user=user,
+                endpoint_id=endpoint_id,
+            )
+        else:
+            content = await self.complete_json(
+                system=system,
+                user=user,
+                endpoint_id=endpoint_id,
+                images=images,
+            )
+        return AITextResult(content=content, usage=AIUsage())
 
     async def stream(
         self, *, system: str, user: str, endpoint_id: str
@@ -209,7 +242,7 @@ class ArkOpenAIClient:
                 f"Ark API client error {status_code}: {body[:200]}"
             )
 
-    async def _stream_collect(
+    async def _stream_collect_with_usage(
         self,
         *,
         system: str,
@@ -217,8 +250,8 @@ class ArkOpenAIClient:
         endpoint_id: str,
         images: list[str] | None = None,
         json_mode: bool = False,
-    ) -> str:
-        """Stream the response and collect all content into a single string.
+    ) -> AITextResult:
+        """Stream the response and collect content plus token usage.
 
         Using streaming avoids client-side read timeouts: each SSE chunk
         resets the httpx read timer even if the model takes minutes to
@@ -242,6 +275,7 @@ class ArkOpenAIClient:
 
         collected: list[str] = []
         reasoning_collected: list[str] = []
+        latest_usage: tuple[int, int, int] | None = None
         async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
             async with client.stream(
                 "POST", url, json=payload, headers=headers,
@@ -262,6 +296,7 @@ class ArkOpenAIClient:
                         chunk_data: dict[str, object] = json.loads(chunk)
                         usage = self._extract_usage(chunk_data)
                         if usage is not None:
+                            latest_usage = usage
                             self._log_usage(endpoint_id, usage)
                         choices = chunk_data.get("choices")
                         if not isinstance(choices, list) or not choices:
@@ -301,7 +336,45 @@ class ArkOpenAIClient:
             raise AIServiceUnavailable(
                 "Ark API returned empty response"
             )
-        return result
+        usage_result = AIUsage()
+        if latest_usage is not None:
+            from app.core.config import get_settings
+
+            settings = get_settings()
+            usage_result = AIUsage(
+                input_tokens=latest_usage[0],
+                output_tokens=latest_usage[1],
+            )
+            usage_result = AIUsage(
+                input_tokens=usage_result.input_tokens,
+                output_tokens=usage_result.output_tokens,
+                cost_yuan=estimate_cost_yuan(
+                    usage_result,
+                    input_price_per_1k=settings.ai_input_price_yuan_per_1k,
+                    output_price_per_1k=settings.ai_output_price_yuan_per_1k,
+                ),
+            )
+        return AITextResult(content=result, usage=usage_result)
+
+    async def _stream_collect(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+        json_mode: bool = False,
+    ) -> str:
+        """Stream the response and collect all content into a single string."""
+
+        result = await self._stream_collect_with_usage(
+            system=system,
+            user=user,
+            endpoint_id=endpoint_id,
+            images=images,
+            json_mode=json_mode,
+        )
+        return result.content
 
     # ------------------------------------------------------------------
     # Public interface
@@ -443,6 +516,44 @@ class ArkOpenAIClient:
         )
         return result
 
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+        max_retries: int = 2,
+    ) -> AITextResult:
+        """Like complete_json(), returning provider usage when available."""
+
+        started_at = time.monotonic()
+        try:
+            result = await self._circuit_breaker.call(
+                lambda: self._complete_json_with_usage(
+                    system=system,
+                    user=user,
+                    endpoint_id=endpoint_id,
+                    images=images,
+                    max_retries=max_retries,
+                )
+            )
+        except Exception:
+            record_ai_request(
+                self._METRICS_PROVIDER,
+                endpoint_id,
+                "error",
+                time.monotonic() - started_at,
+            )
+            raise
+        record_ai_request(
+            self._METRICS_PROVIDER,
+            endpoint_id,
+            "success",
+            time.monotonic() - started_at,
+        )
+        return result
+
     async def _complete_json(
         self,
         *,
@@ -486,6 +597,55 @@ class ArkOpenAIClient:
             try:
                 parse_json_response(text)
                 return text
+            except AIResponseInvalid as exc:
+                last_exc = exc
+                if attempt < max_retries:
+                    continue
+        raise last_exc  # type: ignore[misc]
+
+    async def _complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+        max_retries: int = 2,
+    ) -> AITextResult:
+        """JSON completion with usage, without circuit breaker wrapping."""
+
+        import logging as _logging
+
+        from app.ai.exceptions import AIResponseInvalid
+        from app.ai.json_utils import parse_json_response
+
+        _log = _logging.getLogger(__name__)
+
+        last_exc: AIResponseInvalid | None = None
+        for attempt in range(max_retries + 1):
+            retry_system = system
+            if attempt > 0:
+                retry_system = (
+                    system
+                    + "\n\n【重要】上一次回复的 JSON 格式有误。"
+                    "本次必须输出合法 JSON，不得包含任何 Markdown、注释或多余文字。"
+                    "确保所有字符串用双引号、逗号和括号完整闭合。"
+                )
+                _log.warning(
+                    "complete_json_retry attempt=%d endpoint=%s",
+                    attempt,
+                    endpoint_id,
+                )
+            result = await self._stream_collect_with_usage(
+                system=retry_system,
+                user=user,
+                endpoint_id=endpoint_id,
+                images=images,
+                json_mode=True,
+            )
+            try:
+                parse_json_response(result.content)
+                return result
             except AIResponseInvalid as exc:
                 last_exc = exc
                 if attempt < max_retries:

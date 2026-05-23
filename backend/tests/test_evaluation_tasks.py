@@ -222,6 +222,48 @@ async def test_evaluation_task_marks_all_failed_when_persona_generation_fails(
         assert answer.error_message == "model unavailable"
 
 
+async def test_evaluation_task_persists_persona_answer_usage(
+    task_context: TaskContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evaluation_id, user_id, _ = await create_task_fixture(task_context)
+
+    async def fake_generate_answer(
+        *args: object,
+        **kwargs: object,
+    ) -> tuple[list[dict[str, object]], int, str, str, str, int, int, Decimal]:
+        return (
+            [
+                {
+                    "qid": "q1",
+                    "type": "scale_1_5",
+                    "answer": 4,
+                    "reason": "usage test",
+                }
+            ],
+            4,
+            "positive",
+            "usage summary",
+            "usage thinking",
+            123,
+            45,
+            Decimal("0.0088"),
+        )
+
+    monkeypatch.setattr(
+        "app.services.evaluation_service.EvaluationService._generate_answer",
+        fake_generate_answer,
+    )
+
+    result = await _run_evaluation_async(evaluation_id, user_id, "celery-task-id")
+
+    assert result["status"] == "done"
+    async with task_context.session_factory() as session:
+        answer = await session.scalar(select(Answer).where(Answer.evaluation_id == evaluation_id))
+        assert answer is not None
+        assert answer.token_input == 123
+        assert answer.token_output == 45
+        assert answer.cost_yuan == Decimal("0.0088")
 async def test_evaluation_task_does_not_finalize_canceled_evaluation(
     task_context: TaskContext,
 ) -> None:

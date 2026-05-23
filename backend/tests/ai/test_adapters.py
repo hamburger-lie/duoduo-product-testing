@@ -8,6 +8,7 @@ import pytest
 
 from app.ai.client import MockAIClient
 from app.ai.exceptions import AIResponseInvalid
+from app.ai.usage import AITextResult, AIUsage
 from app.schemas.product import ProductCreateRequest
 
 
@@ -58,6 +59,39 @@ class _GoodPersonaClient(MockAIClient):
                 ],
                 "summary_comment": "整体愿意尝试",
             }
+        )
+
+
+class _PersonaClientWithUsage(MockAIClient):
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        endpoint_id: str,
+        images: list[str] | None = None,
+    ) -> AITextResult:
+        return AITextResult(
+            content=json.dumps(
+                {
+                    "overall_intent": 4,
+                    "sentiment": "positive",
+                    "answers": [
+                        {
+                            "qid": "q01",
+                            "type": "scale_1_5",
+                            "answer": 4,
+                            "reason_short": "值得买",
+                        }
+                    ],
+                    "summary_comment": "整体愿意尝试",
+                }
+            ),
+            usage=AIUsage(
+                input_tokens=123,
+                output_tokens=45,
+                cost_yuan=Decimal("0.0088"),
+            ),
         )
 
 
@@ -159,3 +193,20 @@ async def test_persona_answer_adapter_returns_normalized_tuple() -> None:
     assert sentiment == "positive"
     assert summary_comment == "整体愿意尝试"
     assert thinking_process is None
+
+
+@pytest.mark.asyncio
+async def test_persona_answer_adapter_returns_usage() -> None:
+    from app.ai.adapters.structured_generation import PersonaAnswerGenerationAdapter
+
+    adapter = PersonaAnswerGenerationAdapter(ai_client=_PersonaClientWithUsage())
+
+    result = await adapter.generate_answer_with_usage(
+        survey=_fake_survey(),
+        persona=_fake_persona(),
+        product_summary={"id": 1, "name": "面霜"},
+    )
+
+    assert result.usage.input_tokens == 123
+    assert result.usage.output_tokens == 45
+    assert result.usage.cost_yuan == Decimal("0.0088")

@@ -275,6 +275,9 @@ async def _run_evaluation_locked(
                         sentiment,
                         summary_comment,
                         thinking_process,
+                        token_input,
+                        token_output,
+                        cost_yuan,
                     ) = await svc._generate_answer(
                         survey=survey,
                         persona=persona,
@@ -291,9 +294,9 @@ async def _run_evaluation_locked(
                             "summary_comment": summary_comment,
                             "thinking_process": thinking_process,
                             "status": "done",
-                            "token_input": 0,
-                            "token_output": 0,
-                            "cost_yuan": 0,
+                            "token_input": token_input,
+                            "token_output": token_output,
+                            "cost_yuan": cost_yuan,
                         }
                     )
                     logger.info(
@@ -431,7 +434,6 @@ async def _run_evaluation_locked(
                 task_id=task_id,
             )
             return {"status": "failed", "message": str(exc)[:200]}
-
 
 async def _refund_failed_credits(
     *,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic import Field, model_validator
@@ -50,6 +51,17 @@ class Settings(BaseSettings):
 
     # Credit cost per persona in an evaluation run
     credit_cost_per_persona: int = Field(default=10, alias="CREDIT_COST_PER_PERSONA")
+
+    # AI cost estimate settings. Defaults are zero until finance confirms pricing.
+    ai_input_price_yuan_per_1k: Decimal = Field(
+        default=Decimal("0.0000"),
+        alias="AI_INPUT_PRICE_YUAN_PER_1K",
+    )
+    ai_output_price_yuan_per_1k: Decimal = Field(
+        default=Decimal("0.0000"),
+        alias="AI_OUTPUT_PRICE_YUAN_PER_1K",
+    )
+    recharge_callback_secret: str = Field(default="", alias="RECHARGE_CALLBACK_SECRET")
 
     # Sentry error tracking (leave empty to disable)
     sentry_dsn: str = Field(default="", alias="SENTRY_DSN")

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
 
 from app.ai.client import AIClient, MockAIClient
+from app.ai.usage import AIUsage, estimate_cost_yuan
 
 
 @pytest.mark.asyncio
@@ -23,6 +26,34 @@ async def test_mock_client_complete_json_is_parseable() -> None:
     parsed = json.loads(raw)
     assert isinstance(parsed, dict)
     assert parsed.get("mock") is True
+
+
+def test_estimate_cost_yuan_from_configured_prices() -> None:
+    usage = AIUsage(input_tokens=1000, output_tokens=500)
+
+    result = estimate_cost_yuan(
+        usage,
+        input_price_per_1k=Decimal("0.0020"),
+        output_price_per_1k=Decimal("0.0060"),
+    )
+
+    assert result == Decimal("0.0050")
+
+
+@pytest.mark.asyncio
+async def test_mock_client_complete_json_with_usage_returns_zero_usage() -> None:
+    client = MockAIClient()
+
+    result = await client.complete_json_with_usage(
+        system="sys",
+        user="hello",
+        endpoint_id="ep-json",
+    )
+
+    assert result.content
+    assert result.usage.input_tokens == 0
+    assert result.usage.output_tokens == 0
+    assert result.usage.cost_yuan == Decimal("0.0000")
 
 
 @pytest.mark.asyncio

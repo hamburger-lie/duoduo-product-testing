@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from fastapi import status
@@ -312,7 +313,16 @@ class EvaluationService:
             if persona is None or not self._can_use_persona(user=user, persona=persona):
                 continue
 
-            answers, overall_intent, sentiment, summary_comment, thinking_process = (
+            (
+                answers,
+                overall_intent,
+                sentiment,
+                summary_comment,
+                thinking_process,
+                token_input,
+                token_output,
+                cost_yuan,
+            ) = (
                 await self._generate_answer(
                     survey=survey,
                     persona=persona,
@@ -331,9 +341,9 @@ class EvaluationService:
                     "summary_comment": summary_comment,
                     "thinking_process": thinking_process,
                     "status": "done",
-                    "token_input": 0,
-                    "token_output": 0,
-                    "cost_yuan": 0,
+                    "token_input": token_input,
+                    "token_output": token_output,
+                    "cost_yuan": cost_yuan,
                 }
             )
 
@@ -572,7 +582,16 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
+    ) -> tuple[
+        list[dict[str, object]],
+        int,
+        str,
+        str | None,
+        str | None,
+        int,
+        int,
+        Decimal,
+    ]:
         """Route to mock or AI answer generation based on AI_PROVIDER."""
 
         from app.core.config import get_settings
@@ -604,6 +623,9 @@ class EvaluationService:
             self._mock_sentiment(overall_intent),
             None,
             None,
+            0,
+            0,
+            Decimal("0.0000"),
         )
 
     async def _generate_answer_with_ai(
@@ -612,16 +634,35 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
+    ) -> tuple[
+        list[dict[str, object]],
+        int,
+        str,
+        str | None,
+        str | None,
+        int,
+        int,
+        Decimal,
+    ]:
         """Call AI (via persona_answer.j2) to generate one persona's answers."""
 
         from app.ai.adapters.structured_generation import PersonaAnswerGenerationAdapter
 
         adapter = PersonaAnswerGenerationAdapter(ai_client=self._ai_client)
-        return await adapter.generate_answer(
+        result = await adapter.generate_answer_with_usage(
             survey=survey,
             persona=persona,
             product_summary=product_summary,
+        )
+        return (
+            result.answers,
+            result.overall_intent,
+            result.sentiment,
+            result.summary_comment,
+            result.thinking_process,
+            result.usage.input_tokens,
+            result.usage.output_tokens,
+            result.usage.cost_yuan,
         )
 
     # ------------------------------------------------------------------

@@ -354,6 +354,41 @@ function buildDimensionBars(dims: Array<{ dim: string; score: number }>) {
   }));
 }
 
+/**
+ * 综合评分：Likert 标准化公式
+ * score = round(avg_intent / 5 × 100)
+ * 将 1-5 购买意愿均值线性映射到 0-100 分段，与 Qualtrics / Ipsos 行业惯例一致。
+ *
+ * 子维度：直接取后端 dimension_scores，同样按 score/5×100 归一化，
+ * 不补零、不混入其他指标，保证数据来源可溯。
+ */
+function buildCompositeScore(dims: Array<{ dim: string; score: number }>, avgIntent: number) {
+  const score = Math.round((avgIntent / 5) * 100);
+  const grade = score >= 90 ? 'S' : score >= 75 ? 'A' : score >= 60 ? 'B' : score >= 45 ? 'C' : 'D';
+  const label = score >= 75 ? '建议推进' : score >= 60 ? '可测试上市' : score >= 45 ? '优化后复测' : '建议深度优化';
+  const comment = score >= 90 ? '强势概念，立即推进'
+    : score >= 75 ? '概念成熟，可以投放'
+    : score >= 60 ? '有潜力，打磨后上'
+    : score >= 45 ? '信号偏弱，先优化'
+    : '概念未成立，回炉';
+
+  // 子维度：保留原始 1-5 分值；不足 6 个时用占位补齐，确保模板下标安全
+  const filled = Array.from({ length: 6 }, (_, i) => {
+    const d = dims[i];
+    if (!d) return { label: '', rawScore: '', value: 0, width: 0, weight: 0, empty: true };
+    return {
+      label: dimLabel(d.dim),
+      rawScore: d.score.toFixed(1),
+      value: Math.round((d.score / 5) * 100),
+      width: Math.round((d.score / 5) * 100),
+      weight: 0,
+      empty: false,
+    };
+  });
+
+  return { compositeScore: score, compositeGrade: grade, compositeLabel: label, compositeComment: comment, compositeBars: filled };
+}
+
 const ORDINAL_ZH = ['一', '二', '三', '四', '五', '六'];
 
 function pickSegmentLabel(
@@ -389,6 +424,16 @@ function buildSegmentRows(
     }));
 }
 
+function hmCellBg(score: number | null): string {
+  if (score === null) return 'rgb(158,149,184)';
+  // 米色 rgb(240,230,208) → 深紫 rgb(124,92,252)
+  const t = (score - 1) / 4;
+  const r = Math.round(240 + (124 - 240) * t);
+  const g = Math.round(230 + (92 - 230) * t);
+  const b = Math.round(208 + (252 - 208) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
 function buildHeatmapRows(
   segments: Array<{ segment: string; count: number; avg_intent: number }>,
   dims: Array<{ dim: string; score: number }>,
@@ -399,7 +444,7 @@ function buildHeatmapRows(
     overall_intent?: number;
     answers?: Array<{ qid: string; answer: string | number | string[] }> | Record<string, any>;
   }> = [],
-): Array<{ segment: string; cells: Array<{ score: number; cls: string; label: string }> }> {
+): Array<{ segment: string; cells: Array<{ score: number | null; bg: string; label: string }> }> {
   const topDims = dims.slice(0, 5);
   const sortedSegs = [...segments].sort((a, b) => b.avg_intent - a.avg_intent).slice(0, 5);
   const sortedAnswers = [...answers].sort((a, b) => (b.overall_intent ?? 0) - (a.overall_intent ?? 0));
@@ -421,26 +466,18 @@ function buildHeatmapRows(
 
   return sortedSegs.map((seg, i) => {
     const segLabel = pickSegmentLabel(seg.segment, i, tagMap, sortedAnswers);
-    // 找到该群体对应的 persona_tag，用于查真实打分
     const segTag = tagMap[seg.segment] || sortedAnswers[i]?.persona_tag || '';
     const dimScores = tagScoreMap[segTag] || {};
 
     return {
       segment: segLabel,
       cells: topDims.map(d => {
-        // 优先用真实答案均值；没有则用偏差近似
         const realVals = dimScores[d.dim];
-        let score: number;
-        if (realVals && realVals.length > 0) {
-          score = realVals.reduce((s, v) => s + v, 0) / realVals.length;
-        } else {
-          const deviation = overallAvg > 0 ? seg.avg_intent - overallAvg : 0;
-          score = Math.min(5, Math.max(1, d.score + deviation * 0.8));
-        }
-        score = Math.min(5, Math.max(1, score));
-        const pct = score / 5 * 100;
-        const cls = pct >= 72 ? 'h-high' : pct >= 48 ? 'h-mid' : 'h-low';
-        return { score: parseFloat(score.toFixed(1)), cls, label: dimLabel(d.dim) };
+        const score: number | null =
+          realVals && realVals.length > 0
+            ? parseFloat((realVals.reduce((s, v) => s + v, 0) / realVals.length).toFixed(1))
+            : null;
+        return { score, bg: hmCellBg(score), label: dimLabel(d.dim) };
       }),
     };
   });
@@ -643,7 +680,7 @@ function defaultVM() {
     stackedBar: [] as Array<{ key: string; color: string; width: number; count: number }>,
     segmentRows: [] as Array<{ label: string; count: number; value: string; width: number }>,
     heatmapDimHeaders: [] as string[],
-    heatmapRows: [] as Array<{ segment: string; cells: Array<{ score: number; cls: string; label: string }> }>,
+    heatmapRows: [] as Array<{ segment: string; cells: Array<{ score: number | null; bg: string; label: string }> }>,
     dimensionBars: [] as Array<{ label: string; value: string; width: number }>,
     prosRanked: [] as Array<{ title: string; count: number; pct: number; width: number }>,
     consRanked: [] as Array<{ title: string; count: number; pct: number; width: number }>,
@@ -652,6 +689,11 @@ function defaultVM() {
     pricePieStyle: '',
     priceTotal: 0,
     benchmarkRows: [] as Array<{ label: string; ourScore: string; ourWidth: number; benchScore: string; benchWidth: number; aboveBench: boolean }>,
+    compositeScore: 0,
+    compositeGrade: '',
+    compositeLabel: '',
+    compositeComment: '',
+    compositeBars: [] as Array<{ label: string; rawScore: string; weight: number; value: number; width: number; empty: boolean }>,
     priorityMatrix: {
       topRight: [] as Array<{ title: string; count: number; pct: number; audience: string; action: string }>,
       topLeft: [] as Array<{ title: string; count: number; pct: number; audience: string; action: string }>,
@@ -669,6 +711,12 @@ function defaultVM() {
     nextSteps: [] as string[],
     opportunities: [] as Array<{ title: string; note: string; count: number }>,
     risks: [] as Array<{ title: string; note: string; count: number }>,
+    formulaNotes: [
+      '购买均值 = 购买意愿评分总和 / 有效样本数。',
+      '最高档占比 = 5分人数 / 有效样本数；高意向占比 = 4-5分人数 / 有效样本数；低意向占比 = 1-2分人数 / 有效样本数。',
+      '核心指标均值 = 该指标评分总和 / 有效回答数；提及占比 = 提及该主题的人数 / 有效样本数。',
+      '价格接受度 = 各价格区间提及人数 / 明确给出价格回答的人数。',
+    ] as string[],
     disclaimer: '',
   };
 }
@@ -813,8 +861,9 @@ Page({
       stackedBar: buildStackedBar(distMap),
       segmentRows: buildSegmentRows(segs, tagMap, answers),
       heatmapDimHeaders: buildHeatmapDimHeaders(dims),
-      heatmapRows: [],
+      heatmapRows: buildHeatmapRows(segs, dims, avg, tagMap, answers),
       dimensionBars: buildDimensionBars(dims),
+      ...buildCompositeScore(dims, avg),
       prosRanked: buildProsRanked(
         (report.top_pros || []).map(p => ({ title: p.title, support_count: p.support_count, evidence_quotes: p.quotes })),
         top2BoxTotal2,
@@ -921,8 +970,9 @@ Page({
       stackedBar: buildStackedBar(distMap),
       segmentRows: buildSegmentRows(segs, tagMap, answers),
       heatmapDimHeaders: buildHeatmapDimHeaders(dims),
-      heatmapRows: [],
+      heatmapRows: buildHeatmapRows(segs, dims, avg, tagMap, answers),
       dimensionBars: buildDimensionBars(dims),
+      ...buildCompositeScore(dims, avg),
       prosRanked: buildProsRanked(report.top_pros || [], totalRespondents),
       consRanked: buildConsRanked(report.top_cons || [], totalRespondents),
       themeBubbles: buildThemeBubbles(report.top_pros || [], report.top_cons || []),

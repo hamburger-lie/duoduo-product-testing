@@ -363,7 +363,7 @@ def save_results(questions: list[dict], results: dict[str, dict | None]):
 
 async def main():
     # Test all 15 personas
-    personas = load_personas(start=1, end=25)
+    personas = load_personas(start=1, end=32)
     client = get_ai_client()
     router = ModelRouter()
 

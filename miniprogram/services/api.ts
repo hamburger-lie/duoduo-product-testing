@@ -8,7 +8,7 @@ import type {
   CursorPaged, User, CreditBalance, CreditTransaction,
   Evaluation, EvaluationAnswer, Survey, SurveyQuestion, Conversation, Message, PersonaSummary,
   Product, CreateProductReq, UploadUrlRes, PersonaDetail, BackendReport, BusinessReport,
-  AvatarUploadRes, ProfileUpdateReq, ReportPdfListResponse,
+  AvatarUploadRes, ProfileUpdateReq, ReportPdfListResponse, DeepAnalysis,
 } from '../types/api';
 import type {
   EvaluationCardVM, PersonaWithKey,
@@ -37,10 +37,14 @@ export const api = {
 
   // ---------- Auth ----------
 
-  /** 开发模式：后端免登录，无需 token。此方法保留供后续生产登录使用 */
+  /** 静默登录：用 wx.login code 换 JWT，已有有效 token 则跳过 */
   async ensureAuth(): Promise<void> {
-    // 后端 development 模式下无 token 时自动使用测试用户，无需走微信登录
-    return;
+    if (wx.getStorageSync('auth_token')) return;
+    const code = await new Promise<string>((resolve, reject) =>
+      wx.login({ success: r => resolve(r.code), fail: reject }),
+    );
+    const res = await api.loginSilent(code);
+    wx.setStorageSync('auth_token', res.token);
   },
 
   async getMe(): Promise<User> {
@@ -221,6 +225,10 @@ export const api = {
 
   async getWhitepaperByEval(evalId: string): Promise<any> {
     return request<any>({ url: E.WHITEPAPER_BY_EVAL(evalId) });
+  },
+
+  async getDeepAnalysis(evalId: string): Promise<DeepAnalysis> {
+    return request<DeepAnalysis>({ url: E.DEEP_ANALYSIS_BY_EVAL(evalId) });
   },
 
   async listConversations(evalId?: string): Promise<CursorPaged<Conversation>> {

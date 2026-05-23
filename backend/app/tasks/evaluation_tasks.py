@@ -2,12 +2,39 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from time import perf_counter
+from typing import TYPE_CHECKING
 
 from app.tasks.celery_app import celery_app
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.db.models.persona import Persona
+    from app.db.models.survey import Survey
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _PersonaAnswerSuccess:
+    persona_id: int
+    answers: list[dict[str, object]]
+    overall_intent: int
+    sentiment: str
+    summary_comment: str | None
+    thinking_process: str | None
+
+
+@dataclass(frozen=True)
+class _PersonaAnswerFailure:
+    persona_id: int
+    error_message: str
+
+
+_PersonaAnswerOutcome = _PersonaAnswerSuccess | _PersonaAnswerFailure
 
 
 def _run_async(coro: object) -> dict[str, object]:
@@ -189,6 +216,7 @@ async def _run_evaluation_locked(
         failed_count = 0
 
         try:
+            personas_to_generate: list[Persona] = []
             for persona_id in evaluation.selected_persona_ids:
                 refreshed = await evaluations.get_by_id(evaluation_id)
                 if refreshed and refreshed.status == "canceled":
@@ -254,92 +282,111 @@ async def _run_evaluation_locked(
                     await session.commit()
                     continue
 
-                try:
-                    persona_started_at = perf_counter()
-                    logger.info(
-                        "evaluation_persona_started",
-                        extra={
-                            "event": "evaluation_persona_started",
-                            "evaluation_id": evaluation.id,
-                            "user_id": user_id,
-                            "task_id": task_id,
-                            "persona_id": persona_id_int,
-                        },
-                    )
-                    from app.services.evaluation_service import EvaluationService
+                personas_to_generate.append(persona)
 
-                    svc = EvaluationService(session)
-                    (
-                        answer_data,
-                        overall_intent,
-                        sentiment,
-                        summary_comment,
-                        thinking_process,
-                    ) = await svc._generate_answer(
-                        survey=survey,
-                        persona=persona,
-                        product_summary=product_summary,
-                    )
-                    await answers.create(
-                        {
-                            "evaluation_id": evaluation.id,
-                            "survey_id": survey.id,
-                            "persona_id": persona.id,
-                            "answers": answer_data,
-                            "overall_intent": overall_intent,
-                            "sentiment": sentiment,
-                            "summary_comment": summary_comment,
-                            "thinking_process": thinking_process,
-                            "status": "done",
-                            "token_input": 0,
-                            "token_output": 0,
-                            "cost_yuan": 0,
-                        }
-                    )
-                    logger.info(
-                        "evaluation_persona_finished",
-                        extra={
-                            "event": "evaluation_persona_finished",
-                            "evaluation_id": evaluation.id,
-                            "user_id": user_id,
-                            "task_id": task_id,
-                            "persona_id": persona_id_int,
-                            "duration_ms": int((perf_counter() - persona_started_at) * 1000),
-                        },
-                    )
-                except Exception as exc:
-                    failed_count += 1
-                    logger.exception(
-                        "evaluation_persona_failed",
-                        extra={
-                            "event": "evaluation_persona_failed",
-                            "evaluation_id": evaluation.id,
-                            "user_id": user_id,
-                            "task_id": task_id,
-                            "persona_id": persona_id_int,
-                            "duration_ms": int((perf_counter() - persona_started_at) * 1000),
-                            "error_message": str(exc)[:200],
-                        },
-                    )
-                    await answers.create(
-                        {
-                            "evaluation_id": evaluation.id,
-                            "survey_id": survey.id,
-                            "persona_id": persona_id_int,
-                            "answers": [],
-                            "overall_intent": None,
-                            "sentiment": "neutral",
-                            "status": "failed",
-                            "error_message": str(exc)[:200],
-                            "token_input": 0,
-                            "token_output": 0,
-                            "cost_yuan": 0,
-                        }
-                    )
+            if personas_to_generate:
+                from app.core.config import get_settings
 
-                completed += 1
-                evaluation.progress = int(completed / total * 100) if total else 100
-                await session.commit()
+                assert evaluation is not None
+                answer_evaluation_id = evaluation.id
+                concurrency = min(
+                    len(personas_to_generate),
+                    max(1, get_settings().persona_answer_concurrency),
+                )
+                semaphore = asyncio.Semaphore(concurrency)
+
+                async def run_limited(persona: Persona) -> _PersonaAnswerOutcome:
+                    async with semaphore:
+                        return await _generate_persona_answer_outcome(
+                            session=session,
+                            survey=survey,
+                            persona=persona,
+                            product_summary=product_summary,
+                            evaluation_id=answer_evaluation_id,
+                            user_id=user_id,
+                            task_id=task_id,
+                        )
+
+                generation_tasks = [
+                    asyncio.create_task(run_limited(persona))
+                    for persona in personas_to_generate
+                ]
+
+                for finished_task in asyncio.as_completed(generation_tasks):
+                    outcome = await finished_task
+                    refreshed = await evaluations.get_by_id(evaluation_id)
+                    if refreshed and refreshed.status == "canceled":
+                        for pending_task in generation_tasks:
+                            if not pending_task.done():
+                                pending_task.cancel()
+                        await asyncio.gather(*generation_tasks, return_exceptions=True)
+                        logger.info(
+                            "evaluation_task_canceled",
+                            extra={
+                                "event": "evaluation_task_canceled",
+                                "evaluation_id": evaluation_id,
+                                "user_id": user_id,
+                                "task_id": task_id,
+                                "from_status": "answering",
+                                "to_status": "canceled",
+                                "duration_ms": int((perf_counter() - task_started_at) * 1000),
+                            },
+                        )
+                        remaining = total - completed
+                        if remaining > 0 and refreshed.credit_cost > 0:
+                            await _refund_failed_credits(
+                                session=session,
+                                evaluation=refreshed,
+                                user_id=user_id,
+                                failed_count=remaining,
+                                total=total,
+                            )
+                        return {
+                            "status": "canceled",
+                            "completed": completed,
+                            "total": total,
+                        }
+                    if refreshed is not None:
+                        evaluation = refreshed
+
+                    if isinstance(outcome, _PersonaAnswerSuccess):
+                        await answers.create(
+                            {
+                                "evaluation_id": evaluation.id,
+                                "survey_id": survey.id,
+                                "persona_id": outcome.persona_id,
+                                "answers": outcome.answers,
+                                "overall_intent": outcome.overall_intent,
+                                "sentiment": outcome.sentiment,
+                                "summary_comment": outcome.summary_comment,
+                                "thinking_process": outcome.thinking_process,
+                                "status": "done",
+                                "token_input": 0,
+                                "token_output": 0,
+                                "cost_yuan": 0,
+                            }
+                        )
+                    else:
+                        failed_count += 1
+                        await answers.create(
+                            {
+                                "evaluation_id": evaluation.id,
+                                "survey_id": survey.id,
+                                "persona_id": outcome.persona_id,
+                                "answers": [],
+                                "overall_intent": None,
+                                "sentiment": "neutral",
+                                "status": "failed",
+                                "error_message": outcome.error_message,
+                                "token_input": 0,
+                                "token_output": 0,
+                                "cost_yuan": 0,
+                            }
+                        )
+
+                    completed += 1
+                    evaluation.progress = int(completed / total * 100) if total else 100
+                    await session.commit()
 
             refreshed = await evaluations.get_by_id(evaluation_id)
             if refreshed and refreshed.status == "canceled":
@@ -431,6 +478,82 @@ async def _run_evaluation_locked(
                 task_id=task_id,
             )
             return {"status": "failed", "message": str(exc)[:200]}
+
+
+async def _generate_persona_answer_outcome(
+    *,
+    session: AsyncSession,
+    survey: Survey,
+    persona: Persona,
+    product_summary: dict[str, object],
+    evaluation_id: int,
+    user_id: int,
+    task_id: str,
+) -> _PersonaAnswerOutcome:
+    """Generate one persona answer without writing task state to the database."""
+
+    persona_started_at = perf_counter()
+    logger.info(
+        "evaluation_persona_started",
+        extra={
+            "event": "evaluation_persona_started",
+            "evaluation_id": evaluation_id,
+            "user_id": user_id,
+            "task_id": task_id,
+            "persona_id": persona.id,
+        },
+    )
+    try:
+        from app.services.evaluation_service import EvaluationService
+
+        svc = EvaluationService(session)
+        (
+            answer_data,
+            overall_intent,
+            sentiment,
+            summary_comment,
+            thinking_process,
+        ) = await svc._generate_answer(
+            survey=survey,
+            persona=persona,
+            product_summary=product_summary,
+        )
+        logger.info(
+            "evaluation_persona_finished",
+            extra={
+                "event": "evaluation_persona_finished",
+                "evaluation_id": evaluation_id,
+                "user_id": user_id,
+                "task_id": task_id,
+                "persona_id": persona.id,
+                "duration_ms": int((perf_counter() - persona_started_at) * 1000),
+            },
+        )
+        return _PersonaAnswerSuccess(
+            persona_id=persona.id,
+            answers=answer_data,
+            overall_intent=overall_intent,
+            sentiment=sentiment,
+            summary_comment=summary_comment,
+            thinking_process=thinking_process,
+        )
+    except Exception as exc:
+        logger.exception(
+            "evaluation_persona_failed",
+            extra={
+                "event": "evaluation_persona_failed",
+                "evaluation_id": evaluation_id,
+                "user_id": user_id,
+                "task_id": task_id,
+                "persona_id": persona.id,
+                "duration_ms": int((perf_counter() - persona_started_at) * 1000),
+                "error_message": str(exc)[:200],
+            },
+        )
+        return _PersonaAnswerFailure(
+            persona_id=persona.id,
+            error_message=str(exc)[:200],
+        )
 
 
 async def _refund_failed_credits(

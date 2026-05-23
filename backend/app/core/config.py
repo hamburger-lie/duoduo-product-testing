@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     qdrant_url: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     evaluation_run_mode: str = Field(default="sync", alias="EVALUATION_RUN_MODE")
+    persona_answer_concurrency: int = Field(
+        default=5,
+        ge=1,
+        le=5,
+        alias="PERSONA_ANSWER_CONCURRENCY",
+    )
     followup_webhook_url: str = Field(default="", alias="FOLLOWUP_WEBHOOK_URL")
     followup_webhook_secret: str = Field(default="", alias="FOLLOWUP_WEBHOOK_SECRET")
     followup_webhook_timeout_seconds: float = Field(

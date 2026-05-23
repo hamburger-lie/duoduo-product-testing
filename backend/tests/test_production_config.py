@@ -69,3 +69,11 @@ def test_production_rejects_default_secret() -> None:
 def test_development_allows_all_defaults() -> None:
     """Development mode should not reject mock/sync/*."""
     Settings(APP_ENV="development")
+
+
+def test_persona_answer_concurrency_defaults_to_five() -> None:
+    """Persona answer generation runs up to five roles concurrently by default."""
+
+    settings = Settings(APP_ENV="development")
+
+    assert settings.persona_answer_concurrency == 5

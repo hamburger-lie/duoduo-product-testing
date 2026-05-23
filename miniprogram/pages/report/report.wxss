@@ -41,11 +41,11 @@ page { background: #F5F1FB; }
 ══════════════════════════════════════════ */
 .rp-hero {
   padding: 36rpx 32rpx 32rpx;
-  color: #19172B;
-  background: linear-gradient(135deg, #FFFFFF 0%, #F0EBFF 45%, #E4D9FF 100%);
-  background-size: 200% 200%;
+  color: #000000;
+  background: linear-gradient(135deg, #FFFFFF, #FAF8FF, #F3EEFF, #FAF8FF, #FFFFFF);
+  background-size: 300% 300%;
   border-radius: 22rpx;
-  box-shadow: 0 8rpx 32rpx rgba(124, 92, 252, 0.1);
+  box-shadow: 0 4rpx 24rpx rgba(124, 92, 252, 0.08);
   animation: heroBgShift 8s ease infinite;
 }
 
@@ -65,7 +65,7 @@ page { background: #F5F1FB; }
 
 .rp-kicker {
   font-size: 22rpx;
-  color: rgba(61, 46, 124, 0.6);
+  color: rgba(0, 0, 0, 0.45);
   font-weight: 600;
   letter-spacing: 1rpx;
 }
@@ -74,12 +74,12 @@ page { background: #F5F1FB; }
   font-size: 34rpx;
   line-height: 1.35;
   font-weight: 800;
-  color: #19172B;
+  color: #000000;
 }
 .rp-date {
   margin-top: 8rpx;
   font-size: 22rpx;
-  color: rgba(61, 46, 124, 0.5);
+  color: rgba(0, 0, 0, 0.4);
 }
 
 .rp-verdict {
@@ -101,7 +101,7 @@ page { background: #F5F1FB; }
   margin-top: 28rpx;
   text-align: center;
   font-size: 22rpx;
-  color: rgba(61, 46, 124, 0.65);
+  color: rgba(0, 0, 0, 0.45);
   font-weight: 600;
   letter-spacing: 1rpx;
 }
@@ -116,18 +116,18 @@ page { background: #F5F1FB; }
   font-size: 80rpx;
   line-height: 1;
   font-weight: 900;
-  color: #19172B;
+  color: #000000;
   letter-spacing: -2rpx;
 }
 .rp-score-unit {
   font-size: 26rpx;
-  color: rgba(61, 46, 124, 0.6);
+  color: rgba(0, 0, 0, 0.45);
 }
 .rp-score-desc {
   margin-top: 8rpx;
   text-align: center;
   font-size: 24rpx;
-  color: rgba(61, 46, 124, 0.7);
+  color: rgba(0, 0, 0, 0.55);
   line-height: 1.5;
 }
 .rp-score-bar-track {
@@ -150,7 +150,7 @@ page { background: #F5F1FB; }
   margin-top: 22rpx;
   display: flex;
   align-items: stretch;
-  border-top: 1rpx solid rgba(124, 92, 252, 0.15);
+  border-top: 1rpx solid rgba(0, 0, 0, 0.08);
   padding-top: 22rpx;
 }
 .rp-hm-item {
@@ -161,7 +161,7 @@ page { background: #F5F1FB; }
 }
 .rp-hm-divider {
   width: 1rpx;
-  background: rgba(124, 92, 252, 0.15);
+  background: rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
   margin: 4rpx 0;
 }
@@ -169,24 +169,24 @@ page { background: #F5F1FB; }
   font-size: 34rpx;
   font-weight: 800;
   line-height: 1.2;
-  color: #19172B;
+  color: #000000;
 }
 .rp-hm-label {
   margin-top: 6rpx;
   font-size: 23rpx;
-  color: rgba(61, 46, 124, 0.7);
+  color: rgba(0, 0, 0, 0.55);
   font-weight: 700;
 }
 .rp-hm-sublabel {
   font-size: 21rpx;
-  color: rgba(61, 46, 124, 0.5);
+  color: rgba(0, 0, 0, 0.4);
   margin-top: 4rpx;
 }
 .rp-score-footnote {
   margin-top: 16rpx;
   text-align: center;
   font-size: 21rpx;
-  color: rgba(61, 46, 124, 0.5);
+  color: rgba(0, 0, 0, 0.4);
   line-height: 1.4;
 }
 .rp-hm-bench {
@@ -207,29 +207,29 @@ page { background: #F5F1FB; }
   display: flex;
   gap: 12rpx;
   padding-top: 20rpx;
-  border-top: 1rpx solid rgba(124, 92, 252, 0.12);
+  border-top: 1rpx solid rgba(0, 0, 0, 0.08);
 }
 .rp-signal {
   flex: 1;
-  background: rgba(124, 92, 252, 0.05);
-  border: 1rpx solid rgba(124, 92, 252, 0.15);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1rpx solid rgba(0, 0, 0, 0.08);
   border-radius: 14rpx;
   padding: 14rpx 10rpx;
   text-align: center;
 }
 .rp-signal--active {
-  background: rgba(124,92,252,0.12);
-  border-color: rgba(124,92,252,0.35);
+  background: rgba(124,92,252,0.08);
+  border-color: rgba(124,92,252,0.25);
 }
 .rp-signal-label {
   font-size: 22rpx;
-  color: rgba(61, 46, 124, 0.65);
+  color: rgba(0, 0, 0, 0.45);
 }
 .rp-signal-value {
   margin-top: 6rpx;
   font-size: 26rpx;
   font-weight: 800;
-  color: #19172B;
+  color: #000000;
 }
 .rp-signal--active .rp-signal-value { color: #7C5CFC; }
 

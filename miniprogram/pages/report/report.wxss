@@ -725,66 +725,68 @@ page { background: #F5F1FB; }
 /* ══════════════════════════════════════════
    6. CLAIM EFFECTIVENESS
 ══════════════════════════════════════════ */
-.rp-claim-row {
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid #F0EEF4;
+/* ══ 卖点与顾虑（合并区块）══ */
+.rp-signal-group {
+  margin-bottom: 24rpx;
 }
-.rp-claim-row:last-child { border-bottom: none; padding-bottom: 0; }
-.rp-claim-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12rpx;
-  margin-bottom: 10rpx;
-}
-.rp-claim-title {
-  flex: 1;
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #252139;
-  line-height: 1.45;
-}
-.rp-claim-tag {
-  flex-shrink: 0;
-  padding: 4rpx 12rpx;
-  border-radius: 999rpx;
+.rp-signal-group:last-child { margin-bottom: 0; }
+.rp-signal-group--neg { margin-top: 8rpx; }
+.rp-signal-group-header {
   font-size: 22rpx;
   font-weight: 700;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  display: inline-block;
+  margin-bottom: 16rpx;
 }
-.rp-claim-tag--strong { background: rgba(28,124,84,0.1); color: #1C7C54; }
-.rp-claim-tag--mid    { background: rgba(124,58,237,0.1); color: #7C3AED; }
-.rp-claim-tag--weak   { background: rgba(156,156,156,0.1); color: #888; }
-.rp-claim-bar-row {
+.rp-signal-group-header--pos {
+  background: rgba(124,92,252,0.08);
+  color: #7C5CFC;
+}
+.rp-signal-group-header--neg {
+  background: rgba(239,68,68,0.08);
+  color: #EF4444;
+}
+.rp-signal-item {
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #F0EEF4;
+}
+.rp-signal-item:last-child { border-bottom: none; padding-bottom: 0; }
+.rp-signal-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #252139;
+  line-height: 1.4;
+  margin-bottom: 10rpx;
+}
+.rp-signal-bar-row {
   display: flex;
   align-items: center;
-  gap: 10rpx;
+  gap: 12rpx;
 }
-.rp-claim-track {
+.rp-signal-track {
   flex: 1;
-  height: 10rpx;
+  height: 8rpx;
   border-radius: 999rpx;
   background: #F0EDF7;
   overflow: hidden;
 }
-.rp-claim-fill {
+.rp-signal-fill {
   height: 100%;
   border-radius: 999rpx;
   transition: width 0.5s ease;
 }
-.rp-claim-fill--strong { background: linear-gradient(90deg, #34D399, #1C7C54); }
-.rp-claim-fill--mid    { background: linear-gradient(90deg, #A78BFA, #7C3AED); }
-.rp-claim-fill--weak   { background: #D1CDE0; }
-.rp-claim-pct {
-  font-size: 23rpx;
-  font-weight: 700;
-  color: #5A4E9C;
-  flex-shrink: 0;
-}
-.rp-claim-cnt {
+.rp-signal-fill--pos { background: linear-gradient(90deg, #A78BFA, #7C3AED); }
+.rp-signal-fill--neg { background: linear-gradient(90deg, #FCA5A5, #EF4444); }
+.rp-signal-pct {
   font-size: 22rpx;
-  color: #888;
+  font-weight: 700;
   flex-shrink: 0;
+  min-width: 56rpx;
+  text-align: right;
 }
+.rp-signal-pct--pos { color: #7C5CFC; }
+.rp-signal-pct--neg { color: #EF4444; }
 
 /* ══════════════════════════════════════════
    7. THEME BUBBLES
@@ -834,43 +836,6 @@ page { background: #F5F1FB; }
 /* ══════════════════════════════════════════
    8. CON BARS
 ══════════════════════════════════════════ */
-.rp-con-row {
-  padding: 14rpx 0;
-  border-bottom: 1rpx solid #F0EEF4;
-}
-.rp-con-row:last-child { border-bottom: none; padding-bottom: 0; }
-.rp-con-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12rpx;
-  margin-bottom: 10rpx;
-}
-.rp-con-title {
-  flex: 1;
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #252139;
-  line-height: 1.45;
-}
-.rp-con-meta {
-  flex-shrink: 0;
-  font-size: 22rpx;
-  color: #A43F46;
-  font-weight: 700;
-}
-.rp-con-track {
-  height: 10rpx;
-  border-radius: 999rpx;
-  background: #F0EDF7;
-  overflow: hidden;
-}
-.rp-con-fill {
-  height: 100%;
-  border-radius: 999rpx;
-  background: linear-gradient(90deg, #F87171, #EF4444);
-  transition: width 0.5s ease;
-}
 
 /* ══════════════════════════════════════════
    9. PRICE PIE

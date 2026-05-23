@@ -138,55 +138,39 @@
     </view>
 
 
-    <!-- ══ 6. 卖点有效性排序图 ══ -->
-    <view class="rp-section" wx:if="{{vm.prosRanked.length}}">
-      <view class="rp-section-title">卖点有效性</view>
-      <view class="rp-claim-row" wx:for="{{vm.prosRanked}}" wx:key="title">
-        <view class="rp-claim-top">
-          <view class="rp-claim-title">{{item.title}}</view>
-        </view>
-        <view class="rp-claim-bar-row">
-          <view class="rp-claim-track">
-            <view class="rp-claim-fill rp-claim-fill--mid" style="width:{{item.width}}%"></view>
-          </view>
-          <text class="rp-claim-pct">{{item.pct}}% 消费者认可</text>
-        </view>
-      </view>
-    </view>
+    <!-- ══ 6+8. 卖点与顾虑（合并） ══ -->
+    <view class="rp-section" wx:if="{{vm.prosRanked.length || vm.consRanked.length}}">
+      <view class="rp-section-title">卖点与顾虑</view>
 
-    <!-- ══ 7. 开放反馈主题占比图 ══ -->
-    <view class="rp-section" wx:if="{{vm.themeBubbles.positive.length || vm.themeBubbles.negative.length}}">
-      <view class="rp-section-title">开放反馈主题</view>
-      <view class="rp-bubbles-section" wx:if="{{vm.themeBubbles.positive.length}}">
-        <view class="rp-bubbles-label rp-bubbles-label--pos">正向主题</view>
-        <view class="rp-bubbles-wrap">
-          <view class="rp-bubble rp-bubble--pos rp-bubble--{{item.size}}" wx:for="{{vm.themeBubbles.positive}}" wx:key="title">
-            <view class="rp-bubble-title">{{item.title}}</view>
+      <!-- 正向信号 -->
+      <view class="rp-signal-group" wx:if="{{vm.prosRanked.length}}">
+        <view class="rp-signal-group-header rp-signal-group-header--pos">正向信号</view>
+        <view class="rp-signal-item" wx:for="{{vm.prosRanked}}" wx:key="title">
+          <view class="rp-signal-title">{{item.title}}</view>
+          <view class="rp-signal-bar-row">
+            <view class="rp-signal-track">
+              <view class="rp-signal-fill rp-signal-fill--pos" style="width:{{item.width}}%"></view>
+            </view>
+            <text class="rp-signal-pct rp-signal-pct--pos">{{item.pct}}%</text>
           </view>
         </view>
       </view>
-      <view class="rp-bubbles-section" wx:if="{{vm.themeBubbles.negative.length}}">
-        <view class="rp-bubbles-label rp-bubbles-label--neg">负向主题</view>
-        <view class="rp-bubbles-wrap">
-          <view class="rp-bubble rp-bubble--neg rp-bubble--{{item.size}}" wx:for="{{vm.themeBubbles.negative}}" wx:key="title">
-            <view class="rp-bubble-title">{{item.title}}</view>
-          </view>
-        </view>
-      </view>
-    </view>
 
-    <!-- ══ 8. 劝退因素排序图 ══ -->
-    <view class="rp-section" wx:if="{{vm.consRanked.length}}">
-      <view class="rp-section-title">劝退因素</view>
-      <view class="rp-con-row" wx:for="{{vm.consRanked}}" wx:key="title">
-        <view class="rp-con-header">
-          <view class="rp-con-title">{{item.title}}</view>
-          <view class="rp-con-meta">{{item.pct}}% 消费者提及</view>
-        </view>
-        <view class="rp-con-track">
-          <view class="rp-con-fill" style="width:{{item.width}}%"></view>
+
+      <!-- 决策顾虑 -->
+      <view class="rp-signal-group rp-signal-group--neg" wx:if="{{vm.consRanked.length}}">
+        <view class="rp-signal-group-header rp-signal-group-header--neg">决策顾虑</view>
+        <view class="rp-signal-item" wx:for="{{vm.consRanked}}" wx:key="title">
+          <view class="rp-signal-title">{{item.title}}</view>
+          <view class="rp-signal-bar-row">
+            <view class="rp-signal-track">
+              <view class="rp-signal-fill rp-signal-fill--neg" style="width:{{item.width}}%"></view>
+            </view>
+            <text class="rp-signal-pct rp-signal-pct--neg">{{item.pct}}%</text>
+          </view>
         </view>
       </view>
+
     </view>
 
     <!-- ══ 9. 价格接受度 ══ -->
@@ -230,6 +214,18 @@
           <view class="rp-deep-section" wx:for="{{deepAnalysis.sections}}" wx:key="title">
             <view class="rp-deep-section-title">{{item.title}}</view>
             <view class="rp-deep-section-content">{{item.content}}</view>
+          </view>
+          <!-- 开放反馈主题 -->
+          <view class="rp-deep-appendix" wx:if="{{vm.themeBubbles.positive.length || vm.themeBubbles.negative.length}}">
+            <view class="rp-deep-appendix-title">开放反馈主题</view>
+            <block wx:if="{{vm.themeBubbles.positive.length}}">
+              <view class="rp-deep-appendix-sub">正向主题</view>
+              <view class="rp-deep-appendix-item" wx:for="{{vm.themeBubbles.positive}}" wx:key="title">{{item.title}}</view>
+            </block>
+            <block wx:if="{{vm.themeBubbles.negative.length}}">
+              <view class="rp-deep-appendix-sub rp-deep-appendix-sub--neg">负向主题</view>
+              <view class="rp-deep-appendix-item" wx:for="{{vm.themeBubbles.negative}}" wx:key="title">{{item.title}}</view>
+            </block>
           </view>
           <!-- 目标人群与渠道 -->
           <view class="rp-deep-appendix">

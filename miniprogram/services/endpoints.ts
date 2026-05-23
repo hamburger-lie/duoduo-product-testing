@@ -8,6 +8,7 @@ export const E = {
   AUTH_WECHAT_LOGIN: '/auth/wechat/login',
   AUTH_PROFILE:      '/auth/profile',
   AUTH_REFRESH:      '/auth/refresh',
+  AUTH_LOGOUT:       '/auth/logout',
   AUTH_ME:           '/auth/me',
   AUTH_AVATAR:       '/auth/avatar',
 
@@ -53,6 +54,9 @@ export const E = {
   // §6.5 Whitepaper
   WHITEPAPER_GENERATE: '/whitepapers/generate',
   WHITEPAPER_BY_EVAL: (eid: string) => `/whitepapers/by-evaluation/${eid}`,
+
+  // §6.6 Deep Analysis
+  DEEP_ANALYSIS_BY_EVAL: (eid: string) => `/evaluations/${eid}/deep-analysis`,
 
   // §7 Conversation
   CONV_CREATE:               '/conversations',

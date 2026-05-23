@@ -18,6 +18,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.deps import get_db_session
+from app.db.models.credit import CreditRechargeOrder, CreditTransaction
 from app.db.models.answer import Answer
 from app.db.models.conversation import Conversation, ConversationMessage
 from app.db.models.evaluation import Evaluation
@@ -49,7 +50,8 @@ async def ctx() -> AsyncIterator[EC]:
     async with engine.begin() as conn:
         for tbl in [
             User, Product, Persona, Evaluation, Survey, Answer,
-            Report, Conversation, ConversationMessage,
+            Report, Conversation, ConversationMessage, CreditTransaction,
+            CreditRechargeOrder,
         ]:
             await conn.run_sync(tbl.__table__.create)
 
@@ -126,11 +128,11 @@ async def test_validation_error_missing_field(ctx: EC) -> None:
     assert_error_format(r, code="VALIDATION_ERROR", http_status=400)
 
 
-async def test_not_implemented_recharge(ctx: EC) -> None:
-    """POST /credits/recharge → NOT_IMPLEMENTED 501."""
-    token = await _login(ctx, "ec_not_impl")
+async def test_recharge_validation_error_missing_body(ctx: EC) -> None:
+    """POST /credits/recharge without body triggers validation error."""
+    token = await _login(ctx, "ec_recharge_validation")
     r = await ctx.client.post("/api/v1/credits/recharge", headers=_h(token))
-    assert_error_format(r, code="NOT_IMPLEMENTED", http_status=501)
+    assert_error_format(r, code="VALIDATION_ERROR", http_status=400)
 
 
 # ------------------------------------------------------------------ #

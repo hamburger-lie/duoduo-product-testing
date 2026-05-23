@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
@@ -8,7 +11,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.deps import get_db_session
-from app.db.models.credit import CreditTransaction
+from app.core.config import get_settings
+from app.db.models.credit import CreditRechargeOrder, CreditTransaction
 from app.db.models.user import User
 from app.main import app
 
@@ -31,6 +35,7 @@ async def ctx() -> AsyncIterator[CreditContext]:
     async with engine.begin() as conn:
         await conn.run_sync(User.__table__.create)
         await conn.run_sync(CreditTransaction.__table__.create)
+        await conn.run_sync(CreditRechargeOrder.__table__.create)
 
     async def _override() -> AsyncIterator[AsyncSession]:
         async with session_factory() as session:
@@ -216,18 +221,137 @@ async def test_transactions_isolation(ctx: CreditContext) -> None:
 
 
 # ------------------------------------------------------------------ #
-# Tests — recharge (501)
+# Tests — recharge
 # ------------------------------------------------------------------ #
 
 
-async def test_recharge_returns_501(ctx: CreditContext) -> None:
-    token = await _login(ctx, "credit_recharge")
+async def test_recharge_creates_pending_order(ctx: CreditContext) -> None:
+    token = await _login(ctx, "credit_recharge_create")
     r = await ctx.client.post(
         "/api/v1/credits/recharge",
+        headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "idem-1"},
+        json={"amount_yuan": "9.90", "credits": 990, "provider": "manual"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "pending"
+    assert body["credits"] == 990
+    assert body["amount_yuan"] == "9.90"
+    assert body["order_no"].startswith("rch_")
+
+
+async def test_recharge_idempotency_key_returns_same_order(ctx: CreditContext) -> None:
+    token = await _login(ctx, "credit_recharge_idem")
+    headers = {"Authorization": f"Bearer {token}", "Idempotency-Key": "idem-same"}
+    payload = {"amount_yuan": "19.90", "credits": 1990, "provider": "manual"}
+
+    first = await ctx.client.post("/api/v1/credits/recharge", headers=headers, json=payload)
+    second = await ctx.client.post("/api/v1/credits/recharge", headers=headers, json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["order_no"] == first.json()["order_no"]
+
+
+async def test_recharge_callback_settles_once(
+    ctx: CreditContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RECHARGE_CALLBACK_SECRET", "test-recharge-secret")
+    get_settings.cache_clear()
+    token = await _login(ctx, "credit_recharge_callback")
+    created = await ctx.client.post(
+        "/api/v1/credits/recharge",
+        headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "idem-cb"},
+        json={"amount_yuan": "9.90", "credits": 990, "provider": "manual"},
+    )
+    assert created.status_code == 200
+    payload = {
+        "order_no": created.json()["order_no"],
+        "provider_transaction_id": "provider-tx-1",
+    }
+    body = json.dumps(payload, separators=(",", ":")).encode()
+    signature = hmac.new(
+        b"test-recharge-secret",
+        body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    try:
+        first = await ctx.client.post(
+            "/api/v1/credits/recharge/callback",
+            content=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Recharge-Signature": signature,
+            },
+        )
+        second = await ctx.client.post(
+            "/api/v1/credits/recharge/callback",
+            content=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Recharge-Signature": signature,
+            },
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["status"] == "paid"
+    assert second.json()["status"] == "paid"
+
+    balance = await ctx.client.get(
+        "/api/v1/credits/balance",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert r.status_code == 501
-    assert r.json()["code"] == "NOT_IMPLEMENTED"
+    assert balance.json()["balance"] == 1990
+    async with ctx.session_factory() as session:
+        from sqlalchemy import select
+
+        txs = (
+            await session.scalars(
+                select(CreditTransaction).where(CreditTransaction.reason == "recharge")
+            )
+        ).all()
+        assert len(txs) == 1
+        assert txs[0].amount == 990
+
+
+async def test_recharge_callback_rejects_bad_signature(
+    ctx: CreditContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RECHARGE_CALLBACK_SECRET", "test-recharge-secret")
+    get_settings.cache_clear()
+    token = await _login(ctx, "credit_recharge_bad_sig")
+    created = await ctx.client.post(
+        "/api/v1/credits/recharge",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"amount_yuan": "9.90", "credits": 990, "provider": "manual"},
+    )
+    payload = {
+        "order_no": created.json()["order_no"],
+        "provider_transaction_id": "provider-tx-bad",
+    }
+
+    try:
+        rejected = await ctx.client.post(
+            "/api/v1/credits/recharge/callback",
+            json=payload,
+            headers={"X-Recharge-Signature": "bad"},
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert rejected.status_code == 401
+    assert rejected.json()["code"] == "INVALID_RECHARGE_SIGNATURE"
+    balance = await ctx.client.get(
+        "/api/v1/credits/balance",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert balance.json()["balance"] == 1000
 
 
 # ------------------------------------------------------------------ #

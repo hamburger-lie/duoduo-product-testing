@@ -1022,8 +1022,76 @@ data: {"event":"error","code":"AI_SERVICE_TIMEOUT","message":"模型响应超时
 
 ---
 
-### 8.3 充值（MVP 阶段不开放，预留）
-`POST /credits/recharge` — 返回 `501 NOT_IMPLEMENTED`
+### 8.3 创建充值订单（供应商中立骨架）
+`POST /credits/recharge`
+
+> 当前仅实现订单与结算骨架，不包含真实微信支付/商户号/证书/对账能力。
+
+Headers:
+
+```http
+Authorization: Bearer <jwt>
+Idempotency-Key: optional-client-key
+```
+
+Request:
+
+```json
+{
+  "amount_yuan": "9.90",
+  "credits": 990,
+  "provider": "manual"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "123",
+  "order_no": "rch_xxx",
+  "provider": "manual",
+  "amount_yuan": "9.90",
+  "credits": 990,
+  "status": "pending",
+  "created_at": "2026-05-23T15:00:00Z",
+  "paid_at": null
+}
+```
+
+Rules:
+
+- 创建订单不增加积分。
+- 同一用户携带相同 `Idempotency-Key` 重复请求时，返回第一次创建的订单。
+- 当前 `provider` 仅支持 `manual`。
+
+### 8.4 充值回调（内部签名结算）
+`POST /credits/recharge/callback`
+
+Headers:
+
+```http
+X-Recharge-Signature: <hex hmac-sha256(raw_body, RECHARGE_CALLBACK_SECRET)>
+```
+
+Request:
+
+```json
+{
+  "order_no": "rch_xxx",
+  "provider_transaction_id": "provider-tx-001",
+  "paid_at": "2026-05-23T15:01:00Z"
+}
+```
+
+Response: same as `POST /credits/recharge`, with `status = "paid"`.
+
+Rules:
+
+- 签名错误返回 `INVALID_RECHARGE_SIGNATURE`。
+- 未配置 `RECHARGE_CALLBACK_SECRET` 返回 `RECHARGE_SIGNATURE_NOT_CONFIGURED`。
+- 重复回调或重复 `provider_transaction_id` 不重复加积分。
+- 成功结算会写一条 `CreditTransaction`，`reason = "recharge"`，`ref_type = "credit_recharge_order"`。
 
 ---
 
@@ -1177,7 +1245,8 @@ data: {"event":"error","code":"AI_SERVICE_TIMEOUT","message":"模型响应超时
 | DELETE | `/conversations/{id}` | ✅ | 删对话 |
 | GET | `/credits/balance` | ✅ | 积分余额（已实现） |
 | GET | `/credits/transactions` | ✅ | 积分流水（已实现） |
-| POST | `/credits/recharge` | ✅ | 充值（501） |
+| POST | `/credits/recharge` | ✅ | 创建充值订单骨架 |
+| POST | `/credits/recharge/callback` | ✅ | 内部签名结算骨架 |
 | GET | `/health/live` | ❌ | 存活（已实现） |
 | GET | `/health/ready` | ❌ | 就绪（已实现） |
 

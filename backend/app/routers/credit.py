@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.deps import get_db_session
-from app.core.exceptions import AppException
 from app.core.security import get_current_user
 from app.db.models.user import User
-from app.schemas.credit import CreditBalanceResponse, CreditTransactionListResponse
+from app.schemas.credit import (
+    CreditBalanceResponse,
+    CreditRechargeCallbackRequest,
+    CreditRechargeRequest,
+    CreditRechargeResponse,
+    CreditTransactionListResponse,
+)
 from app.services.credit_service import CreditService
 
 router = APIRouter(prefix="/api/v1/credits", tags=["credits"])
@@ -41,12 +47,39 @@ async def list_transactions(
     )
 
 
-@router.post("/recharge")
-async def recharge() -> None:
-    """Recharge credits — not implemented in MVP."""
+@router.post("/recharge", response_model=CreditRechargeResponse)
+async def recharge(
+    request: CreditRechargeRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    current_user: User = current_user_dependency,
+    session: AsyncSession = db_session_dependency,
+) -> CreditRechargeResponse:
+    """Create a pending provider-neutral recharge order."""
 
-    raise AppException(
-        code="NOT_IMPLEMENTED",
-        message="充值功能暂未开放",
-        http_status=status.HTTP_501_NOT_IMPLEMENTED,
+    return await CreditService(session).create_recharge_order(
+        current_user,
+        request,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/recharge/callback", response_model=CreditRechargeResponse)
+async def recharge_callback(
+    raw_request: Request,
+    signature: str = Header(alias="X-Recharge-Signature"),
+    session: AsyncSession = db_session_dependency,
+) -> CreditRechargeResponse:
+    """Settle a recharge order from a signed internal callback."""
+
+    body = await raw_request.body()
+    settings = get_settings()
+    CreditService.verify_recharge_callback_signature(
+        body,
+        signature,
+        settings.recharge_callback_secret,
+    )
+    payload = CreditRechargeCallbackRequest.model_validate_json(body)
+    return await CreditService(session).settle_recharge_order(
+        payload,
+        raw_callback=payload.model_dump(mode="json"),
     )

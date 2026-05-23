@@ -137,31 +137,6 @@
       </view>
     </view>
 
-    <!-- ══ 5. 群体×指标热力图 ══ -->
-    <view class="rp-section" wx:if="{{vm.heatmapRows.length && vm.heatmapDimHeaders.length}}">
-      <view class="rp-section-title">群体 × 指标热力图</view>
-      <scroll-view scroll-x class="rp-heatmap-scroll">
-        <view class="rp-heatmap">
-          <!-- Header row -->
-          <view class="rp-hm-header-row">
-            <view class="rp-hm-corner"></view>
-            <view class="rp-hm-col-head" wx:for="{{vm.heatmapDimHeaders}}" wx:key="index">{{item}}</view>
-          </view>
-          <!-- Data rows -->
-          <view class="rp-hm-data-row" wx:for="{{vm.heatmapRows}}" wx:key="segment">
-            <view class="rp-hm-row-label">{{item.segment}}</view>
-            <view class="rp-hm-cell rp-hm-cell--{{cell.cls}}" wx:for="{{item.cells}}" wx:key="label" wx:for-item="cell">
-              {{cell.score}}
-            </view>
-          </view>
-        </view>
-      </scroll-view>
-      <view class="rp-hm-legend">
-        <view class="rp-hm-leg-item"><view class="rp-hm-leg-swatch rp-hm-cell--h-high"></view><text>高 ≥70%</text></view>
-        <view class="rp-hm-leg-item"><view class="rp-hm-leg-swatch rp-hm-cell--h-mid"></view><text>中 50-70%</text></view>
-        <view class="rp-hm-leg-item"><view class="rp-hm-leg-swatch rp-hm-cell--h-low"></view><text>低 &lt;50%</text></view>
-      </view>
-    </view>
 
     <!-- ══ 6. 卖点有效性排序图 ══ -->
     <view class="rp-section" wx:if="{{vm.prosRanked.length}}">

@@ -334,6 +334,7 @@ export interface BusinessReport {
 
 export interface DeepAnalysisSection {
   title: string;
+  highlight?: string; // 气泡摘要，用 \n 分隔多行
   content: string;
 }
 

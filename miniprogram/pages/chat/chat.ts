@@ -20,7 +20,7 @@ function reasonPreview(text: string): string {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  pending:           '角色正在准备接受调研…',
+  pending:           '调研准备中',
   generating_survey: '正在生成调研问卷…',
   answering:         'AI 测品官正在认真作答…',
   generating_report: '正在汇总分析结果…',
@@ -216,9 +216,21 @@ Page({
   // ─── 页面生命周期 ────────────────────────────────────────
 
   async onLoad(query: Record<string, string | undefined>) {
-    const evalId    = query.evaluation_id || 'eval_001';
-    const auto      = query.auto === '1';
-    const personaId = query.persona_id || '';
+    const evalId          = query.evaluation_id || 'eval_001';
+    const auto            = query.auto === '1';
+    const starting        = query.starting === '1';
+    const personaId       = query.persona_id || '';
+    // persona_ids 存在 storage 里以避免 URL 编解码问题
+    const personaIds: string[] = (() => {
+      try {
+        const raw = wx.getStorageSync('_pending_persona_ids');
+        if (raw) { wx.removeStorageSync('_pending_persona_ids'); return JSON.parse(raw) as string[]; }
+      } catch { /* ignore */ }
+      return [];
+    })();
+    const surveyId        = query.survey_id || '';
+    const productId       = query.product_id || '';
+    const questionsChanged = query.questions_changed === '1';
     this.setData({ evaluationId: evalId, autoPlay: auto, followPersonaId: personaId });
 
     if (!USE_MOCK) {
@@ -231,17 +243,63 @@ Page({
         turns: [{
           id: 'status_main',
           kind: 'status' as const,
-          content: '角色正在准备接受调研…',
+          content: '调研准备中',
           evalProgress: 0,
           evalRemaining: 100,
           evalStatus: 'pending',
         }],
       });
       this._startPseudoProgress();
-    this.pollEvaluation(evalId, 0);
+      if (starting && personaIds.length > 0) {
+        this._doStartupSetup(evalId, surveyId, productId, personaIds, questionsChanged);
+      } else {
+        this.pollEvaluation(evalId, 0);
+      }
     } else {
       this.loadConversation(evalId, personaId);
     }
+  },
+
+  async _doStartupSetup(
+    evalId: string, surveyId: string, productId: string,
+    personaIds: string[], questionsChanged: boolean,
+  ) {
+    try {
+      // 1. 确认 surveyId
+      let sid = surveyId;
+      if (!sid) {
+        const evaluation = await api.getEvaluation(evalId);
+        sid = evaluation.survey_id || '';
+      }
+      if (!sid) {
+        const survey = await api.generateSurvey(evalId, productId);
+        sid = survey.id;
+      }
+
+      // 2. 若有题目改动，更新问卷
+      if (questionsChanged && sid) {
+        try {
+          const raw = wx.getStorageSync('_pending_questions');
+          if (raw) {
+            wx.removeStorageSync('_pending_questions');
+            await api.updateSurveyQuestions(sid, JSON.parse(raw));
+          }
+        } catch { /* ignore */ }
+      }
+
+      // 3. 绑定测品官（409 = 已绑定，视为成功）
+      await api.attachPersonas(evalId, personaIds).catch((err: any) => {
+        if (err?.statusCode !== 409) throw err;
+      });
+
+      // 4. 启动评测
+      await api.runEvaluation(evalId).catch(err => {
+        console.error('[chat] runEvaluation failed', err);
+      });
+    } catch (err) {
+      console.error('[chat] startup setup failed', err);
+    }
+    this.pollEvaluation(evalId, 0);
   },
 
   onUnload() {
@@ -256,13 +314,13 @@ Page({
   _startPseudoProgress() {
     // 先渲染 0，60ms 后推到 5% 触发平滑入场动画
     setTimeout(() => {
-      this.updateStatusTurn('角色正在准备接受调研…', 5, 'pending');
+      this.updateStatusTurn('调研准备中', 5, 'pending');
       this.pseudoProgTimer = setInterval(() => {
         const cur = this.data.evalProgress;
         if (cur >= 88) return;
         const step = cur < 40 ? 3 : cur < 70 ? 2 : 1;
         const next = Math.min(88, cur + step);
-        this.updateStatusTurn(this.data.evalStatusText || '角色正在准备接受调研…', next, 'pending');
+        this.updateStatusTurn(this.data.evalStatusText || '调研准备中', next, 'pending');
       }, 1000);
     }, 60);
   },
@@ -619,12 +677,15 @@ Page({
 
     const bubbleId = `qa_${idx}`;
     // 先只插入第一题（answer/reason 为空），后续题目打字完成后逐一追加
+    const isScale = qaItems[0].type === 'scale_1_5';
     const firstItem = {
       ...qaItems[0],
-      answer: qaItems[0].type === 'scale_1_5' ? qaItems[0].answer : '',
+      question: '',
+      answer: '',
       reason: '',
       reasonDone: false,
       reasonPreview: '',
+      ...(isScale ? { scaleDots: [], scaleValue: 0 } : {}),
     };
     this.setData({
       turns: [...this.data.turns, {
@@ -652,12 +713,15 @@ Page({
     const ti = list.findIndex((t: any) => t.id === bubbleId);
     if (ti < 0) return;
     const item = qaItems[qIdx];
+    const isScale = item.type === 'scale_1_5';
     const newItem = {
       ...item,
-      answer: item.type === 'scale_1_5' ? item.answer : '',
+      question: '',
+      answer: '',
       reason: '',
       reasonDone: false,
       reasonPreview: '',
+      ...(isScale ? { scaleDots: [], scaleValue: 0 } : {}),
     };
     const updatedItems = [...(list[ti].qaItems as any[]), newItem];
     list[ti] = { ...list[ti], qaItems: updatedItems };
@@ -726,10 +790,13 @@ Page({
 
     const fullReason = qaItems[qIdx].reason || '';
     const fullAnswer = qaItems[qIdx].answer;
+    const fullQuestion = qaItems[qIdx].question;
+    const isScale = qaItems[qIdx].type === 'scale_1_5';
+    const targetScaleValue = isScale ? qaItems[qIdx].scaleValue || 0 : 0;
 
     const typeField = (
       fullText: string,
-      field: 'reason' | 'answer',
+      field: 'question' | 'reason' | 'answer',
       onDone: () => void,
     ) => {
       if (!fullText) { onDone(); return; }
@@ -761,10 +828,49 @@ Page({
       }, 50);
     };
 
-    // 先打回答，再打作答依据；整位角色回答完后统一压缩依据。
-    typeField(fullAnswer, 'answer', () => {
-      typeField(fullReason, 'reason', advance);
-    });
+    if (isScale && targetScaleValue > 0) {
+      typeField(fullQuestion, 'question', () => {
+        this._typeScaleDots(bubbleId, qIdx, targetScaleValue, () => {
+          typeField(fullReason, 'reason', advance);
+        });
+      });
+    } else {
+      typeField(fullQuestion, 'question', () => {
+        typeField(fullAnswer, 'answer', () => {
+          typeField(fullReason, 'reason', advance);
+        });
+      });
+    }
+  },
+
+  /** 评分题圆点逐颗点亮 + scaleValue 递增 */
+  _typeScaleDots(bubbleId: string, qIdx: number, targetValue: number, onDone: () => void) {
+    let step = 0;
+    this.typeTimer = setInterval(() => {
+      if (this._typingStopped) {
+        clearInterval(this.typeTimer!);
+        this.typeTimer = null;
+        return;
+      }
+      step++;
+      if (step > targetValue) {
+        clearInterval(this.typeTimer!);
+        this.typeTimer = null;
+        onDone();
+        return;
+      }
+      const list = this.data.turns.slice();
+      const ti = list.findIndex(t => t.id === bubbleId);
+      if (ti < 0) return;
+      const updatedItems = (list[ti].qaItems as any[]).slice();
+      updatedItems[qIdx] = {
+        ...updatedItems[qIdx],
+        scaleValue: step,
+        scaleDots: ([1, 2, 3, 4, 5] as number[]).map(n => ({ filled: n <= step })),
+      };
+      list[ti] = { ...list[ti], qaItems: updatedItems };
+      this.setData({ turns: list }, () => this.scrollToBottom());
+    }, 250);
   },
 
   // ─── 滚动辅助 ────────────────────────────────────────────

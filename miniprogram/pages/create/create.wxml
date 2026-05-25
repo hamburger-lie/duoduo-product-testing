@@ -48,9 +48,15 @@
 
 
   <view class="submit-wrap">
-    <view
-      class="btn-primary {{submitting ? 'disabled' : ''}}"
-      bind:tap="onSubmit"
-    >{{submitting ? '创建中...' : '创建产品并生成问卷'}}</view>
+    <!-- 进行中：进度条卡片 -->
+    <view wx:if="{{submitting}}" class="progress-card">
+      <view class="progress-msg">{{createMsg}}</view>
+      <view class="progress-track">
+        <view class="progress-fill" style="width:{{createProgress}}%"></view>
+      </view>
+      <view class="progress-pct">{{createProgress}}%</view>
+    </view>
+    <!-- 默认：提交按钮 -->
+    <view wx:else class="btn-primary" bind:tap="onSubmit">创建产品并生成问卷</view>
   </view>
 </view>

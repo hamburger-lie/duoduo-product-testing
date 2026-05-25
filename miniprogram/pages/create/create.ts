@@ -10,6 +10,28 @@ Page({
     productImages: [] as string[],
     researchDesc: '',
     submitting: false,
+    createProgress: 0,
+    createMsg: '',
+  },
+
+  _progressTimer: null as ReturnType<typeof setInterval> | null,
+
+  _setProgress(pct: number, msg: string) {
+    this.setData({ createProgress: Math.round(pct), createMsg: msg });
+  },
+
+  /** 在两个真实检查点之间平滑推进伪进度，上限 targetCap */
+  _animateTo(targetCap: number) {
+    if (this._progressTimer) clearInterval(this._progressTimer);
+    this._progressTimer = setInterval(() => {
+      const cur = this.data.createProgress;
+      if (cur >= targetCap) return;
+      this.setData({ createProgress: Math.min(targetCap, cur + 2) });
+    }, 120);
+  },
+
+  _stopProgress() {
+    if (this._progressTimer) { clearInterval(this._progressTimer); this._progressTimer = null; }
   },
 
   onProductNameInput(e: any) {
@@ -62,40 +84,48 @@ Page({
       wx.showToast({ title: '请填写产品名', icon: 'none', duration: 2500 });
       return;
     }
+
     this.setData({ submitting: true });
-    wx.showLoading({ title: '创建产品中...' });
+    this._setProgress(0, '准备中…');
 
     try {
+      // 步骤 1：上传图片（0 → 35%）
+      this._setProgress(5, this.data.productImages.length > 0 ? '上传产品图片…' : '准备产品信息…');
+      this._animateTo(35);
       const imageObjectKeys = !USE_MOCK && this.data.productImages.length > 0
         ? await api.uploadProductImages(this.data.productImages)
         : [];
 
+      // 步骤 2：创建产品（35 → 65%）
+      this._setProgress(38, 'AI 分析产品信息…');
+      this._animateTo(65);
       const product = await api.createProduct({
         ...(name ? { name: name.slice(0, 128) } : {}),
         description: desc || name,
         image_object_keys: imageObjectKeys,
       });
 
-      wx.showLoading({ title: '生成调研方案...' });
+      // 步骤 3：创建调研（65 → 90%）
+      this._setProgress(68, '生成调研方案…');
+      this._animateTo(90);
       const evaluation = await api.createEvaluation(product.id);
 
-      // Kick off whitepaper generation in parallel with the survey/chat flow.
-      // The proxy call is long-running; we fire-and-forget here and poll later
-      // from the report page. Failure here must not block survey navigation.
+      // 步骤 4：完成（90 → 100%）
+      this._stopProgress();
+      this._setProgress(100, '即将进入调研设置…');
+
       api.generateWhitepaper({
         evaluation_id: evaluation.id,
         product_name: shortProductName(name || product.name) || '未命名产品',
         product_description: desc || undefined,
       }).catch(() => {});
 
-      wx.hideLoading();
       redirected = true;
-      // 问卷由 survey-review 页通过 SSE 流式生成（generating=1）
       wx.navigateTo({
         url: `/pages/survey-review/survey-review?evaluation_id=${evaluation.id}&product_id=${product.id}&generating=1&focus=${encodeURIComponent(desc.slice(0, 900))}`,
       });
     } catch (err: any) {
-      wx.hideLoading();
+      this._stopProgress();
       const raw = err?.message || err?.code || '';
       const msg = raw.includes('request:fail')
         ? '无法连接后端，请先启动服务'
@@ -105,7 +135,7 @@ Page({
       wx.showToast({ title: msg, icon: 'none', duration: 3000 });
       console.error('[onSubmit]', JSON.stringify(err));
     } finally {
-      if (!redirected) this.setData({ submitting: false });
+      if (!redirected) this.setData({ submitting: false, createProgress: 0, createMsg: '' });
     }
   },
 });

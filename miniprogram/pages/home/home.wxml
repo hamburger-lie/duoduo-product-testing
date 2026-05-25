@@ -6,7 +6,6 @@
   <!-- Header -->
   <view class="header">
     <view class="brand">测品官</view>
-    <view class="tagline">挖掘产品价值盲区，消费者AI测品</view>
   </view>
 
   <!-- Scene -->
@@ -18,62 +17,23 @@
     <!-- Draggable + floating bubble cards -->
     <movable-area class="bubble-field">
 
-      <movable-view direction="all" x="2" y="8" inertia out-of-bounds class="mv">
-        <view class="bub fa">
-          <view class="av av1"><view class="av-head"></view><view class="av-body"></view></view>
-          <view class="binfo">
-            <view class="bname">小芸 · 28岁</view>
-            <view class="brole">成分党护肤达人</view>
-          </view>
-        </view>
-      </movable-view>
-
-      <movable-view direction="all" x="208" y="55" inertia out-of-bounds class="mv">
-        <view class="bub fb">
-          <view class="av av2"><view class="av-head"></view><view class="av-body"></view></view>
-          <view class="binfo">
-            <view class="bname">王姐 · 35岁</view>
-            <view class="brole">家庭护肤实用派</view>
-          </view>
-        </view>
-      </movable-view>
-
-      <movable-view direction="all" x="6" y="178" inertia out-of-bounds class="mv">
-        <view class="bub fc">
-          <view class="av av3"><view class="av-head"></view><view class="av-body"></view></view>
-          <view class="binfo">
-            <view class="bname">丛丛 · 22岁</view>
-            <view class="brole">Z世代颜值控</view>
-          </view>
-        </view>
-      </movable-view>
-
-      <movable-view direction="all" x="196" y="138" inertia out-of-bounds class="mv">
-        <view class="bub fd">
-          <view class="av av4"><view class="av-head"></view><view class="av-body"></view></view>
-          <view class="binfo">
-            <view class="bname">林先生 · 30岁</view>
-            <view class="brole">理性消费分析师</view>
-          </view>
-        </view>
-      </movable-view>
-
-      <movable-view direction="all" x="5" y="315" inertia out-of-bounds class="mv">
-        <view class="bub fe">
-          <view class="av av5"><view class="av-head"></view><view class="av-body"></view></view>
-          <view class="binfo">
-            <view class="bname">苏女士 · 45岁</view>
-            <view class="brole">资深护肤用户</view>
-          </view>
-        </view>
-      </movable-view>
-
-      <movable-view direction="all" x="202" y="340" inertia out-of-bounds class="mv">
-        <view class="bub ff">
-          <view class="av av6"><view class="av-head"></view><view class="av-body"></view></view>
-          <view class="binfo">
-            <view class="bname">陈同学 · 20岁</view>
-            <view class="brole">学生党价格敏感型</view>
+      <movable-view
+        wx:for="{{bubbles}}"
+        wx:key="id"
+        direction="all"
+        x="{{item.x}}"
+        y="{{item.y}}"
+        inertia
+        out-of-bounds
+        class="mv"
+      >
+        <view class="bubble-emerge emerge-{{item.floatClass}}">
+          <view class="bub {{item.floatClass}}" data-id="{{item.id}}" bind:tap="onTapBubble">
+            <avatar personaKey="{{item.personaKey}}" personaId="{{item.id}}" slot="{{item.avatarSlot}}" size="{{68}}" />
+            <view class="binfo">
+              <view class="bname">{{item.group}}</view>
+              <view class="brole">{{item.label}}</view>
+            </view>
           </view>
         </view>
       </movable-view>

@@ -14,7 +14,8 @@
     "pages/products/products",
     "pages/product-detail/product-detail",
     "pages/survey-review/survey-review",
-    "pages/webview/webview"
+    "pages/webview/webview",
+    "components/bubble-think/bubble-think.js"
   ],
   "window": {
     "backgroundTextStyle": "dark",

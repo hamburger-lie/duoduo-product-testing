@@ -1,22 +1,10 @@
-const AVATAR_COUNT = 10;
-const AVATAR_BASE = '/assets/persona-avatars/avatar-';
-
-function hashText(text: string): number {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) - hash) + text.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
+import { avatarSlotForPersona, avatarSrcForSlot, parseBackendAvatarSlot } from '../../utils/personaAvatar';
 
 function avatarSrcFor(personaId: string, personaKey: string, slot: number): string {
-  if (slot >= 1 && slot <= AVATAR_COUNT) {
-    return `${AVATAR_BASE}${String(slot).padStart(2, '0')}.png`;
-  }
-  const seed = personaId || personaKey || 'default';
-  const idx = (hashText(seed) % AVATAR_COUNT) + 1;
-  return `${AVATAR_BASE}${String(idx).padStart(2, '0')}.png`;
+  if (slot >= 1) return avatarSrcForSlot(slot);
+  const backendSlot = parseBackendAvatarSlot(personaKey || '');
+  if (backendSlot) return avatarSrcForSlot(backendSlot);
+  return avatarSrcForSlot(avatarSlotForPersona(personaId || personaKey || 'default'));
 }
 
 Component({
@@ -32,12 +20,15 @@ Component({
     imageSrc: '',
   },
   observers: {
+    // Guard: observers fire before `attached` during init; skip setData until mounted
     'personaId, personaKey, slot': function(personaId: string, personaKey: string, slot: number) {
+      if (!(this as any)._attached) return;
       this.setData({ imageSrc: avatarSrcFor(personaId, personaKey, slot) });
     },
   },
   lifetimes: {
     attached() {
+      (this as any)._attached = true;
       this.setData({
         imageSrc: avatarSrcFor(
           this.properties.personaId,
@@ -45,6 +36,9 @@ Component({
           this.properties.slot,
         ),
       });
+    },
+    detached() {
+      (this as any)._attached = false;
     },
   },
 });

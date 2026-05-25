@@ -68,7 +68,7 @@
   font-size: 28rpx;
   color: #1A1A1A;
   margin-top: 16rpx;
-  min-height: 120rpx;
+  min-height: 320rpx;
   line-height: 1.6;
 }
 

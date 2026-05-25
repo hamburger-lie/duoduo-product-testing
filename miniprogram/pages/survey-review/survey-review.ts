@@ -110,9 +110,9 @@ Page({
     if (this.progressTimer) { clearInterval(this.progressTimer); this.progressTimer = null; }
     this.progressTimer = setInterval(() => {
       const cur = this.data.genProgress;
-      if (cur >= 88) return;
+      if (cur >= 98) return;
       const step = cur < 40 ? 3 : cur < 70 ? 2 : 1;
-      const next = Math.min(88, cur + step);
+      const next = Math.min(98, cur + step);
       this.setData({ genProgress: next, genRemaining: 100 - next });
     }, 1000);
     // 立即同步到起始值
@@ -247,7 +247,7 @@ Page({
 
   // ── 确认启动调研 ──────────────────────────────────────────────
 
-  async onConfirm() {
+  onConfirm() {
     if (this.data.confirming || this.data.questionsLoading) return;
     if (this.data.editingIdx >= 0) this.setData({ editingIdx: -1 });
 
@@ -258,37 +258,22 @@ Page({
     }
 
     this.setData({ confirming: true });
-    wx.showLoading({ title: '检查问卷…' });
-    try {
-      let surveyId = this.data.surveyId;
-      if (!surveyId) {
-        const evaluation = await api.getEvaluation(this.data.evaluationId);
-        surveyId = evaluation.survey_id || '';
-      }
-      if (!surveyId) {
-        const survey = await api.generateSurvey(this.data.evaluationId, this.data.productId);
-        surveyId = survey.id;
-        this.setData({ surveyId, questions: survey.questions || [], genProgress: 100, genRemaining: 0 });
-      }
 
-      if (this.data.questionsChanged && surveyId && this.data.questions.length > 0) {
-        await api.updateSurveyQuestions(surveyId, this.data.questions);
-      }
-
-      wx.showLoading({ title: '分配测品官…' });
-      await api.attachPersonas(this.data.evaluationId, selectedIds);
-
-      wx.hideLoading();
-      api.runEvaluation(this.data.evaluationId).catch(err => {
-        console.error('[survey-review] runEvaluation kick-off failed', err);
-      });
-      wx.redirectTo({
-        url: `/pages/chat/chat?evaluation_id=${this.data.evaluationId}&auto=1`,
-      });
-    } catch (err: any) {
-      wx.hideLoading();
-      this.setData({ confirming: false });
-      wx.showToast({ title: (err?.message || '启动失败').slice(0, 20), icon: 'none' });
+    // persona_ids 和改动题目都存 storage，避免 URL 编解码问题
+    wx.setStorageSync('_pending_persona_ids', JSON.stringify(selectedIds));
+    if (this.data.questionsChanged && this.data.questions.length > 0) {
+      wx.setStorageSync('_pending_questions', JSON.stringify(this.data.questions));
     }
+
+    const parts: string[] = [
+      `evaluation_id=${this.data.evaluationId}`,
+      `auto=1`,
+      `starting=1`,
+      `product_id=${this.data.productId}`,
+    ];
+    if (this.data.surveyId) parts.push(`survey_id=${this.data.surveyId}`);
+    if (this.data.questionsChanged) parts.push('questions_changed=1');
+
+    wx.redirectTo({ url: `/pages/chat/chat?${parts.join('&')}` });
   },
 });

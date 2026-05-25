@@ -108,10 +108,46 @@ export function startRealStream(
   const task = (wx.request as any)({
     url,
     method: 'POST',
-    data: body,
+    data: body as any,
     header: headers,
     enableChunked: true,
-    success() { /* stream completed via onChunkReceived */ },
+    timeout: 300000, // 5 分钟，AI 生成可能较慢
+    success(res: any) {
+      // enableChunked=true 时，错误体可能在 res.data 也可能在 textBuffer
+      if (res && res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+        if (!aborted) {
+          let msg = `stream failed: HTTP ${res.statusCode}`;
+          let errData: any = {};
+
+          // 1) 先看 res.data（非分块错误响应通常在这里）
+          if (res.data) {
+            if (typeof res.data === 'string') {
+              try { errData = JSON.parse(res.data); } catch { errData = { raw: res.data }; }
+            } else if (typeof res.data === 'object') {
+              errData = res.data;
+            }
+          }
+          // 2) 再看 textBuffer（onChunkReceived 收来的）
+          if (!errData?.message && !errData?.detail && !errData?.error && textBuffer) {
+            try { errData = JSON.parse(textBuffer); } catch { errData = { raw: textBuffer }; }
+          }
+
+          const code = errData?.code || errData?.error?.code || '';
+          const detail = errData?.message || errData?.detail || errData?.error?.message;
+          if (detail) msg = `[${res.statusCode}] ${code} ${detail}`;
+
+          console.error('[stream] backend error full:', {
+            url,
+            statusCode: res.statusCode,
+            requestBody: body,
+            resData: res.data,
+            textBuffer,
+            parsed: errData,
+          });
+          h.onError?.(new Error(msg));
+        }
+      }
+    },
     fail(err: any) {
       if (!aborted) h.onError?.(new Error(err.errMsg || 'stream request failed'));
     },

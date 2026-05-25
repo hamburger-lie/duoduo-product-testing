@@ -29,7 +29,7 @@
       data-id="{{item.id}}"
       bind:tap="onTapCard"
     >
-      <avatar personaKey="{{item.avatar}}" personaId="{{item.id}}" size="{{88}}" />
+      <avatar personaKey="{{item.avatar}}" personaId="{{item.id}}" slot="{{item.avatarSlot}}" size="{{88}}" />
       <view class="pcard-body">
         <view class="pcard-name">{{item.persona_tag}}</view>
         <view class="pcard-meta">{{item.age}}岁 · {{item.gender === 'female' ? '女' : item.gender === 'male' ? '男' : '未知'}} · {{item.city}}</view>

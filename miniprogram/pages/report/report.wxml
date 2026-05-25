@@ -14,56 +14,85 @@
   <!-- ── Ready ── -->
   <view wx:if="{{phase === 'ready'}}" class="rp-ready">
 
-    <!-- ══ 1. 决策仪表盘 ══ -->
-    <view class="rp-hero">
-      <view class="rp-hero-top">
-        <view class="rp-hero-meta">
-          <view class="rp-title">{{vm.productName}}</view>
+    <!-- ══ 暗色区：hero + 横滑指标 ══ -->
+    <view class="rp-dark-zone">
+      <view class="rp-hero">
+        <view class="rp-hero-orb rp-hero-orb--1"></view>
+        <view class="rp-hero-orb rp-hero-orb--2"></view>
+        <view class="rp-hero-toprow">
+          <view class="rp-hero-grade">{{vm.compositeGrade}}</view>
         </view>
-      </view>
-
-      <!-- 综合评分看板 -->
-      <view class="rp-stat-board">
-        <view class="rp-stat-board-top">
-          <view class="rp-stat-col">
-            <view class="rp-stat-item" wx:if="{{!vm.compositeBars[0].empty}}">
-              <view class="rp-stat-num">{{vm.compositeBars[0].rawScore}}</view>
-              <view class="rp-stat-lbl">{{vm.compositeBars[0].label}}</view>
-            </view>
-            <view class="rp-stat-item" wx:if="{{!vm.compositeBars[1].empty}}">
-              <view class="rp-stat-num">{{vm.compositeBars[1].rawScore}}</view>
-              <view class="rp-stat-lbl">{{vm.compositeBars[1].label}}</view>
-            </view>
+        <view class="rp-hero-name">{{vm.productName}}</view>
+        <view class="rp-hero-bar-wrap" wx:if="{{vm.top2BoxPct}}">
+          <view class="rp-hero-bar-row">
+            <text class="rp-hero-bar-label">Top-2 Box</text>
+            <text class="rp-hero-bar-val">{{vm.top2BoxPct}}%</text>
           </view>
-          <view class="rp-stat-center">
-            <view class="rp-stat-score">{{vm.compositeGrade}}</view>
-            <view class="rp-stat-badge">{{vm.compositeComment}}</view>
-          </view>
-          <view class="rp-stat-col rp-stat-col--right">
-            <view class="rp-stat-item rp-stat-item--r" wx:if="{{!vm.compositeBars[2].empty}}">
-              <view class="rp-stat-num">{{vm.compositeBars[2].rawScore}}</view>
-              <view class="rp-stat-lbl">{{vm.compositeBars[2].label}}</view>
-            </view>
-            <view class="rp-stat-item rp-stat-item--r" wx:if="{{!vm.compositeBars[3].empty}}">
-              <view class="rp-stat-num">{{vm.compositeBars[3].rawScore}}</view>
-              <view class="rp-stat-lbl">{{vm.compositeBars[3].label}}</view>
-            </view>
-          </view>
-        </view>
-        <view class="rp-stat-board-bottom" wx:if="{{!vm.compositeBars[4].empty || !vm.compositeBars[5].empty}}">
-          <view class="rp-stat-item rp-stat-item--b" wx:if="{{!vm.compositeBars[4].empty}}">
-            <view class="rp-stat-num">{{vm.compositeBars[4].rawScore}}</view>
-            <view class="rp-stat-lbl">{{vm.compositeBars[4].label}}</view>
-          </view>
-          <view class="rp-stat-sep" wx:if="{{!vm.compositeBars[4].empty && !vm.compositeBars[5].empty}}"></view>
-          <view class="rp-stat-item rp-stat-item--b" wx:if="{{!vm.compositeBars[5].empty}}">
-            <view class="rp-stat-num">{{vm.compositeBars[5].rawScore}}</view>
-            <view class="rp-stat-lbl">{{vm.compositeBars[5].label}}</view>
+          <view class="rp-hero-bar-track">
+            <view class="rp-hero-bar-fill" style="width:{{vm.top2BoxPct}}%"></view>
           </view>
         </view>
       </view>
-
     </view>
+
+    <!-- ══ 亮色区：摘要卡片 ══ -->
+    <view class="rp-light-body">
+
+      <!-- 测品结论 -->
+      <view class="rp-vc">
+        <view class="rp-vc-title">测品结论</view>
+        <view class="rp-vc-body">{{vm.conclusion.text}}</view>
+      </view>
+
+      <!-- 消费群体评分 -->
+      <view class="rp-ps-section" wx:if="{{vm.personaCards.length}}">
+        <view class="rp-ps-header">
+          <view class="rp-ps-titles">
+            <view class="rp-ps-title">消费群体评分</view>
+          </view>
+          <view class="rp-ps-more">
+            <text class="rp-ps-arrow">←</text>
+            <text>左右滑动</text>
+            <text class="rp-ps-arrow">→</text>
+          </view>
+        </view>
+        <view class="rp-ps-strip">
+          <view class="rp-ps-card" wx:for="{{vm.personaCards}}" wx:key="name">
+            <view class="rp-ps-name">{{item.name}}</view>
+            <view class="rp-ps-score">{{item.score}}</view>
+            <view class="rp-ps-tag">{{item.tag}}</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 核心亮点 + 风险提醒 -->
+      <view class="rp-insight-grid" wx:if="{{vm.opportunities.length || vm.risks.length}}">
+        <view class="rp-insight-card">
+          <view class="rp-insight-title">核心亮点</view>
+          <view class="rp-insight-item" wx:for="{{vm.opportunities}}" wx:for-index="idx" wx:key="title" wx:if="{{idx < 3}}">
+            <view class="rp-insight-icon rp-insight-icon--pos">✓</view>
+            <text class="rp-insight-text">{{item.concise || item.title}}</text>
+          </view>
+        </view>
+        <view class="rp-insight-card">
+          <view class="rp-insight-title">风险提醒</view>
+          <view class="rp-insight-item" wx:for="{{vm.risks}}" wx:for-index="idx" wx:key="title" wx:if="{{idx < 3}}">
+            <view class="rp-insight-icon rp-insight-icon--neg">△</view>
+            <text class="rp-insight-text">{{item.concise || item.title}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 数据详情区 -->
+      <!-- ══ 1c. 六维表现雷达图 ══ -->
+      <view class="rp-section" wx:if="{{vm.sixDimBreakdown.length}}">
+        <view class="rp-section-title">六维表现雷达图</view>
+        <view class="rp-radar-canvas-box">
+          <canvas canvas-id="rp-radar" id="rp-radar" bindtap="onTapRadarCanvas"
+            style="width:280px;height:280px;display:block;margin:0 auto;"></canvas>
+          <view class="rp-radar-tap-hint">点击红点查看详细数值</view>
+        </view>
+      </view>
 
     <!-- ══ 2. 消费者群体分布 ══ -->
     <view class="rp-section" wx:if="{{vm.heatmapRows.length}}">
@@ -138,73 +167,11 @@
     </view>
 
 
-    <!-- ══ 6+8. 卖点与顾虑（合并） ══ -->
-    <view class="rp-section" wx:if="{{vm.prosRanked.length || vm.consRanked.length}}">
-      <view class="rp-section-title">卖点与顾虑</view>
-
-      <!-- 正向信号 -->
-      <view class="rp-signal-group" wx:if="{{vm.prosRanked.length}}">
-        <view class="rp-signal-group-header rp-signal-group-header--pos">正向信号</view>
-        <view class="rp-signal-item" wx:for="{{vm.prosRanked}}" wx:key="title">
-          <view class="rp-signal-title">{{item.title}}</view>
-          <view class="rp-signal-bar-row">
-            <view class="rp-signal-track">
-              <view class="rp-signal-fill rp-signal-fill--pos" style="width:{{item.width}}%"></view>
-            </view>
-            <text class="rp-signal-pct rp-signal-pct--pos">{{item.pct}}%</text>
-          </view>
-        </view>
-      </view>
-
-
-      <!-- 决策顾虑 -->
-      <view class="rp-signal-group rp-signal-group--neg" wx:if="{{vm.consRanked.length}}">
-        <view class="rp-signal-group-header rp-signal-group-header--neg">决策顾虑</view>
-        <view class="rp-signal-item" wx:for="{{vm.consRanked}}" wx:key="title">
-          <view class="rp-signal-title">{{item.title}}</view>
-          <view class="rp-signal-bar-row">
-            <view class="rp-signal-track">
-              <view class="rp-signal-fill rp-signal-fill--neg" style="width:{{item.width}}%"></view>
-            </view>
-            <text class="rp-signal-pct rp-signal-pct--neg">{{item.pct}}%</text>
-          </view>
-        </view>
-      </view>
-
-    </view>
-
-    <!-- ══ 9. 价格接受度 ══ -->
-    <view class="rp-section">
-      <view class="rp-section-title">价格接受度</view>
-      <block wx:if="{{vm.priceBars.length}}">
-        <view class="rp-price-chart">
-          <view class="rp-price-pie" style="{{vm.pricePieStyle}}">
-            <view class="rp-price-pie-center">
-              <text class="rp-price-total">{{vm.priceTotal}}</text>
-              <text class="rp-price-total-label">人</text>
-            </view>
-          </view>
-          <view class="rp-price-legend">
-            <view class="rp-price-row" wx:for="{{vm.priceBars}}" wx:key="range">
-              <view class="rp-price-swatch" style="background:{{item.color}}"></view>
-              <view class="rp-price-label">{{item.range}}</view>
-              <text class="rp-price-pct">{{item.pct}}%</text>
-              <text class="rp-price-count">{{item.count}}人</text>
-            </view>
-          </view>
-        </view>
-      </block>
-      <view wx:else class="rp-price-empty">
-        <text>本次调研未包含价格测试题，暂无价格数据</text>
-      </view>
-    </view>
-
     <!-- ══ 深度研究报告（可折叠）══ -->
     <view class="rp-deep-panel">
       <view class="rp-deep-toggle" bindtap="onTapDeepToggle">
         <view class="rp-deep-toggle-left">
           <view class="rp-deep-toggle-title">深度研究报告</view>
-          <view class="rp-deep-toggle-sub">卖点群体匹配 · 无效卖点识别 · 市场适配建议</view>
         </view>
         <view class="rp-deep-chevron {{deepAnalysisExpanded ? 'rp-deep-chevron--open' : ''}}"></view>
       </view>
@@ -213,35 +180,12 @@
         <block wx:elif="{{deepAnalysis}}">
           <view class="rp-deep-section" wx:for="{{deepAnalysis.sections}}" wx:key="title">
             <view class="rp-deep-section-title">{{item.title}}</view>
+            <view wx:if="{{item.highlight}}" class="rp-deep-highlight">{{item.highlight}}</view>
             <view class="rp-deep-section-content">{{item.content}}</view>
-          </view>
-          <!-- 开放反馈主题 -->
-          <view class="rp-deep-appendix" wx:if="{{vm.themeBubbles.positive.length || vm.themeBubbles.negative.length}}">
-            <view class="rp-deep-appendix-title">开放反馈主题</view>
-            <block wx:if="{{vm.themeBubbles.positive.length}}">
-              <view class="rp-deep-appendix-sub">正向主题</view>
-              <view class="rp-deep-appendix-item" wx:for="{{vm.themeBubbles.positive}}" wx:key="title">{{item.title}}</view>
-            </block>
-            <block wx:if="{{vm.themeBubbles.negative.length}}">
-              <view class="rp-deep-appendix-sub rp-deep-appendix-sub--neg">负向主题</view>
-              <view class="rp-deep-appendix-item" wx:for="{{vm.themeBubbles.negative}}" wx:key="title">{{item.title}}</view>
-            </block>
-          </view>
-          <!-- 目标人群与渠道 -->
-          <view class="rp-deep-appendix">
-            <view class="rp-deep-appendix-title">目标人群与渠道</view>
-            <view class="rp-deep-appendix-item" wx:for="{{vm.audiences}}" wx:key="index">最可能购买：{{item}}</view>
-            <block wx:if="{{vm.leastLikelyAudiences.length}}">
-              <view class="rp-deep-appendix-item" wx:for="{{vm.leastLikelyAudiences}}" wx:key="index">最不可能购买：{{item}}</view>
-            </block>
-            <block wx:if="{{vm.channels.length}}">
-              <view class="rp-deep-appendix-item" wx:for="{{vm.channels}}" wx:key="index">渠道建议：{{item}}</view>
-            </block>
           </view>
           <!-- 附录：计算口径 -->
           <view class="rp-deep-appendix">
             <view class="rp-deep-appendix-title">附录：计算口径</view>
-            <view class="rp-deep-appendix-sub">仅展示公开统计与调研行业常用口径，不使用内部加权综合分。</view>
             <view class="rp-deep-appendix-item" wx:for="{{vm.formulaNotes}}" wx:key="index">{{item}}</view>
             <view class="rp-deep-appendix-source">来源口径：NIST 算术均值、OECD/联合国统计比例与百分数、Qualtrics Top Box 箱体占比。</view>
           </view>
@@ -250,12 +194,13 @@
       </view>
     </view>
 
-    <!-- ══ Actions ══ -->
-    <view class="rp-actions">
-      <button class="rp-btn rp-btn--primary" bindtap="onTapExport">导出报告</button>
-      <button class="rp-btn rp-btn--ghost" bindtap="onTapFollowUp">继续追问产品</button>
-    </view>
+      <!-- ══ Actions ══ -->
+      <view class="rp-actions">
+        <button class="rp-btn rp-btn--primary" bindtap="onTapExport">导出 PDF</button>
+        <button class="rp-btn rp-btn--ghost" bindtap="onTapFollowUp">继续追问产品</button>
+      </view>
 
-    <view class="rp-disclaimer">{{vm.disclaimer}}</view>
+      <view class="rp-disclaimer">{{vm.disclaimer}}</view>
+    </view><!-- /rp-light-body -->
   </view>
 </view>

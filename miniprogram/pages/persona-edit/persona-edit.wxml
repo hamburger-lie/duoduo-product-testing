@@ -12,11 +12,7 @@
 
     <view class="section-card">
       <view class="field">
-        <view class="field-label">名称</view>
-        <input class="field-input" value="{{form.name}}" data-field="name" bindinput="onInput" placeholder="例：云云" maxlength="12"/>
-      </view>
-      <view class="field">
-        <view class="field-label">标签（一句话描述）</view>
+        <view class="field-label">所属群类标签</view>
         <input class="field-input" value="{{form.persona_tag}}" data-field="persona_tag" bindinput="onInput" placeholder="例：Z世代精致女生" maxlength="20"/>
       </view>
     </view>
@@ -54,8 +50,8 @@
           value="{{form.bio}}"
           data-field="bio"
           bindinput="onInput"
-          placeholder="描述这位测品官的消费习惯、性格特点…"
-          maxlength="300"
+          placeholder="描述这位测品官的消费习惯、性格特点、购买触发点、常见顾虑和真实表达方式…"
+          maxlength="1200"
           auto-height
         />
       </view>

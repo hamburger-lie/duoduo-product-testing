@@ -17,6 +17,8 @@ App({
   },
 
   onError(msg: string) {
+    // chooseAvatar:fail cancel is expected when user dismisses the avatar picker
+    if (msg?.includes('chooseAvatar:fail cancel')) return;
     console.error('[app.onError]', msg);
   },
 });

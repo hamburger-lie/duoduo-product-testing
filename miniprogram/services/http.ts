@@ -9,13 +9,15 @@ import type { ApiError } from '../types/api';
  * DevTools → 详情 → 本地设置 → 勾选"不校验合法域名"
  * 上线时改成正式域名并在小程序后台白名单添加，例如 'https://api.cepinguan.com'
  */
-// devtools = 微信开发者工具模拟器，windows/mac = PC 端微信，两者都在本机
-// android/ios = 手机真机调试，需用局域网 IP
+// ⚠️ 真机调试时需要填你电脑的局域网 IP（cmd → ipconfig → IPv4 地址）
+// 建议在路由器或 Windows 网络设置里给这台电脑分配固定 IP，这样永远不用改
+const DEV_LAN_IP = '192.168.3.114';
+
 const _platform = wx.getDeviceInfo().platform;
 const IS_LOCAL = _platform === 'devtools' || _platform === 'windows' || _platform === 'mac';
 export const BASE_URL = IS_LOCAL
   ? 'http://127.0.0.1:18000'
-  : 'http://192.168.3.114:18000';
+  : `http://${DEV_LAN_IP}:18000`;
 
 interface RequestOptions {
   url: string;                 // 不含 BASE_URL 与版本前缀
@@ -47,6 +49,32 @@ export function getToken(): string | null {
 }
 
 let _refreshing: Promise<string> | null = null;
+
+/** wx.login → POST /auth/wechat/login → 存储 token */
+function silentLogin(): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    wx.login({
+      success(loginRes) {
+        wx.request({
+          url: BASE_URL + API_VERSION_PREFIX + '/auth/wechat/login',
+          method: 'POST',
+          header: { 'Content-Type': 'application/json' },
+          data: { code: loginRes.code },
+          success(res: any) {
+            if (res.statusCode === 200 && res.data?.token) {
+              wx.setStorageSync('auth_token', res.data.token);
+              resolve();
+            } else {
+              reject(new Error('silent login failed: ' + res.statusCode));
+            }
+          },
+          fail: (e: any) => reject(new Error(e.errMsg)),
+        });
+      },
+      fail: (e: any) => reject(new Error(e.errMsg)),
+    });
+  });
+}
 
 function refreshToken(): Promise<string> {
   if (_refreshing) return _refreshing;
@@ -106,20 +134,31 @@ export function request<T>(opts: RequestOptions): Promise<T> {
           resolve(res.data as T);
           return;
         }
-        // 401 自动刷新 token 并重试一次
+        // 401 先尝试刷新 token，失败则重新 wx.login 静默登录，最多重试一次
         if (code === 401 && !opts._retried) {
           try {
             await refreshToken();
-            resolve(await request<T>({ ...opts, _retried: true }));
           } catch {
+            // refresh 失败：清掉旧 token，重新 wx.login 静默登录
             wx.removeStorageSync('auth_token');
-            reject({ code: 'HTTP_401', message: '登录已过期，请重新登录' } as ApiError);
+            try {
+              await silentLogin();
+            } catch { /* 登录失败则继续走下面的 reject */ }
           }
+          if (getToken()) {
+            try {
+              resolve(await request<T>({ ...opts, _retried: true }));
+              return;
+            } catch { /* fall through to reject */ }
+          }
+          reject({ code: 'HTTP_401', message: '登录已过期，请重新登录', statusCode: 401 } as ApiError);
           return;
         }
-        const err: ApiError = (res.data as ApiError) || {
+        const err: ApiError = {
           code: 'HTTP_' + code,
           message: '请求失败',
+          ...((res.data as ApiError) || {}),
+          statusCode: code,
         };
         reject(err);
       },

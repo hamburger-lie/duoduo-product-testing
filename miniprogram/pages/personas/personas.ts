@@ -1,9 +1,10 @@
 import { api } from '../../services/api';
 import type { PersonaSummary } from '../../types/api';
+import { decoratePersonasWithAvatars, type AvatarDecorated } from '../../utils/personaAvatar';
 
 Page({
   data: {
-    personas: [] as PersonaSummary[],
+    personas: [] as Array<AvatarDecorated<PersonaSummary>>,
     loading: true,
   },
 
@@ -20,7 +21,7 @@ Page({
     this.setData({ loading: true });
     try {
       const items = await api.listPersonas({ is_system: false });
-      this.setData({ personas: items, loading: false });
+      this.setData({ personas: decoratePersonasWithAvatars(items), loading: false });
     } catch {
       this.setData({ loading: false });
       wx.showToast({ title: '加载失败', icon: 'none' });

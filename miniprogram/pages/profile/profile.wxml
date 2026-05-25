@@ -3,7 +3,7 @@
   <!-- Logged in: user card -->
   <view wx:if="{{isLoggedIn}}" class="ucard">
     <view class="ucard-av">
-      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" disabled="{{avatarUploading}}">
         <image
           wx:if="{{user.avatar_url}}"
           class="avatar-img"

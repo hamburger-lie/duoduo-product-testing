@@ -4,8 +4,7 @@
   <view class="top-bar">
     <view class="top-bar-left">
       <view class="page-title">调研报告 PDF</view>
-      <view class="page-sub" wx:if="{{!selecting}}">打开报告后，可通过右上角菜单保存或分享</view>
-      <view class="page-sub" wx:else>已选 {{selectedCount}} 份</view>
+      <view class="page-sub" wx:if="{{selecting}}">已选 {{selectedCount}} 份</view>
     </view>
     <view class="top-bar-actions">
       <view wx:if="{{!selecting && reports.length > 0}}" class="action-btn" bind:tap="onTapSelect">批量选择</view>
@@ -26,7 +25,7 @@
   <view wx:elif="{{reports.length === 0}}" class="state-center">
     <view class="empty-icon"></view>
     <text class="empty-text">还没有导出的 PDF 报告</text>
-    <text class="empty-sub">在报告页点击"导出"，再在模板页导出 PDF 后会自动同步到这里</text>
+    <text class="empty-sub">在调研报告页点击「导出 PDF」后，会自动同步到这里</text>
   </view>
 
   <!-- 列表 -->

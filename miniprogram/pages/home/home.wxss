@@ -126,8 +126,43 @@ page {
 
 /* movable-view wrapper — no styling, just size */
 .mv {
-  width: 260rpx;
+  width: 286rpx;
   height: auto;
+}
+.bubble-emerge {
+  opacity: 0;
+  transform-origin: 50% 50%;
+}
+.emerge-fa { animation: emergeA 780ms cubic-bezier(0.18, 0.9, 0.22, 1.05) 80ms both; }
+.emerge-fb { animation: emergeB 860ms cubic-bezier(0.18, 0.9, 0.22, 1.05) 180ms both; }
+.emerge-fc { animation: emergeC 900ms cubic-bezier(0.18, 0.9, 0.22, 1.05) 260ms both; }
+.emerge-fd { animation: emergeD 940ms cubic-bezier(0.18, 0.9, 0.22, 1.05) 340ms both; }
+.emerge-fe { animation: emergeE 980ms cubic-bezier(0.18, 0.9, 0.22, 1.05) 420ms both; }
+
+@keyframes emergeA {
+  0%   { opacity: 0; transform: translate(134rpx, 229rpx) scale(0.36); }
+  68%  { opacity: 1; transform: translate(-8rpx, -6rpx) scale(1.04); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+@keyframes emergeB {
+  0%   { opacity: 0; transform: translate(-312rpx, 100rpx) scale(0.36); }
+  68%  { opacity: 1; transform: translate(8rpx, -6rpx) scale(1.04); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+@keyframes emergeC {
+  0%   { opacity: 0; transform: translate(134rpx, -38rpx) scale(0.36); }
+  68%  { opacity: 1; transform: translate(-8rpx, 6rpx) scale(1.04); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+@keyframes emergeD {
+  0%   { opacity: 0; transform: translate(-310rpx, -226rpx) scale(0.36); }
+  68%  { opacity: 1; transform: translate(8rpx, 6rpx) scale(1.04); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+@keyframes emergeE {
+  0%   { opacity: 0; transform: translate(72rpx, -346rpx) scale(0.36); }
+  68%  { opacity: 1; transform: translate(-6rpx, 8rpx) scale(1.04); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
 }
 
 /* ── Bubble card ── */
@@ -135,13 +170,13 @@ page {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 14rpx;
+  gap: 15rpx;
   background: rgba(255,255,255,0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 50rpx;
-  padding: 16rpx 22rpx 16rpx 16rpx;
-  width: 260rpx;
+  border-radius: 54rpx;
+  padding: 17rpx 23rpx 17rpx 17rpx;
+  width: 286rpx;
   box-sizing: border-box;
   box-shadow:
     0 6rpx 28rpx rgba(100,80,160,0.16),
@@ -226,12 +261,12 @@ page {
 .binfo {
   display: flex;
   flex-direction: column;
-  gap: 5rpx;
+  gap: 6rpx;
   min-width: 0;
   flex: 1;
 }
 .bname {
-  font-size: 23rpx;
+  font-size: 25rpx;
   font-weight: 700;
   color: #1A1A2E;
   line-height: 1.2;
@@ -240,7 +275,7 @@ page {
   text-overflow: ellipsis;
 }
 .brole {
-  font-size: 19rpx;
+  font-size: 21rpx;
   color: #8E84B8;
   line-height: 1.2;
   white-space: nowrap;

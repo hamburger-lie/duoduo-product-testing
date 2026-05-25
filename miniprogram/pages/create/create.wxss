@@ -253,6 +253,41 @@
   margin-top: 16rpx;
 }
 
+.progress-card {
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  border-radius: 20rpx;
+  padding: 32rpx 36rpx;
+}
+
+.progress-msg {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 20rpx;
+}
+
+.progress-track {
+  height: 10rpx;
+  background: var(--accent-soft);
+  border-radius: 999rpx;
+  overflow: hidden;
+  margin-bottom: 14rpx;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999rpx;
+  transition: width 0.18s ease;
+}
+
+.progress-pct {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  text-align: right;
+}
+
 .btn-primary {
   height: 96rpx;
   border-radius: var(--r-pill);

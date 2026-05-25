@@ -1603,7 +1603,7 @@ Page({
           }).catch(() => {/* ignore */});
           wx.navigateTo({ url: `/pages/webview/webview?url=${encodeURIComponent(base)}` });
         } else {
-          // 白皮书导出：传 mode=whitepaper
+          // 白皮书导出：使用本地白皮书查看器，mode=whitepaper
           const wpUrl = base + `&mode=${encodeURIComponent('whitepaper')}`;
           wx.navigateTo({ url: `/pages/webview/webview?url=${encodeURIComponent(wpUrl)}` });
         }

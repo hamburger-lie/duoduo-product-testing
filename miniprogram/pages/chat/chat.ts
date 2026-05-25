@@ -519,6 +519,12 @@ Page({
       })
       .catch(() => {});
 
+    // 评测完成后立即在后台预生成白皮书，用户到导出页时大概率已就绪
+    api.generateWhitepaper({
+      evaluation_id: evaluation.id,
+      product_name: this.data.productTitle || '未命名产品',
+    }).catch(() => {});
+
     this.setData({ turns: baseTurns, evalStatusText: '', evalProgress: 100, evalRemaining: 0 }, () => {
       if (answers.length === 0 && questions.length === 0) {
         this.setData({ autoPlayDone: true }, () => this.scrollToBottom());

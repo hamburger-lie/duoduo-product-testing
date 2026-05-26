@@ -236,6 +236,7 @@ class ArkOpenAIClient:
             "messages": self._build_messages(system, user, images),
             "stream": True,
             "stream_options": {"include_usage": True},
+            "temperature": 0.3,
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}

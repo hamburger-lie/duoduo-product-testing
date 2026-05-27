@@ -1,0 +1,100 @@
+[project]
+name = "duoduo-product-testing-backend"
+version = "0.1.0"
+description = "Backend skeleton for Duoduo Product Testing"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "alembic>=1.16.0",
+    "asyncpg>=0.30.0",
+    "celery>=5.5.0",
+    "fastapi>=0.115.0",
+    "jinja2>=3.1.0",
+    "httpx>=0.28.0",
+    "pyjwt>=2.10.0",
+    "pydantic-settings>=2.9.0",
+    "pydantic>=2.11.0",
+    "redis>=6.0.0",
+    "sqlalchemy[asyncio]>=2.0.40",
+    "uvicorn>=0.34.0",
+    "prometheus-client>=0.25.0",
+    "sentry-sdk[fastapi,celery]>=2.0.0",
+    "idna==3.15",
+    "python-multipart>=0.0.29",
+]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.21.0",
+    "mypy>=1.15.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.0.0",
+    "pytest>=8.3.0",
+    "ruff>=0.11.0",
+    "locust>=2.29.0",
+    "bandit>=1.8.0",
+    "pip-audit>=2.7.0",
+    "safety>=3.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+# To run with coverage: uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=60
+addopts = "-q"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/db/migrations/*", "app/db/versions/*"]
+
+[tool.coverage.report]
+fail_under = 60
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["app"]
+
+[[tool.mypy.overrides]]
+module = ["jinja2", "jinja2.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["redis", "redis.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sentry_sdk", "sentry_sdk.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["prometheus_client", "prometheus_client.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["opentelemetry", "opentelemetry.*"]
+ignore_missing_imports = true

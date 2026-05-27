@@ -1,5 +1,16 @@
-# Backend 独立 git 仓库，单独管理
-backend/
+# Backend 排除的文件（.env、运行时目录、缓存）
+backend/backend/.venv/
+backend/backend/__pycache__/
+backend/backend/*.egg-info/
+backend/backend/.env
+backend/backend/local_dev.db
+backend/backend/uploads/
+backend/backend/static/
+backend/backend/whitepaper-static/
+backend/backend/*.log
+backend/backend/.mypy_cache/
+backend/backend/.ruff_cache/
+backend/backend/.pytest_cache/
 
 # Python
 __pycache__/

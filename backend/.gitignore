@@ -1,0 +1,23 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.claude/settings.local.json
+*.pid
+.tmp_*
+
+# Runtime / generated files
+backend/local_dev.db
+backend/static/avatars/
+backend/static/reports/
+backend/uploads/

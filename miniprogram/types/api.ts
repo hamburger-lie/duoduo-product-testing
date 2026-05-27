@@ -34,10 +34,16 @@ export interface User {
   avatar_url: string | null;
   role_type: RoleType;
   credit_balance: number;
+  phone_number?: string | null;
+  phone_masked?: string | null;
   is_new_user?: boolean;
 }
 
-export interface WechatLoginReq { code: string }
+export interface WechatLoginReq {
+  code: string;
+  phone_code?: string;
+  ref_code?: string;
+}
 export interface WechatLoginRes {
   token: string;
   expires_in: number;
@@ -132,6 +138,15 @@ export interface PersonaDetail extends PersonaSummary {
     pet_phrases: string[];
     pain_points: string[];
     lifestyle: string;
+    personality_traits?: string[];
+    purchase_triggers?: string[];
+    trust_signals?: string[];
+    evaluation_criteria?: string[];
+    content_preferences?: string[];
+    social_media_behavior?: string;
+    typical_scenario?: string;
+    objection_patterns?: string[];
+    communication_style?: string;
   };
   version: number;
   created_at: string;
@@ -347,6 +362,7 @@ export interface ReportPdfListItem {
   report_id: string;
   evaluation_id: string;
   product_name: string;
+  pdf_title?: string;
   pdf_url: string;
   generated_at: string;
 }

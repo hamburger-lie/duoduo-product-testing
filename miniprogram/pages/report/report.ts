@@ -549,19 +549,25 @@ function buildConclusion(
 function buildPersonaCards(
   segments: Array<{ segment: string; count: number; avg_intent: number }>,
   tagMap: Record<string, string> = {},
-  answers: Array<{ persona_tag?: string; overall_intent?: number }> = [],
+  answers: Array<{ persona_id?: string; persona_name?: string; persona_tag?: string; overall_intent?: number }> = [],
 ): Array<{ name: string; score: number; tag: string; tone: string }> {
   const tones = ['green', 'violet', 'amber', 'blue', 'slate'];
   const sortedAnswers = [...answers].sort((a, b) => (b.overall_intent ?? 0) - (a.overall_intent ?? 0));
-  const sorted = [...segments].sort((a, b) => b.avg_intent - a.avg_intent);
+  const answerSegments = sortedAnswers
+    .filter(a => (a.persona_tag || a.persona_name || a.persona_id) && typeof a.overall_intent === 'number')
+    .map(a => ({
+      segment: a.persona_tag || a.persona_name || a.persona_id || '',
+      count: 1,
+      avg_intent: (a.overall_intent || 0) > 5 ? (a.overall_intent || 0) / 2 : (a.overall_intent || 0),
+    }));
+  const source = answerSegments.length > segments.length ? answerSegments : segments;
+  const sorted = [...source].sort((a, b) => b.avg_intent - a.avg_intent);
   const all = sorted.map((s, i) => {
     const score = Math.round(Math.min(100, (s.avg_intent / 5) * 100));
     const tag = score >= 90 ? '强推荐' : score >= 75 ? '推荐' : score >= 65 ? '可推' : score >= 55 ? '观望' : '谨慎';
     return { name: pickSegmentLabel(s.segment, i, tagMap, sortedAnswers), score, tag, tone: tones[i] || 'slate' };
   });
-  // 显示所有 score≥80 的群体，最少保留最高分一个
-  const filtered = all.filter(c => c.score >= 80);
-  return filtered.length > 0 ? filtered : all.slice(0, 1);
+  return all.slice(0, 6);
 }
 
 function hmCellBg(score: number | null): string {
@@ -1120,11 +1126,11 @@ Page({
       this.setData({ error: '' });
     }
     try {
-      const [businessReport, evaluation, answers] = await Promise.all([
+      const [businessReport, evaluation] = await Promise.all([
         api.getBusinessReportByEval(evalId),
         api.getEvaluation(evalId).catch(() => null),
-        api.getEvaluationAnswers(evalId).catch(() => [] as any[]),
       ]);
+      const answers = await api.getEvaluationAnswers(evalId, evaluation?.selected_persona_ids || []).catch(() => [] as any[]);
       const tagMap = buildPersonaTagMap((answers as any[]) || []);
       let productName = '';
       if (evaluation?.product_id) {
@@ -1144,11 +1150,11 @@ Page({
         return;
       }
       try {
-        const [report, evaluation, baseAnswers] = await Promise.all([
+        const [report, evaluation] = await Promise.all([
           api.getReportByEval(evalId),
           api.getEvaluation(evalId).catch(() => null),
-          api.getEvaluationAnswers(evalId).catch(() => [] as any[]),
         ]);
+        const baseAnswers = await api.getEvaluationAnswers(evalId, evaluation?.selected_persona_ids || []).catch(() => [] as any[]);
         const tagMap = buildPersonaTagMap((baseAnswers as any[]) || []);
         let productName = '';
         if (evaluation?.product_id) {

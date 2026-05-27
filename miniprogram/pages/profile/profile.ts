@@ -35,47 +35,6 @@ Page({
     };
   },
 
-  async onGetPhoneNumber(e: any) {
-    const detail = e.detail || {};
-    const errMsg: string = detail.errMsg || '';
-    const phoneOk = errMsg === 'getPhoneNumber:ok' || detail.errno === 0;
-    const cancelled = errMsg.includes('cancel') || detail.errno === 20;
-
-    if (cancelled) return;
-
-    this.setData({ authLoading: true });
-    try {
-      const login_code = await new Promise<string>((resolve, reject) => {
-        wx.login({ success: r => resolve(r.code), fail: reject });
-      });
-
-      let token: string;
-      if (phoneOk && detail.code) {
-        const res = await api.loginWithPhone(login_code, detail.code as string);
-        token = res.token;
-      } else {
-        const res = await api.loginSilent(login_code);
-        token = res.token;
-      }
-
-      wx.setStorageSync('auth_token', token);
-      wx.removeStorageSync('manual_logout');
-      wx.removeStorageSync('referral_code');
-
-      const user = await api.getMe();
-      this.setData({
-        user: { ...user, avatar_url: fullAvatarUrl(user.avatar_url) },
-        isLoggedIn: !!user.id,
-      });
-      wx.showToast({ title: '登录成功', icon: 'success' });
-    } catch (err) {
-      console.error('[profile] login failed', err);
-      wx.showToast({ title: '登录失败，请重试', icon: 'none' });
-    } finally {
-      this.setData({ authLoading: false });
-    }
-  },
-
   async onChooseAvatar(e: any) {
     const avatarUrl = e.detail?.avatarUrl as string | undefined;
     if (!avatarUrl) return;
@@ -144,6 +103,10 @@ Page({
 
   onTapShare() {
     // 通过 open-type="share" 的 button 触发
+  },
+
+  onTapLoginHome() {
+    wx.switchTab({ url: '/pages/home/home' });
   },
 
   onTapContact() {

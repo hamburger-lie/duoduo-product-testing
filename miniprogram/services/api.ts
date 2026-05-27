@@ -37,14 +37,10 @@ export const api = {
 
   // ---------- Auth ----------
 
-  /** 静默登录：用 wx.login code 换 JWT，已有有效 token 则跳过 */
+  /** 检查登录态；本期必须由首页手机号授权弹窗完成登录 */
   async ensureAuth(): Promise<void> {
     if (wx.getStorageSync('auth_token')) return;
-    const code = await new Promise<string>((resolve, reject) =>
-      wx.login({ success: r => resolve(r.code), fail: reject }),
-    );
-    const res = await api.loginSilent(code);
-    wx.setStorageSync('auth_token', res.token);
+    throw new Error('AUTH_REQUIRED');
   },
 
   async getMe(): Promise<User> {

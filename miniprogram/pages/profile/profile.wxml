@@ -32,6 +32,7 @@
         <view class="ucard-coin"></view>
         <text class="ucard-credits-num">{{user.credit_balance}}积分</text>
       </view>
+      <view wx:if="{{user.phone_masked}}" class="ucard-phone">{{user.phone_masked}}</view>
     </view>
     <view class="ucard-arrow">›</view>
   </view>
@@ -53,8 +54,7 @@
     <view class="ucard-arrow">›</view>
     <button
       class="ucard-phone-overlay"
-      open-type="getPhoneNumber"
-      bindgetphonenumber="onGetPhoneNumber"
+      bindtap="onTapLoginHome"
     ></button>
   </view>
 

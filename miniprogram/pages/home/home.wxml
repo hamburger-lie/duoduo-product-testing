@@ -48,4 +48,24 @@
     </view>
   </view>
 
+  <view wx:if="{{showAuthModal}}" class="auth-mask">
+    <view class="auth-sheet">
+      <view class="auth-pill"></view>
+      <view class="auth-title">登录美博会测品官</view>
+      <view class="auth-desc">授权手机号后保存测评档案、同步积分和报告。</view>
+      <button
+        class="auth-primary"
+        open-type="getPhoneNumber"
+        bindgetphonenumber="onGetPhoneNumber"
+        loading="{{authLoading}}"
+        disabled="{{authLoading}}"
+      >
+        微信手机号登录
+      </button>
+      <navigator class="auth-exit" target="miniProgram" open-type="exit">
+        暂不使用，退出小程序
+      </navigator>
+    </view>
+  </view>
+
 </view>

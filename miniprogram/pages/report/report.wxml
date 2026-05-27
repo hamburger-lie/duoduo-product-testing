@@ -56,13 +56,15 @@
             <text class="rp-ps-arrow">→</text>
           </view>
         </view>
-        <view class="rp-ps-strip">
-          <view class="rp-ps-card" wx:for="{{vm.personaCards}}" wx:key="name">
-            <view class="rp-ps-name">{{item.name}}</view>
-            <view class="rp-ps-score">{{item.score}}</view>
-            <view class="rp-ps-tag">{{item.tag}}</view>
+        <scroll-view class="rp-ps-strip" scroll-x="true" enhanced="true" show-scrollbar="{{false}}">
+          <view class="rp-ps-track">
+            <view class="rp-ps-card" wx:for="{{vm.personaCards}}" wx:key="name">
+              <view class="rp-ps-name">{{item.name}}</view>
+              <view class="rp-ps-score">{{item.score}}</view>
+              <view class="rp-ps-tag">{{item.tag}}</view>
+            </view>
           </view>
-        </view>
+        </scroll-view>
       </view>
 
       <!-- 核心亮点 + 风险提醒 -->

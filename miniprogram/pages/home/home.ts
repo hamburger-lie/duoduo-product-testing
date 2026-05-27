@@ -1,5 +1,6 @@
 import { api } from '../../services/api';
 import type { PersonaSummary } from '../../types/api';
+import { hasToken, loginWithPhoneCode, clearAuth } from '../../utils/auth';
 import { decoratePersonasWithAvatars } from '../../utils/personaAvatar';
 
 type HomeBubble = {
@@ -71,32 +72,86 @@ function buildHomeBubbles(personas: PersonaSummary[]): HomeBubble[] {
 Page({
   data: {
     bubbles: FALLBACK_BUBBLES,
+    showAuthModal: false,
+    authLoading: false,
   },
 
   onShow() {
+    if (!hasToken()) {
+      this.setData({ showAuthModal: true, bubbles: FALLBACK_BUBBLES });
+      return;
+    }
+    this.setData({ showAuthModal: false });
     this.loadBubbles();
   },
 
   async loadBubbles() {
     try {
-      await api.ensureAuth();
       const personas = await api.listPersonas({ is_system: false });
       this.setData({ bubbles: buildHomeBubbles(personas) });
     } catch {
+      clearAuth();
+      this.setData({ showAuthModal: true });
       this.setData({ bubbles: FALLBACK_BUBBLES });
     }
   },
 
   onTapCreate() {
+    if (!this.requireAuth()) return;
     wx.navigateTo({ url: '/pages/create/create' });
   },
 
   onTapBubble(e: any) {
+    if (!this.requireAuth()) return;
     const id = String(e.currentTarget.dataset.id || '');
     if (!id || id.startsWith('fallback_')) {
       wx.navigateTo({ url: '/pages/personas/personas' });
       return;
     }
     wx.navigateTo({ url: `/pages/persona-edit/persona-edit?id=${id}` });
+  },
+
+  requireAuth(): boolean {
+    if (hasToken()) return true;
+    this.setData({ showAuthModal: true });
+    wx.showToast({ title: '请先完成授权登录', icon: 'none' });
+    return false;
+  },
+
+  async onGetPhoneNumber(e: any) {
+    const detail = e.detail || {};
+    const errMsg = String(detail.errMsg || '');
+    const phoneOk = errMsg === 'getPhoneNumber:ok' || detail.errno === 0;
+    const cancelled = errMsg.includes('cancel') || detail.errno === 20;
+
+    if (cancelled) {
+      wx.showToast({ title: '需要授权手机号后才能继续使用', icon: 'none' });
+      this.setData({ showAuthModal: true });
+      return;
+    }
+    if (!phoneOk || !detail.code) {
+      wx.showToast({ title: '手机号授权失败，请重试', icon: 'none' });
+      this.setData({ showAuthModal: true });
+      return;
+    }
+    if (this.data.authLoading) return;
+
+    this.setData({ authLoading: true });
+    wx.showLoading({ title: '登录中' });
+    try {
+      await loginWithPhoneCode(String(detail.code));
+      this.setData({ showAuthModal: false });
+      await this.loadBubbles();
+      wx.hideLoading();
+      wx.showToast({ title: '登录成功', icon: 'success' });
+    } catch (err) {
+      console.error('[home] login failed', err);
+      clearAuth();
+      this.setData({ showAuthModal: true });
+      wx.hideLoading();
+      wx.showToast({ title: '登录失败，请稍后重试', icon: 'none' });
+    } finally {
+      this.setData({ authLoading: false });
+    }
   },
 });

@@ -4,7 +4,17 @@ import type { ReportPdfListItem } from '../../types/api';
 
 interface ReportPdfVM extends ReportPdfListItem {
   dateStr: string;
+  displayTitle: string;
   selected: boolean;
+}
+
+function safePdfFileName(name: string): string {
+  const clean = (name || '测品报告')
+    .replace(/[\\/:*?"<>|\r\n\t]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/^[._\s]+|[._\s]+$/g, '')
+    .slice(0, 60) || '测品报告';
+  return `${clean}.pdf`;
 }
 
 function formatDate(iso: string): string {
@@ -33,6 +43,7 @@ Page({
       const reports: ReportPdfVM[] = res.items.map(item => ({
         ...item,
         pdf_url: resolveMediaUrl(item.pdf_url),
+        displayTitle: item.pdf_title || item.product_name || '测品报告',
         dateStr: formatDate(item.generated_at),
         selected: false,
       }));
@@ -67,8 +78,21 @@ Page({
           wx.showToast({ title: '下载失败', icon: 'none' });
           return;
         }
+        let openFilePath = res.tempFilePath;
+        const fs = (wx as any).getFileSystemManager ? (wx as any).getFileSystemManager() : null;
+        const userDataPath = (wx as any).env && (wx as any).env.USER_DATA_PATH;
+        if (fs && userDataPath) {
+          const fixedPath = `${userDataPath}/${safePdfFileName(name)}`;
+          try {
+            fs.unlinkSync(fixedPath);
+          } catch (_) {}
+          try {
+            fs.copyFileSync(res.tempFilePath, fixedPath);
+            openFilePath = fixedPath;
+          } catch (_) {}
+        }
         wx.openDocument({
-          filePath: res.tempFilePath,
+          filePath: openFilePath,
           fileType: 'pdf',
           showMenu: true,
           success: () => wx.hideLoading(),

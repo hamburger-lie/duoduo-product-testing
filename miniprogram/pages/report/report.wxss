@@ -290,16 +290,22 @@ page { background: #0D0820; }
   line-height: 1;
 }
 .rp-ps-strip {
-  display: flex;
-  flex-direction: row;
-  gap: 16rpx;
-  overflow-x: auto;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
   padding-bottom: 4rpx;
 }
 .rp-ps-strip::-webkit-scrollbar { display: none; }
+.rp-ps-track {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 16rpx;
+  min-width: 100%;
+}
 .rp-ps-card {
   flex-shrink: 0;
-  min-width: 160rpx;
+  width: 560rpx;
+  box-sizing: border-box;
   border-radius: 22rpx;
   border: 1rpx solid #F1F5F9;
   background: #FFFFFF;
@@ -315,6 +321,9 @@ page { background: #0D0820; }
   font-weight: 600;
   color: #475569;
   text-align: center;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-all;
 }
 .rp-ps-score {
   font-size: 48rpx;

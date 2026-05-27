@@ -170,6 +170,12 @@
   color: #F5E6C0;
   font-weight: 500;
 }
+.ucard-phone {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: #888888;
+}
 
 /* Not-logged-in sub text and arrow */
 .ucard-sub {

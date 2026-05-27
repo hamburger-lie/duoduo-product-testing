@@ -35,7 +35,7 @@
       wx:key="report_id"
       class="pdf-card {{item.selected ? 'pdf-card--selected' : ''}}"
       data-url="{{item.pdf_url}}"
-      data-name="{{item.product_name}}"
+      data-name="{{item.displayTitle}}"
       data-idx="{{index}}"
       bind:tap="onTapOpen"
     >
@@ -51,7 +51,7 @@
 
       <view class="pdf-icon"></view>
       <view class="pdf-body">
-        <view class="pdf-title">{{item.product_name}}</view>
+        <view class="pdf-title">{{item.displayTitle}}</view>
         <view class="pdf-meta">{{item.dateStr}}</view>
       </view>
 

@@ -33,6 +33,34 @@ from app.schemas.report import (
 
 AI_DISCLAIMER = "本报告由 AI 模拟生成，仅供决策参考"
 
+# 问卷维度英文 → 中文标签映射（与 survey generator 的 10 维度对齐）
+DIM_LABEL_MAP: dict[str, str] = {
+    "first_impression": "第一印象",
+    "purchase_motivation": "购买动机",
+    "price_sensitivity": "价格敏感度",
+    "package_appearance": "包装外观",
+    "competitor_comparison": "竞品对比",
+    "usage_scenario": "使用场景",
+    "repurchase_intent": "复购意愿",
+    "nps_recommendation": "推荐意愿",
+    "channel_touchpoint": "渠道触点",
+    "painpoint_improvement": "痛点改进",
+}
+
+# 维度 → 改进建议映射
+DIM_IMPROVEMENT_MAP: dict[str, str] = {
+    "first_impression": "优化产品主图和一句话卖点，提升 3 秒吸引力",
+    "purchase_motivation": "强化核心卖点与目标人群痛点的匹配度",
+    "price_sensitivity": "调整定价策略或增加赠品提升性价比感知",
+    "package_appearance": "优化包装设计使其更贴合目标人群审美偏好",
+    "competitor_comparison": "突出差异化优势，补齐竞品已有的关键功能",
+    "usage_scenario": "丰富使用场景展示，降低用户想象门槛",
+    "repurchase_intent": "强化使用效果反馈，建立长期复购动机",
+    "nps_recommendation": "提升社交分享价值，降低推荐心理门槛",
+    "channel_touchpoint": "优化渠道布局，在目标人群高频触点增加曝光",
+    "painpoint_improvement": "针对用户反馈的痛点进行产品迭代改进",
+}
+
 
 class ReportService:
     """Report generation and retrieval."""
@@ -90,12 +118,12 @@ class ReportService:
 
         overall_intent = self._calc_overall_intent(answer_rows)
         dimensions_radar = self._calc_dimensions_radar(answer_rows, qid_to_dim)
-        price_sensitivity = self._calc_price_sensitivity(evaluation.product_id)
+        price_sensitivity = self._calc_price_sensitivity(answer_rows)
         segment_intent = self._calc_segment_intent(answer_rows, personas)
-        top_pros = self._calc_top_pros(answer_rows, personas)
-        top_cons = self._calc_top_cons(answer_rows, personas)
+        top_pros = self._calc_top_pros(answer_rows, personas, qid_to_dim)
+        top_cons = self._calc_top_cons(answer_rows, personas, qid_to_dim)
         persona_segments = self._calc_persona_segments(answer_rows)
-        summary = self._generate_summary(answer_rows, overall_intent)
+        summary = self._generate_summary(answer_rows, overall_intent, dimensions_radar)
 
         metrics = ReportMetrics(
             overall_intent=overall_intent,
@@ -167,17 +195,40 @@ class ReportService:
             result.append(DimensionRadarItem(dim=dim, score=avg))
         return result
 
-    def _calc_price_sensitivity(self, product_id: int) -> PriceSensitivityMetrics:
-        """Return mock price sensitivity based on product."""
+    def _calc_price_sensitivity(self, answers: list[Answer]) -> PriceSensitivityMetrics:
+        """从答卷中提取价格敏感度数据。"""
+
+        prices: list[float] = []
+        for answer in answers:
+            for item in answer.answers:
+                if item.get("type") != "price_open":
+                    continue
+                val = item.get("answer")
+                if isinstance(val, (int, float)) and val > 0:
+                    prices.append(float(val))
+
+        if not prices:
+            return PriceSensitivityMetrics(
+                median_acceptable_price=0,
+                distribution=[],
+            )
+
+        prices.sort()
+        n = len(prices)
+        median = prices[n // 2] if n % 2 == 1 else (prices[n // 2 - 1] + prices[n // 2]) / 2
+
+        # 动态分桶
+        bins = [(0, 100), (100, 200), (200, 400), (400, float("inf"))]
+        dist: list[PriceSensitivityDistItem] = []
+        for low, high in bins:
+            count = sum(1 for p in prices if low <= p < high)
+            if count > 0:
+                label = f"{low}-{int(high)}" if high != float("inf") else f"{low}+"
+                dist.append(PriceSensitivityDistItem(range=label, count=count))
 
         return PriceSensitivityMetrics(
-            median_acceptable_price=159,
-            distribution=[
-                PriceSensitivityDistItem(range="0-100", count=2),
-                PriceSensitivityDistItem(range="100-200", count=8),
-                PriceSensitivityDistItem(range="200-400", count=7),
-                PriceSensitivityDistItem(range="400+", count=3),
-            ],
+            median_acceptable_price=round(median),
+            distribution=dist,
         )
 
     def _calc_segment_intent(
@@ -203,61 +254,118 @@ class ReportService:
         self,
         answers: list[Answer],
         personas: dict[int, Persona],
+        qid_to_dim: dict[str, str],
     ) -> list[ProConItem]:
-        """Extract top pros from positive/high-score answers."""
+        """按维度分组提取亮点，取平均分最高的维度。"""
 
-        positive = [a for a in answers if a.overall_intent is not None and a.overall_intent >= 4]
-        if not positive:
-            positive = answers[:1]
-        quotes: list[QuoteItem] = []
-        for answer in positive[:3]:
-            persona = personas.get(answer.persona_id)
-            name = persona.name if persona else "未知"
-            quote_text = self._extract_quote(answer, positive=True)
-            quotes.append(
-                QuoteItem(
-                    persona_id=str(answer.persona_id),
-                    persona_name=name,
-                    quote=quote_text,
-                )
-            )
-        return [
-            ProConItem(
-                title="产品整体获得正面评价",
-                support_count=len(positive),
-                quotes=quotes,
-            )
-        ]
+        return self._build_procon_by_dimension(
+            answers, personas, qid_to_dim, positive=True,
+        )
 
     def _calc_top_cons(
         self,
         answers: list[Answer],
         personas: dict[int, Persona],
+        qid_to_dim: dict[str, str],
     ) -> list[ProConItem]:
-        """Extract top cons from critical/low-score answers."""
+        """按维度分组提取风险，取平均分最低的维度。"""
 
-        negative = [a for a in answers if a.overall_intent is not None and a.overall_intent <= 3]
-        if not negative:
-            negative = answers[-1:]
-        quotes: list[QuoteItem] = []
-        for answer in negative[:3]:
-            persona = personas.get(answer.persona_id)
-            name = persona.name if persona else "未知"
-            quote_text = self._extract_quote(answer, positive=False)
-            quotes.append(
-                QuoteItem(
-                    persona_id=str(answer.persona_id),
-                    persona_name=name,
-                    quote=quote_text,
+        return self._build_procon_by_dimension(
+            answers, personas, qid_to_dim, positive=False,
+        )
+
+    def _build_procon_by_dimension(
+        self,
+        answers: list[Answer],
+        personas: dict[int, Persona],
+        qid_to_dim: dict[str, str],
+        *,
+        positive: bool,
+    ) -> list[ProConItem]:
+        """按维度聚合 scale_1_5 得分，生成 ProConItem 列表。
+
+        positive=True → 取得分最高的 3 个维度作为亮点
+        positive=False → 取得分最低的 3 个维度作为风险
+        """
+
+        # 1. 按维度收集 (persona_id, score, reason)
+        dim_data: dict[str, list[tuple[int, float, str]]] = defaultdict(list)
+        for answer in answers:
+            for item in answer.answers:
+                if item.get("type") != "scale_1_5":
+                    continue
+                qid = str(item.get("qid", ""))
+                dim = qid_to_dim.get(qid, "")
+                if not dim:
+                    continue
+                val = item.get("answer")
+                reason = item.get("reason", "") or ""
+                if isinstance(val, (int, float)):
+                    dim_data[dim].append((answer.persona_id, float(val), reason))
+
+        # 2. 计算每个维度的平均分并排序
+        dim_avg: list[tuple[str, float, list[tuple[int, float, str]]]] = []
+        for dim, entries in dim_data.items():
+            avg = sum(e[1] for e in entries) / len(entries) if entries else 0.0
+            dim_avg.append((dim, avg, entries))
+
+        dim_avg.sort(key=lambda x: x[1], reverse=positive)
+
+        # 3. 取 top 3 维度生成 ProConItem
+        results: list[ProConItem] = []
+        for dim, avg_score, entries in dim_avg[:3]:
+            # 按分数排序选代表性引用
+            if positive:
+                sorted_entries = sorted(entries, key=lambda e: e[1], reverse=True)
+            else:
+                sorted_entries = sorted(entries, key=lambda e: e[1])
+
+            raw_quotes: list[tuple[str, str, str]] = []
+            quotes: list[QuoteItem] = []
+            for pid, score, reason in sorted_entries[:3]:
+                persona = personas.get(pid)
+                name = persona.name if persona else "未知"
+                text = reason if reason else ("整体评价尚可" if positive else "仍需进一步观察")
+                raw_quotes.append((str(pid), name, text))
+                quotes.append(QuoteItem(persona_id=str(pid), persona_name=name, quote=text))
+
+            title = self._extract_title_from_dim(dim, raw_quotes, positive=positive)
+            # 风险项追加改进建议
+            if not positive:
+                suggestion = DIM_IMPROVEMENT_MAP.get(dim, "")
+                if suggestion:
+                    title = f"{title}——{suggestion}"
+
+            results.append(
+                ProConItem(
+                    title=title,
+                    support_count=len(entries),
+                    quotes=quotes,
                 )
             )
-        return [
-            ProConItem(
-                title="部分角色对产品持保留态度",
-                support_count=len(negative),
-                quotes=quotes,
+
+        # 兜底：如果没有维度数据，给出默认项
+        if not results:
+            fallback_quotes: list[QuoteItem] = []
+            for answer in answers[:1]:
+                persona = personas.get(answer.persona_id)
+                name = persona.name if persona else "未知"
+                fallback_quotes.append(
+                    QuoteItem(
+                        persona_id=str(answer.persona_id),
+                        persona_name=name,
+                        quote="整体评价尚可" if positive else "仍需进一步观察",
+                    )
+                )
+            results.append(
+                ProConItem(
+                    title="产品整体获得正面评价" if positive else "部分角色对产品持保留态度",
+                    support_count=len(answers),
+                    quotes=fallback_quotes,
+                )
             )
-        ]
+
+        return results
 
     def _extract_quote(self, answer: Answer, *, positive: bool) -> str:
         """Extract a quote from answer reasons or open-ended answers."""
@@ -267,6 +375,30 @@ class ReportService:
             if reason and isinstance(reason, str):
                 return reason
         return "整体评价尚可" if positive else "仍需进一步观察"
+
+    @staticmethod
+    def _extract_title_from_dim(
+        dim: str,
+        quotes: list[tuple[str, str, str]],
+        *,
+        positive: bool,
+    ) -> str:
+        """根据维度和代表性引用生成 pro/con 标题。
+
+        Args:
+            dim: 维度英文 key（如 "first_impression"）
+            quotes: [(persona_id, persona_name, quote_text), ...]
+            positive: True=亮点, False=风险
+        """
+        dim_label = DIM_LABEL_MAP.get(dim, dim)
+        if not quotes:
+            return f"{dim_label}{'表现突出' if positive else '有待提升'}"
+        # 取最长引用作为摘要片段
+        best_quote = max(quotes, key=lambda q: len(q[2]))[2]
+        snippet = best_quote[:20].rstrip("，。、！？…")
+        if len(best_quote) > 20:
+            snippet += "…"
+        return f"{dim_label}：{snippet}"
 
     def _calc_persona_segments(self, answers: list[Answer]) -> PersonaSegments:
         """Determine most positive, negative, and highest-value persona IDs."""
@@ -291,8 +423,9 @@ class ReportService:
         self,
         answers: list[Answer],
         overall_intent: OverallIntentMetrics,
+        dimensions_radar: list[DimensionRadarItem] | None = None,
     ) -> str:
-        """Generate a rule-based Chinese summary."""
+        """Generate a rule-based Chinese summary with dimension insights."""
 
         total = len(answers)
         avg = overall_intent.average
@@ -302,11 +435,25 @@ class ReportService:
             tone = "中性"
         else:
             tone = "偏谨慎"
-        return (
-            f"本次共模拟 {total} 位角色完成测评，"
-            f"平均购买意愿为 {avg} 分。"
-            f"整体反馈{tone}。"
-        )
+
+        parts: list[str] = [
+            f"本次共模拟 {total} 位角色完成测评，",
+            f"平均购买意愿为 {avg} 分。",
+            f"整体反馈{tone}。",
+        ]
+
+        if dimensions_radar:
+            sorted_dims = sorted(dimensions_radar, key=lambda d: d.score, reverse=True)
+            best = sorted_dims[0]
+            worst = sorted_dims[-1]
+            best_label = DIM_LABEL_MAP.get(best.dim, best.dim)
+            worst_label = DIM_LABEL_MAP.get(worst.dim, worst.dim)
+            parts.append(
+                f"维度亮点：{best_label}（{best.score}分）；"
+                f"短板：{worst_label}（{worst.score}分）。"
+            )
+
+        return "".join(parts)
 
     async def _build_qid_dim_map(self, survey_id: int | None) -> dict[str, str]:
         """Build a mapping from question ID to dimension."""

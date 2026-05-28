@@ -462,3 +462,52 @@ async def test_report_segment_intent_has_data(report_context: ReportContext) -> 
         assert "segment" in item
         assert "count" in item
         assert "avg_intent" in item
+
+
+async def test_report_price_sensitivity_has_data(report_context: ReportContext) -> None:
+    """价格敏感度应从答卷计算而非返回 mock 数据。"""
+
+    token = await login(report_context, "report_price")
+    evaluation_id, _ = await prepare_done_evaluation(report_context, token=token)
+
+    response = await report_context.client.get(
+        f"/api/v1/reports/by-evaluation/{evaluation_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    ps = response.json()["metrics"]["price_sensitivity"]
+    assert "median_acceptable_price" in ps
+    assert isinstance(ps["median_acceptable_price"], (int, float))
+
+
+async def test_report_summary_includes_dimension_insight(report_context: ReportContext) -> None:
+    """摘要应包含维度亮点和短板信息。"""
+
+    token = await login(report_context, "report_dim_summary")
+    evaluation_id, _ = await prepare_done_evaluation(report_context, token=token)
+
+    response = await report_context.client.get(
+        f"/api/v1/reports/by-evaluation/{evaluation_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    summary = response.json()["summary"]
+    assert "角色" in summary
+    assert "维度" in summary or "分" in summary
+
+
+async def test_report_top_pros_title_contains_dimension(report_context: ReportContext) -> None:
+    """亮点标题应包含维度名称而非通用文案。"""
+
+    token = await login(report_context, "report_dim_pros")
+    evaluation_id, _ = await prepare_done_evaluation(report_context, token=token)
+
+    response = await report_context.client.get(
+        f"/api/v1/reports/by-evaluation/{evaluation_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    top_pros = response.json()["top_pros"]
+    assert len(top_pros) >= 1
+    # 标题不应该是旧的通用文案
+    assert top_pros[0]["title"] != "产品整体获得正面评价"

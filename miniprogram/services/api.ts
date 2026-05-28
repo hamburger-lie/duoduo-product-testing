@@ -446,6 +446,7 @@ export const api = {
           ...r,
           persona_name: r.persona_snapshot?.name ?? r.persona_name,
           persona_tag:  r.persona_snapshot?.persona_tag ?? r.persona_tag,
+          avatar:       r.persona_snapshot?.avatar ?? r.avatar,
         }));
     }
     // Fallback: summary-only list (no full answer data)

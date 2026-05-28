@@ -2,6 +2,13 @@ import { api, USE_MOCK } from '../../services/api';
 import type { ChatTurn, PersonaKey } from '../../types/domain';
 import type { EvaluationAnswer, PersonaAnswerItem, SurveyQuestion } from '../../types/api';
 import type { StreamHandle } from '../../services/stream';
+import { avatarSrcForSlot, parseBackendAvatarSlot } from '../../utils/personaAvatar';
+
+/** Resolve fixed avatar slot from answer data; fallback to position-based. */
+function slotForAnswer(ans: EvaluationAnswer, idx: number): number {
+  const slot = parseBackendAvatarSlot((ans as any).avatar || '');
+  return slot || (idx % 10) + 1;
+}
 
 
 const PERSONA_KEYS: PersonaKey[] = ['yun', 'jie', 'cong'];
@@ -27,6 +34,13 @@ const STATUS_LABELS: Record<string, string> = {
   done:              '调研完成，正在加载结果…',
   failed:            '调研失败，请返回重试',
 };
+
+function answeringLabel(progress: number): string {
+  if (progress >= 80) return '最后一位测品官作答中，即将完成…';
+  if (progress >= 60) return '测品官们正在逐一填写问卷…';
+  if (progress >= 20) return 'AI 测品官正在认真作答…';
+  return '调研准备中';
+}
 
 /** Retrieve a single answer value by qid; falls back to position index */
 function getAnswerValue(
@@ -207,11 +221,17 @@ Page({
   typeTimer:       null as ReturnType<typeof setInterval> | null,
   pseudoProgTimer: null as ReturnType<typeof setInterval> | null,
   turnSeq:         0 as number,
-  _atBottom:          true as boolean,   // whether scroll is at (or near) the bottom
-  _touchStartY:       0 as number,       // Y position when finger first touched scroll-view
-  _scrollTopSeed:     0 as number,       // monotonically grows so scroll-top always changes
-  _currentScrollTop:  0 as number,       // last real scroll position from bindscroll
-  _typingStopped:     false as boolean,  // set true on unload to stop typing loop
+  _atBottom:          true as boolean,
+  _touchStartY:       0 as number,
+  _scrollTopSeed:     0 as number,
+  _currentScrollTop:  0 as number,
+  _typingStopped:     false as boolean,
+  // 增量流式输出状态
+  _streamedPersonaIds: null as Set<string> | null,  // 已开始打字机的 persona_id 集合
+  _partialQuestions:   null as SurveyQuestion[] | null,  // 缓存问卷题目
+  _pendingAnswers:     null as EvaluationAnswer[] | null, // 等待打字机的答案队列
+  _streamingIndex:     0 as number,  // 当前打字机在队列里的位置
+  _evalDoneWhileStreaming: false as boolean, // 评测完成时是否还在打字机中
 
   // ─── 页面生命周期 ────────────────────────────────────────
 
@@ -308,6 +328,11 @@ Page({
     if (this.pollTimer)       { clearTimeout(this.pollTimer); this.pollTimer = null; }
     if (this.typeTimer)       { clearInterval(this.typeTimer!); this.typeTimer = null; }
     if (this.pseudoProgTimer) { clearInterval(this.pseudoProgTimer!); this.pseudoProgTimer = null; }
+    this._streamedPersonaIds = null;
+    this._partialQuestions = null;
+    this._pendingAnswers = null;
+    this._streamingIndex = 0;
+    this._evalDoneWhileStreaming = false;
   },
 
   // ─── 伪进度动画（立即显示 3%，每秒更新，上限 90%） ────────────────
@@ -427,11 +452,10 @@ Page({
         const ev = await api.getEvaluation(evalId);
         // 真实进度比伪进度高时才接管（避免回退）
         const displayProg = Math.max(this.data.evalProgress, ev.progress);
-        this.updateStatusTurn(
-          STATUS_LABELS[ev.status] || '处理中…',
-          displayProg,
-          ev.status,
-        );
+        const label = ev.status === 'answering'
+          ? answeringLabel(displayProg)
+          : (STATUS_LABELS[ev.status] || '处理中…');
+        this.updateStatusTurn(label, displayProg, ev.status);
         if (ev.status === 'done') {
           this._stopPseudoProgress();
           await this.onEvaluationDone(ev);
@@ -450,17 +474,175 @@ Page({
   },
 
   async tryShowPartialAnswers(ev: { id: string; survey_id: string | null; selected_persona_ids: string[]; progress: number }) {
+    // Fetch only the personas that have completed so far
     const answers = await api.getEvaluationAnswers(ev.id, ev.selected_persona_ids).catch(() => [] as EvaluationAnswer[]);
     if (!answers.length) return;
 
-    const alreadyStreaming = this.data.turns.some(t => t.kind === 'speak');
-    if (alreadyStreaming) return;
+    // Lazily fetch survey questions once
+    if (!this._partialQuestions) {
+      const surveyRes = ev.survey_id
+        ? await api.getSurvey(ev.survey_id).catch(() => null)
+        : null;
+      this._partialQuestions = surveyRes?.questions ?? [];
+    }
 
-    const surveyRes = ev.survey_id
-      ? await api.getSurvey(ev.survey_id).catch(() => null)
-      : null;
+    // Init tracking set
+    if (!this._streamedPersonaIds) this._streamedPersonaIds = new Set<string>();
+    if (!this._pendingAnswers) this._pendingAnswers = [];
 
-    this.streamQA(surveyRes?.questions ?? [], answers, true);
+    // Find newly completed personas not yet queued
+    const newAnswers = answers.filter(a => !this._streamedPersonaIds!.has(a.persona_id));
+    if (!newAnswers.length) return;
+
+    // Mark them as queued
+    newAnswers.forEach(a => this._streamedPersonaIds!.add(a.persona_id));
+
+    // Remove the status bubble now that first content is ready
+    if (this._pendingAnswers.length === 0 && this._streamingIndex === 0) {
+      const baseTurns = this.data.turns.filter(t => t.id !== 'status_main');
+      this.setData({ turns: baseTurns });
+    }
+
+    // Append to queue and start typing if not already running
+    this._pendingAnswers.push(...newAnswers);
+    if (this._streamingIndex === this._pendingAnswers.length - newAnswers.length) {
+      this._streamNextPartial(this._partialQuestions);
+    }
+  },
+
+  _streamNextPartial(questions: SurveyQuestion[]) {
+    const pending = this._pendingAnswers;
+    const idx = this._streamingIndex;
+    if (!pending || idx >= pending.length) return;
+
+    const ans = pending[idx];
+    const qaItems = buildQAItems(questions, ans);
+    if (!qaItems.length) {
+      this._streamingIndex++;
+      this._streamNextPartial(questions);
+      return;
+    }
+
+    const bubbleId = `qa_partial_${idx}`;
+    const isScale = qaItems[0].type === 'scale_1_5';
+    const firstItem = {
+      ...qaItems[0],
+      question: '', answer: '', reason: '', reasonDone: false, reasonPreview: '',
+      ...(isScale ? { scaleDots: [], scaleValue: 0 } : {}),
+    };
+    this.setData({
+      turns: [...this.data.turns, {
+        id: bubbleId,
+        kind: 'speak' as const,
+        persona_key: PERSONA_KEYS[idx % PERSONA_KEYS.length],
+        persona_name: personaLabel(ans),
+        persona_id: ans.persona_id,
+        avatarSlot: slotForAnswer(ans, idx),
+        summaryComment: '',
+        qaItems: [firstItem],
+        content: '',
+      }],
+    }, () => this.scrollToBottom());
+
+    this._typeSummaryComment(bubbleId, ans.summary_comment || '', () => {
+      this._typeQAItemsPartial(bubbleId, qaItems, 0, questions, idx);
+    });
+  },
+
+  _typeQAItemsPartial(bubbleId: string, qaItems: any[], qIdx: number, questions: SurveyQuestion[], personaIdx: number) {
+    if (qIdx >= qaItems.length) {
+      this._collapseReasons(bubbleId);
+      this._streamingIndex++;
+      setTimeout(() => {
+        const pending = this._pendingAnswers;
+        if (pending && this._streamingIndex < pending.length) {
+          // More queued personas ready
+          this._streamNextPartial(questions);
+        } else if (this._evalDoneWhileStreaming) {
+          // Eval finished while we were typing — finalize now
+          this._finalizeAfterStreaming();
+        }
+      }, 600);
+      return;
+    }
+
+    const advance = () => {
+      setTimeout(() => {
+        this._appendQAItem(bubbleId, qaItems, qIdx + 1);
+        this._typeQAItemsPartial(bubbleId, qaItems, qIdx + 1, questions, personaIdx);
+      }, 300);
+    };
+
+    const fullReason = qaItems[qIdx].reason || '';
+    const fullAnswer = qaItems[qIdx].answer;
+    const fullQuestion = qaItems[qIdx].question;
+    const isScale = qaItems[qIdx].type === 'scale_1_5';
+    const targetScaleValue = isScale ? qaItems[qIdx].scaleValue || 0 : 0;
+
+    const typeField = (fullText: string, field: 'question' | 'reason' | 'answer', onDone: () => void) => {
+      if (!fullText) { onDone(); return; }
+      let typed = 0;
+      this.typeTimer = setInterval(() => {
+        if (this._typingStopped) { clearInterval(this.typeTimer!); this.typeTimer = null; return; }
+        if (typed >= fullText.length) {
+          clearInterval(this.typeTimer!); this.typeTimer = null; onDone(); return;
+        }
+        typed = Math.min(typed + 4, fullText.length);
+        const list = this.data.turns.slice();
+        const ti = list.findIndex(t => t.id === bubbleId);
+        if (ti < 0) return;
+        const updatedItems = (list[ti].qaItems as any[]).slice();
+        updatedItems[qIdx] = {
+          ...updatedItems[qIdx],
+          [field]: fullText.slice(0, typed),
+          ...(field === 'reason' ? { reasonDone: false, reasonPreview: '' } : {}),
+        };
+        list[ti] = { ...list[ti], qaItems: updatedItems };
+        this.setData({ turns: list }, () => this.scrollToBottom());
+      }, 50);
+    };
+
+    if (isScale && targetScaleValue > 0) {
+      typeField(fullQuestion, 'question', () => {
+        this._typeScaleDots(bubbleId, qIdx, targetScaleValue, () => {
+          typeField(fullReason, 'reason', advance);
+        });
+      });
+    } else {
+      typeField(fullQuestion, 'question', () => {
+        typeField(fullAnswer, 'answer', () => {
+          typeField(fullReason, 'reason', advance);
+        });
+      });
+    }
+  },
+
+  _finalizeAfterStreaming() {
+    const answers = this._pendingAnswers || [];
+    const divider: ChatTurn = {
+      id: 'divider_chat', kind: 'topic_switch' as const, content: '',
+      topic_from: '调研完成', topic_to: '可以继续追问',
+    };
+    const followUpPersonas = answers.map((a, i) => ({
+      id: a.persona_id,
+      name: a.persona_tag || '测品官群体',
+      initial: (a.persona_tag || '测').charAt(0),
+      tag: a.persona_tag || '测品官群体',
+      avatarSrc: avatarSrcForSlot(slotForAnswer(a, i)),
+    }));
+    this.setData({
+      turns: [...this.data.turns, divider],
+      autoPlayDone: true,
+      showReportBtn: true,
+      followUpPersonas,
+      showFollowUpModal: true,
+    }, () => this.scrollToBottom());
+    // Reset incremental state
+    this._streamedPersonaIds = null;
+    this._partialQuestions = null;
+    this._pendingAnswers = null;
+    this._streamingIndex = 0;
+    this._evalDoneWhileStreaming = false;
   },
 
   updateStatusTurn(text: string, progress: number, status: string) {
@@ -483,31 +665,7 @@ Page({
   // ─── 评测完成 ─────────────────────────────────────────────
 
   async onEvaluationDone(evaluation: { id: string; survey_id: string | null; selected_persona_ids: string[] }) {
-    this.updateStatusTurn('正在加载调研结果…', 100, 'done');
-
-    const [surveyRes, answers] = await Promise.all([
-      evaluation.survey_id ? api.getSurvey(evaluation.survey_id).catch(() => null) : Promise.resolve(null),
-      api.getEvaluationAnswers(evaluation.id, evaluation.selected_persona_ids).catch(() => [] as EvaluationAnswer[]),
-    ]);
-
-    let convId = '';
-    try {
-      const data = await api.getConversation(evaluation.id);
-      convId = data.conversation.id;
-      this.setData({
-        personaKey:   data.conversation.persona_avatar as PersonaKey,
-        personaName:  data.persona_role || '测品官群体',
-        personaRole:  data.persona_role || '测品官群体',
-        productTitle: data.conversation.title,
-        displayTitle: `关于${(data.conversation.title || '产品调研').replace(/^关于/, '').slice(0, 10)}的访谈`,
-      });
-    } catch { /* ignore */ }
-    if (convId) this.setData({ conversationId: convId });
-
-    const questions: SurveyQuestion[] = surveyRes?.questions ?? [];
-    const baseTurns = this.data.turns.filter(t => t.id !== 'status_main');
-
-    // 立即静默预热报告缓存，和打字机动画并行，避免用户点「查看报告」时再等
+    // 后台预热：报告缓存 + 白皮书生成
     api.getBusinessReportByEval(evaluation.id)
       .then(report => {
         try {
@@ -518,19 +676,75 @@ Page({
         } catch { /* cache only */ }
       })
       .catch(() => {});
-
-    // 评测完成后立即在后台预生成白皮书，用户到导出页时大概率已就绪
     api.generateWhitepaper({
       evaluation_id: evaluation.id,
       product_name: this.data.productTitle || '未命名产品',
     }).catch(() => {});
 
-    this.setData({ turns: baseTurns, evalStatusText: '', evalProgress: 100, evalRemaining: 0 }, () => {
+    // 获取 conversation id
+    try {
+      const data = await api.getConversation(evaluation.id);
+      const convId = data.conversation.id;
+      if (convId) this.setData({ conversationId: convId });
+      this.setData({
+        personaKey:   data.conversation.persona_avatar as PersonaKey,
+        personaName:  data.persona_role || '测品官群体',
+        personaRole:  data.persona_role || '测品官群体',
+        productTitle: data.conversation.title,
+        displayTitle: `关于${(data.conversation.title || '产品调研').replace(/^关于/, '').slice(0, 10)}的访谈`,
+      });
+    } catch { /* ignore */ }
+
+    // 如果增量流式已经在进行中，标记让它自己收尾
+    if (this._streamedPersonaIds && this._streamedPersonaIds.size > 0) {
+      // 把还没进队列的最后一批答案补进来
+      const expectedCount = evaluation.selected_persona_ids.length;
+      let answers: EvaluationAnswer[] = [];
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
+        answers = await api.getEvaluationAnswers(evaluation.id, evaluation.selected_persona_ids).catch(() => [] as EvaluationAnswer[]);
+        if (answers.length >= expectedCount) break;
+      }
+      const questions = this._partialQuestions ?? [];
+      const newAnswers = answers.filter(a => !this._streamedPersonaIds!.has(a.persona_id));
+      if (newAnswers.length > 0) {
+        newAnswers.forEach(a => this._streamedPersonaIds!.add(a.persona_id));
+        this._pendingAnswers = [...(this._pendingAnswers || []), ...newAnswers];
+      }
+      // Remove status bubble
+      const baseTurns = this.data.turns.filter(t => t.id !== 'status_main');
+      this.setData({ turns: baseTurns, evalProgress: 100, reportStatus: 'ready' });
+
+      // If typer is idle (already finished previous batch), kick it off for new answers
+      const pending = this._pendingAnswers || [];
+      if (this._streamingIndex >= pending.length - newAnswers.length && newAnswers.length > 0) {
+        this._streamNextPartial(questions);
+      } else {
+        // Typer is still running — set flag so it finalizes when done
+        this._evalDoneWhileStreaming = true;
+      }
+      return;
+    }
+
+    // 未开始增量流式：正常全量加载
+    this.updateStatusTurn('正在加载调研结果…', 100, 'done');
+    const expectedCount = evaluation.selected_persona_ids.length;
+    let answers: EvaluationAnswer[] = [];
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
+      answers = await api.getEvaluationAnswers(evaluation.id, evaluation.selected_persona_ids).catch(() => [] as EvaluationAnswer[]);
+      if (answers.length >= expectedCount) break;
+    }
+    const surveyRes = evaluation.survey_id
+      ? await api.getSurvey(evaluation.survey_id).catch(() => null)
+      : null;
+    const questions: SurveyQuestion[] = surveyRes?.questions ?? [];
+    const baseTurns = this.data.turns.filter(t => t.id !== 'status_main' && t.kind !== 'speak');
+    this.setData({ turns: baseTurns, evalStatusText: '', evalProgress: 100, evalRemaining: 0, autoPlayDone: false, showReportBtn: false, showFollowUpModal: false }, () => {
       if (answers.length === 0 && questions.length === 0) {
         this.setData({ autoPlayDone: true }, () => this.scrollToBottom());
         return;
       }
-
       this.setData({ reportStatus: 'ready' }, () => this.streamQA(questions, answers));
     });
   },
@@ -601,7 +815,7 @@ Page({
       persona_key: personaKey || PERSONA_KEYS[idx % PERSONA_KEYS.length],
       persona_name: personaLabel(ans),
       persona_id: ans.persona_id,
-      avatarSlot: (idx % 10) + 1,
+      avatarSlot: slotForAnswer(ans, idx),
       summaryComment: ans.summary_comment || '',
       qaItems,
       content: '',
@@ -619,12 +833,12 @@ Page({
       topic_from: '调研完成',
       topic_to: '可以继续追问',
     };
-    const followUpPersonas = answers.map(a => ({
+    const followUpPersonas = answers.map((a, i) => ({
       id: a.persona_id,
       name: a.persona_tag || '测品官群体',
       initial: (a.persona_tag || '测').charAt(0),
       tag: a.persona_tag || '测品官群体',
-      avatarSrc: avatarSrcForSeed(a.persona_id || a.persona_tag || ''),
+      avatarSrc: avatarSrcForSlot(slotForAnswer(a, i)),
     }));
     this.setData({
       autoPlay: false,
@@ -640,12 +854,12 @@ Page({
   // ─── 逐人打字机 ──────────────────────────────────────────
 
   _onAllPersonasDone(answers: EvaluationAnswer[]) {
-    const followUpPersonas = answers.map(a => ({
+    const followUpPersonas = answers.map((a, i) => ({
       id: a.persona_id,
       name: a.persona_tag || '测品官群体',
       initial: (a.persona_tag || '测').charAt(0),
       tag: a.persona_tag || '测品官群体',
-      avatarSrc: avatarSrcForSeed(a.persona_id || a.persona_tag || ''),
+      avatarSrc: avatarSrcForSlot(slotForAnswer(a, i)),
     }));
     this.setData({ followUpPersonas, showFollowUpModal: true });
   },
@@ -700,7 +914,7 @@ Page({
         persona_key: PERSONA_KEYS[idx % PERSONA_KEYS.length],
         persona_name: personaLabel(ans),
         persona_id: ans.persona_id,
-        avatarSlot: (idx % 10) + 1,
+        avatarSlot: slotForAnswer(ans, idx),
         summaryComment: '',
         qaItems: [firstItem],
         content: '',

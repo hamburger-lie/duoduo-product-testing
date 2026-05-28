@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>首页 文字弧线环绕效果</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  font-family: -apple-system, 'PingFang SC', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 32px 20px 60px;
+}
+.page-title {
+  font-size: 18px; font-weight: 700; color: #c4b5fd;
+  letter-spacing: 2px; margin-bottom: 5px;
+}
+.page-sub { font-size: 12px; color: #7c6fa8; margin-bottom: 24px; }
+
+.phone {
+  width: 260px; height: 520px;
+  background: linear-gradient(160deg, #EDE8F8 0%, #F8F6FE 60%, #EBE5F5 100%);
+  border-radius: 40px;
+  border: 3px solid #3a2d6e;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+}
+
+.ph-header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  text-align: center;
+  padding: 22px 0 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.ph-brand { font-size: 24px; font-weight: 800; color: #1a1a2e; letter-spacing: 3px; }
+.ph-tag   { font-size: 8px; color: #7b6fa8; margin-top: 3px; }
+
+.ph-cta {
+  position: absolute; bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  background: #5a4e9c; color: #fff;
+  font-size: 13px; font-weight: 700; letter-spacing: 3px;
+  padding: 10px 40px; border-radius: 22px;
+  z-index: 10; white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(90,78,156,0.5);
+}
+
+canvas { position: absolute; inset: 0; z-index: 3; }
+
+/* detective auto-size */
+.detective {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 38%;
+  height: auto;
+  z-index: 5;
+  mix-blend-mode: multiply;
+  filter: brightness(1.08) contrast(1.04);
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div class="page-title">弧线文字环绕动效</div>
+<div class="page-sub">测品关键词沿弧线旋转 · 侦探自适应大小</div>
+
+<div class="phone" id="phone">
+  <canvas id="cvs"></canvas>
+  <img class="detective" src="/miniprogram/assets/hero.png">
+  <div class="ph-header">
+    <div class="ph-brand">测品官</div>
+    <div class="ph-tag">挖掘产品价值盲区，消费者AI测品</div>
+  </div>
+  <div class="ph-cta">开始调研</div>
+</div>
+
+<script>
+const phone  = document.getElementById('phone');
+const canvas = document.getElementById('cvs');
+const dpr    = devicePixelRatio || 1;
+const W      = phone.clientWidth;
+const H      = phone.clientHeight;
+
+canvas.width  = W * dpr;
+canvas.height = H * dpr;
+canvas.style.width  = W + 'px';
+canvas.style.height = H + 'px';
+
+const ctx = canvas.getContext('2d');
+ctx.scale(dpr, dpr);
+
+const cx = W / 2;
+const cy = H / 2;
+
+// ── Text content: persona testing concerns ───────────────────
+const TRACKS = [
+  {
+    text: '成分安全 · 无添加 · 敏感肌友好 · 温和配方 · 天然萃取 · 皮肤科认证 · 过敏测试 · ',
+    radius: W * 0.40,
+    fontSize: 9.5,
+    color: '#7C3AED',
+    speed: 0.00025,
+    angle: 0,
+    tiltX: 68, tiltZ: 0,
+  },
+  {
+    text: '颜值在线 · 外观设计 · 包装精美 · 上镜好看 · 拍照出片 · 社交种草 · 博主推荐 · ',
+    radius: W * 0.40,
+    fontSize: 9.5,
+    color: '#DB2777',
+    speed: 0.00032,
+    angle: Math.PI * 0.3,
+    tiltX: 62, tiltZ: 52,
+  },
+  {
+    text: '性价比高 · 平替替代 · 成分功效 · 真实评测 · 不踩雷 · 好用不贵 · 学生党 · ',
+    radius: W * 0.40,
+    fontSize: 9.5,
+    color: '#059669',
+    speed: 0.00028,
+    angle: Math.PI * 0.7,
+    tiltX: 62, tiltZ: -52,
+  },
+  {
+    text: '抗老成分 · 胶原蛋白 · 紧致提拉 · 光泽感 · 保湿锁水 · 屏障修护 · 资深评测 · ',
+    radius: W * 0.28,
+    fontSize: 8,
+    color: '#9333EA',
+    speed: -0.00035,
+    angle: Math.PI * 0.5,
+    tiltX: 70, tiltZ: 20,
+  },
+  {
+    text: 'Z世代 · 潮流尖货 · 联名限定 · 网红同款 · 开箱体验 · 二次元周边 · 国货之光 · ',
+    radius: W * 0.28,
+    fontSize: 8,
+    color: '#EA580C',
+    speed: -0.00040,
+    angle: Math.PI * 1.1,
+    tiltX: 65, tiltZ: -30,
+  },
+];
+
+// Draw text along an elliptical arc (3D projected)
+// rx = rx of the ellipse (= radius), ry = radius * squeeze from tiltX
+function drawArcText(track) {
+  const tx = track.tiltX * Math.PI / 180;
+  const tz = track.tiltZ * Math.PI / 180;
+  const rx = track.radius;
+  const ry = track.radius * Math.cos(tx); // vertical squeeze from tilt
+
+  const text  = track.text.repeat(4); // repeat so it fills the arc
+  ctx.save();
+  ctx.font = `600 ${track.fontSize}px -apple-system, PingFang SC, sans-serif`;
+  ctx.textBaseline = 'middle';
+
+  let charAngle = track.angle;
+  const arcLength = 2 * Math.PI;
+  const approxCirc = 2 * Math.PI * Math.sqrt((rx*rx + ry*ry) / 2);
+  const charStep = arcLength / approxCirc * (track.fontSize * 1.15);
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const a  = charAngle;
+
+    // 3D project
+    const ex = rx * Math.cos(a);
+    const ey = ry * Math.sin(a);
+
+    // rotate around Z (tiltZ)
+    const zx = ex * Math.cos(tz) - ey * Math.sin(tz);
+    const zy = ex * Math.sin(tz) + ey * Math.cos(tz);
+
+    const screenX = cx + zx;
+    const screenY = cy + zy;
+
+    // depth for scale+alpha: use zy to determine front/back
+    // front = large zy (bottom of tilted ellipse), back = negative zy
+    const maxDepth = ry;
+    const rawDepth = ey * Math.cos(tx); // approximate z depth
+    const t = (rawDepth / (rx) + 1) / 2; // 0=back 1=front
+
+    const alpha = 0.15 + 0.85 * t;
+
+    // tangent angle for character rotation
+    const dax = -rx * Math.sin(a);
+    const day =  ry * Math.cos(a);
+    const dzx = dax * Math.cos(tz) - day * Math.sin(tz);
+    const dzy = dax * Math.sin(tz) + day * Math.cos(tz);
+    const charRot = Math.atan2(dzy, dzx);
+
+    ctx.save();
+    ctx.globalAlpha = alpha * (i < text.length * 0.25 ? 1 : 0.92);
+    ctx.translate(screenX, screenY);
+    ctx.rotate(charRot);
+    ctx.fillStyle = track.color;
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+
+    charAngle += charStep;
+    if (charAngle > track.angle + 2 * Math.PI) break;
+  }
+
+  ctx.restore();
+}
+
+function frame() {
+  ctx.clearRect(0, 0, W, H);
+
+  // subtle bg glow rings
+  TRACKS.forEach((t, i) => {
+    if (i >= 3) return;
+    const tx = t.tiltX * Math.PI / 180;
+    const tz = t.tiltZ * Math.PI / 180;
+    const rx = t.radius;
+    const ry = rx * Math.cos(tx);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(tz);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = t.color + '18';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 8]);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  TRACKS.forEach(t => {
+    t.angle += t.speed;
+    drawArcText(t);
+  });
+
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

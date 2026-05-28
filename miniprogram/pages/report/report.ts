@@ -1602,15 +1602,20 @@ Page({
           + `&v=${encodeURIComponent(version)}`;
 
         if (res.tapIndex === 0) {
-          // 调研报告导出：静默触发后端更新，直接跳转
+          // 调研报告导出：渲染调研报告数据为 PDF
+          const reportUrl = base
+            + `&mode=${encodeURIComponent('report')}`
+            + `&product_name=${encodeURIComponent(this.data.vm.productName || '')}`;
+          wx.navigateTo({ url: `/pages/webview/webview?url=${encodeURIComponent(reportUrl)}` });
+        } else {
+          // 白皮书导出：使用白皮书查看器
           api.generateWhitepaper({
             evaluation_id: evalId,
             product_name: this.data.vm.productName,
           }).catch(() => {/* ignore */});
-          wx.navigateTo({ url: `/pages/webview/webview?url=${encodeURIComponent(base)}` });
-        } else {
-          // 白皮书导出：使用本地白皮书查看器，mode=whitepaper
-          const wpUrl = base + `&mode=${encodeURIComponent('whitepaper')}`;
+          const wpUrl = base
+            + `&mode=${encodeURIComponent('whitepaper')}`
+            + `&product_name=${encodeURIComponent(this.data.vm.productName || '')}`;
           wx.navigateTo({ url: `/pages/webview/webview?url=${encodeURIComponent(wpUrl)}` });
         }
       },

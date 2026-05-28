@@ -11,14 +11,55 @@ logger = logging.getLogger(__name__)
 
 
 def _run_async(coro: object) -> dict[str, object]:
-    """Run an async coroutine from synchronous Celery worker context."""
+    """Run an async coroutine from synchronous Celery worker context.
+
+    Each Celery prefork worker reuses the same OS process across tasks but
+    creates a new event loop per task via asyncio.new_event_loop().  The
+    global SQLAlchemy AsyncEngine keeps asyncpg connections bound to the
+    *previous* task's (now-closed) event loop, causing
+    "got Future attached to a different loop".
+
+    Fix: replace the global engine/session-factory singletons with freshly
+    created instances bound to *this* task's event loop before running the
+    coroutine, then tear them down afterwards.  NullPool disables connection
+    reuse so there is nothing to leak across loop boundaries.
+    """
+
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    import app.db.session as _session_mod  # noqa: PLC0415
 
     loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    from app.core.config import get_settings
+    settings = get_settings()
+    task_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+    task_factory = async_sessionmaker(
+        bind=task_engine,
+        autoflush=False,
+        expire_on_commit=False,
+        class_=AsyncSession,
+    )
+
+    # Temporarily replace globals so all code paths use the new engine.
+    _session_mod._engine = task_engine
+    _session_mod._session_factory = task_factory
+
     try:
         result: dict[str, object] = loop.run_until_complete(coro)  # type: ignore[arg-type]
         return result
     finally:
+        try:
+            loop.run_until_complete(task_engine.dispose())
+        except Exception:
+            pass
         loop.close()
+        asyncio.set_event_loop(None)
+        # Clear globals so the next task always gets a fresh engine.
+        _session_mod._engine = None
+        _session_mod._session_factory = None
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]

@@ -1,28 +1,7 @@
 import { api, USE_MOCK } from '../../services/api';
 import type { SurveyQuestion, PersonaSummary, Survey } from '../../types/api';
 import type { StreamHandle } from '../../services/stream';
-
-/** Assign avatars sequentially per gender to avoid duplicates.
- *  female → 01-05 cycling, male → 06-10 cycling */
-function assignAvatars(
-  personas: PersonaSummary[],
-): Array<PersonaSummary & { selected: boolean; avatarSrc: string }> {
-  let femaleIdx = 0;
-  let maleIdx = 0;
-  return personas.map(p => {
-    const isMale = p.gender === 'male';
-    let slot: number;
-    if (isMale) {
-      slot = (maleIdx % 5) + 6;
-      maleIdx++;
-    } else {
-      slot = (femaleIdx % 5) + 1;
-      femaleIdx++;
-    }
-    const avatarSrc = `/assets/persona-avatars/avatar-${String(slot).padStart(2, '0')}.png`;
-    return { ...p, selected: false, avatarSrc };
-  });
-}
+import { decoratePersonasWithAvatars } from '../../utils/personaAvatar';
 
 type EditableQuestion = SurveyQuestion & { changed?: boolean };
 
@@ -172,7 +151,7 @@ Page({
   async loadPersonas(productId: string) {
     try {
       const personas = await api.recommendPersonas(productId, 20);
-      const decorated = assignAvatars(personas);
+      const decorated = decoratePersonasWithAvatars(personas);
       this.setData({ personas: decorated, selectedCount: 0 });
     } catch { /* ignore */ }
   },
@@ -189,7 +168,7 @@ Page({
         api.recommendPersonas(productId, 20),
       ]);
 
-      const decorated = assignAvatars(personas);
+      const decorated = decoratePersonasWithAvatars(personas);
       this.setData({
         loading: false,
         surveyId: survey.id,

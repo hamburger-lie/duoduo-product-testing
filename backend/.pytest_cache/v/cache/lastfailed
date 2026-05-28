@@ -1,0 +1,15 @@
+{
+  "backend/tests/e2e/test_full_mock_flow.py": true,
+  "backend/tests/test_auth.py": true,
+  "backend/tests/test_conversation.py": true,
+  "backend/tests/test_credit.py": true,
+  "backend/tests/test_error_codes.py": true,
+  "backend/tests/test_evaluation_survey.py": true,
+  "backend/tests/test_health.py": true,
+  "backend/tests/test_history.py": true,
+  "backend/tests/test_persona.py": true,
+  "backend/tests/test_product.py": true,
+  "backend/tests/test_rate_limit.py": true,
+  "backend/tests/test_report.py": true,
+  "backend/tests/test_seed_personas.py": true
+}

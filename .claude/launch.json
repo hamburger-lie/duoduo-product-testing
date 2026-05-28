@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cibe-whitepaper",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["proxy.py"],
+      "port": 5678,
+      "cwd": "cibe-whitepaper"
+    },
+    {
+      "name": "mockup-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "7788"],
+      "port": 7788,
+      "cwd": "."
+    },
+    {
+      "name": "whitepaper-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "18099", "--directory", "backend/whitepaper-static"],
+      "port": 18099,
+      "cwd": "D:\\soul\\backend"
+    },
+    {
+      "name": "cibe-whitepaper-proxy",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["proxy.py"],
+      "port": 5678,
+      "cwd": "D:\\白皮书\\cibe-whitepaper"
+    }
+  ]
+}

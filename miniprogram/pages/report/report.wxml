@@ -59,9 +59,33 @@
         <scroll-view class="rp-ps-strip" scroll-x="true" enhanced="true" show-scrollbar="{{false}}">
           <view class="rp-ps-track">
             <view class="rp-ps-card" wx:for="{{vm.personaCards}}" wx:key="name">
-              <view class="rp-ps-name">{{item.name}}</view>
+              <view class="rp-ps-head">
+                <view class="rp-ps-copy">
+                  <view class="rp-ps-name">{{item.groupTitle}}</view>
+                  <view class="rp-ps-hint">{{item.groupHint}}</view>
+                </view>
+                <view class="rp-ps-tag">{{item.tag}}</view>
+              </view>
               <view class="rp-ps-score">{{item.score}}</view>
-              <view class="rp-ps-tag">{{item.tag}}</view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 角色洞察 -->
+      <view class="rp-voice-section" wx:if="{{vm.personaVoices.length}}">
+        <view class="rp-section-title">角色洞察</view>
+        <scroll-view class="rp-voice-strip" scroll-x="true" enhanced="true" show-scrollbar="{{false}}">
+          <view class="rp-voice-track">
+            <view class="rp-voice-card rp-voice-card--{{item.tone}}" wx:for="{{vm.personaVoices}}" wx:key="groupTitle">
+              <view class="rp-voice-top">
+                <view class="rp-voice-person">
+                  <view class="rp-voice-name">{{item.groupTitle}}</view>
+                </view>
+                <view class="rp-voice-score">{{item.score}}</view>
+              </view>
+              <view class="rp-voice-hint">{{item.groupHint}}</view>
+              <view class="rp-voice-quote">“{{item.quote}}”</view>
             </view>
           </view>
         </scroll-view>

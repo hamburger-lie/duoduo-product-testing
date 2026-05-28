@@ -509,48 +509,38 @@ function buildConclusion(
   top2BoxPct: number,
   compositeGrade: string,
 ): { text: string } {
-  // 主力受众：取前2个，过长则截断
   const topAudiences = audiences.slice(0, 2).map(a => {
     const parts = String(a || '').split(/[/／·×\s]/);
-    return parts[0].trim();
-  }).filter(Boolean);
+    return stripPersonaNames(parts[0]).trim();
+  }).filter(Boolean).filter(a => a !== '消费者' && a !== '消费群体');
 
-  // 核心卖点短标题
   const topPro = opportunities[0];
-  const proLabel = topPro ? (topPro.shortTitle || topPro.title) : '';
+  const proLabel = topPro ? cleanReportText(topPro.shortTitle || topPro.title) : '';
 
-  // 首要顾虑
   const topCon = cons[0];
-  const conLabel = topCon ? (topCon.shortTitle || topCon.title) : '';
+  const conLabel = topCon ? cleanReportText(topCon.shortTitle || topCon.title) : '';
 
-  // 组装结论句
-  const audienceStr = topAudiences.length ? topAudiences.join('、') : '目标受众';
+  const audienceStr = topAudiences.length ? topAudiences.join('、') : '核心目标消费者';
   const intentStr = top2BoxPct > 0 ? `高意向购买率 ${top2BoxPct}%` : '';
+  const action = (compositeGrade === 'S' || compositeGrade === 'A')
+    ? '建议先推进小规模投放验证'
+    : compositeGrade === 'B'
+      ? '建议优化表达后再做小规模验证'
+      : '建议先深度优化产品概念再复测';
+  const parts: string[] = [action];
+  if (intentStr) parts.push(intentStr);
+  parts.push(`${audienceStr}反馈最积极`);
+  if (proLabel) parts.push(`${proLabel}是主要购买驱动`);
+  if (conLabel) parts.push(`${conLabel}是当前转化阻力`);
 
-  let text = '';
-  if (compositeGrade === 'S' || compositeGrade === 'A') {
-    text = `概念整体成熟，${intentStr ? intentStr + '，' : ''}${audienceStr}群体共鸣明确`;
-    if (proLabel) text += `，${proLabel}是核心驱动卖点`;
-    text += '，可推进投放验证。';
-  } else if (compositeGrade === 'B') {
-    text = `概念具备潜力，${intentStr ? intentStr + '，' : ''}${audienceStr}群体反馈积极`;
-    if (proLabel) text += `，${proLabel}形成初步共鸣`;
-    if (conLabel) text += `，但${conLabel}仍是主要阻力`;
-    text += '，建议优化表达后再扩量。';
-  } else {
-    text = `概念尚需打磨，${audienceStr}群体接受度有限`;
-    if (conLabel) text += `，${conLabel}是最主要的决策障碍`;
-    if (proLabel) text += `，${proLabel}可作为下阶段优化重点`;
-    text += '，建议深度复测后再推进。';
-  }
-  return { text };
+  return { text: `${parts.join('，')}。` };
 }
 
 function buildPersonaCards(
   segments: Array<{ segment: string; count: number; avg_intent: number }>,
   tagMap: Record<string, string> = {},
   answers: Array<{ persona_id?: string; persona_name?: string; persona_tag?: string; overall_intent?: number }> = [],
-): Array<{ name: string; score: number; tag: string; tone: string }> {
+): Array<{ name: string; groupTitle: string; groupHint: string; score: number; tag: string; tone: string }> {
   const tones = ['green', 'violet', 'amber', 'blue', 'slate'];
   const sortedAnswers = [...answers].sort((a, b) => (b.overall_intent ?? 0) - (a.overall_intent ?? 0));
   const answerSegments = sortedAnswers
@@ -565,9 +555,92 @@ function buildPersonaCards(
   const all = sorted.map((s, i) => {
     const score = Math.round(Math.min(100, (s.avg_intent / 5) * 100));
     const tag = score >= 90 ? '强推荐' : score >= 75 ? '推荐' : score >= 65 ? '可推' : score >= 55 ? '观望' : '谨慎';
-    return { name: pickSegmentLabel(s.segment, i, tagMap, sortedAnswers), score, tag, tone: tones[i] || 'slate' };
+    const name = pickSegmentLabel(s.segment, i, tagMap, sortedAnswers);
+    const voiceTitle = directVoiceTitle(name, `消费群体${ORDINAL_ZH[i] ?? i + 1}`);
+    return {
+      name,
+      groupTitle: voiceTitle.title,
+      groupHint: voiceTitle.hint,
+      score,
+      tag,
+      tone: tones[i] || 'slate',
+    };
   });
   return all.slice(0, 6);
+}
+
+function firstOpenAnswerText(answerItems: unknown): string {
+  if (!Array.isArray(answerItems)) return '';
+  const open = answerItems.find((item: any) => {
+    const value = item?.answer;
+    return item?.type === 'open' && typeof value === 'string' && value.trim();
+  }) as any;
+  return String(open?.answer || '').trim();
+}
+
+function compactVoiceText(text: string, max = 92): string {
+  const value = cleanReportText(String(text || '').replace(/\s+/g, ' ').trim());
+  if (Array.from(value).length <= max) return value;
+  return Array.from(value).slice(0, max - 1).join('') + '…';
+}
+
+function compactGroupTitle(text: string, fallback: string): string {
+  const value = stripPersonaNames(normalizeSegmentLabel(text || '')).trim();
+  if (!value || value === '消费者' || value === '消费群体') return fallback;
+  const labels = value
+    .split(/[/／｜|、，,·×\s]+/)
+    .map(label => label.trim())
+    .filter(Boolean);
+  const title = (labels.length ? labels.slice(0, 2).join(' · ') : value).trim();
+  if (Array.from(title).length <= 18) return title;
+  return Array.from(title).slice(0, 17).join('') + '…';
+}
+
+function directVoiceTitle(text: string, fallback: string): { title: string; hint: string } {
+  const value = stripPersonaNames(normalizeSegmentLabel(text || '')).trim();
+  if (!value || value === '消费者' || value === '消费群体') return { title: fallback, hint: '看本轮反馈再判断' };
+
+  if (value.includes('学生') || value.includes('小红书')) return { title: '学生党', hint: '容易被小红书种草' };
+  if (value.includes('男士') || value.includes('男性')) return { title: '男士新手', hint: '先看到效果才会买' };
+  if (value.includes('家庭')) return { title: '家庭用户', hint: '价格合适才会买' };
+  if (value.includes('预算') || value.includes('性价比') || value.includes('价格')) return { title: '预算用户', hint: '价格合适才会买' };
+  if (value.includes('成分') || value.includes('理性')) return { title: '成分党', hint: '先看成分再下单' };
+  if (value.includes('彩妆') || value.includes('尝鲜') || value.includes('颜值') || value.includes('包装')) return { title: '尝鲜用户', hint: '包装好看就愿意试' };
+
+  return { title: compactGroupTitle(value, fallback), hint: '看本轮反馈再判断' };
+}
+
+function buildPersonaVoices(
+  answers: Array<{
+    persona_id?: string;
+    persona_name?: string;
+    persona_tag?: string;
+    overall_intent?: number;
+    sentiment?: string;
+    summary_comment?: string;
+    thinking_process?: string;
+    answers?: unknown;
+  }> = [],
+): Array<{ groupTitle: string; groupHint: string; score: string; quote: string; tone: string }> {
+  const tones = ['violet', 'green', 'amber', 'blue', 'slate'];
+  return [...answers]
+    .filter(item => item.persona_name || item.persona_tag || item.summary_comment || item.thinking_process)
+    .sort((a, b) => (b.overall_intent ?? 0) - (a.overall_intent ?? 0))
+    .slice(0, 5)
+    .map((item, index) => {
+      const rawScore = item.overall_intent ?? 0;
+      const score = rawScore > 5 ? rawScore / 2 : rawScore;
+      const quote = item.summary_comment || firstOpenAnswerText(item.answers);
+      const fallbackTitle = `消费群体${ORDINAL_ZH[index] ?? index + 1}`;
+      const voiceTitle = directVoiceTitle(item.persona_tag || '', fallbackTitle);
+      return {
+        groupTitle: voiceTitle.title,
+        groupHint: voiceTitle.hint,
+        score: score ? `${score.toFixed(1)}/5` : '未评分',
+        quote: compactVoiceText(quote || '这位消费者没有留下明确短评。', 76),
+        tone: tones[index] || 'slate',
+      };
+    });
 }
 
 function hmCellBg(score: number | null): string {
@@ -1035,7 +1108,8 @@ function defaultVM() {
     summary: [] as string[],
     stackedBar: [] as Array<{ key: string; color: string; width: number; count: number }>,
     conclusion: { text: '' },
-    personaCards: [] as Array<{ name: string; score: number; tag: string }>,
+    personaCards: [] as Array<{ name: string; groupTitle: string; groupHint: string; score: number; tag: string }>,
+    personaVoices: [] as Array<{ groupTitle: string; groupHint: string; score: string; quote: string; tone: string }>,
     segmentRows: [] as Array<{ label: string; count: number; value: string; width: number }>,
     heatmapDimHeaders: [] as string[],
     heatmapRows: [] as Array<{ segment: string; cells: Array<{ score: number; bg: string; label: string }> }>,
@@ -1224,6 +1298,7 @@ Page({
       ).slice(0, 3),
       stackedBar: buildStackedBar(distMap),
       personaCards: buildPersonaCards(segs, tagMap, answers),
+      personaVoices: buildPersonaVoices(answers as any[]),
       segmentRows: buildSegmentRows(segs, tagMap, answers),
       heatmapDimHeaders: buildHeatmapDimHeaders(dims),
       heatmapRows: buildHeatmapRows(segs, dims, avg, tagMap, answers),
@@ -1355,6 +1430,7 @@ Page({
       ).slice(0, 3).map(cleanReportText),
       stackedBar: buildStackedBar(distMap),
       personaCards: buildPersonaCards(segs, tagMap, answers),
+      personaVoices: buildPersonaVoices(answers as any[]),
       segmentRows: buildSegmentRows(segs, tagMap, answers),
       heatmapDimHeaders: buildHeatmapDimHeaders(dims),
       heatmapRows: buildHeatmapRows(segs, dims, avg, tagMap, answers),

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from fastapi import status
@@ -331,16 +332,34 @@ class EvaluationService:
                 continue
             personas_to_run.append(persona)
 
-        # 并行调用 AI，所有测品官同时生成答案
-        ai_results = await asyncio.gather(
-            *[
-                self._generate_answer(
+        from app.core.config import get_settings
+
+        concurrency = min(
+            len(personas_to_run) or 1,
+            max(1, get_settings().persona_answer_concurrency),
+        )
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def run_limited(persona: Persona) -> tuple[
+            list[dict[str, object]],
+            int,
+            str,
+            str | None,
+            str | None,
+            int,
+            int,
+            Decimal,
+        ]:
+            async with semaphore:
+                return await self._generate_answer(
                     survey=survey,
-                    persona=p,
+                    persona=persona,
                     product_summary=product_summary,
                 )
-                for p in personas_to_run
-            ],
+
+        # 并行调用 AI，并按配置限制最大同时请求数。
+        ai_results = await asyncio.gather(
+            *[run_limited(p) for p in personas_to_run],
             return_exceptions=True,
         )
 
@@ -349,7 +368,16 @@ class EvaluationService:
             if isinstance(result, BaseException):
                 logger.warning("persona_answer_failed persona_id=%s err=%s", persona.id, result)
                 continue
-            answers, overall_intent, sentiment, summary_comment, thinking_process = result
+            (
+                answers,
+                overall_intent,
+                sentiment,
+                summary_comment,
+                thinking_process,
+                token_input,
+                token_output,
+                cost_yuan,
+            ) = result
             await self.answers.create(
                 {
                     "evaluation_id": evaluation.id,
@@ -361,9 +389,9 @@ class EvaluationService:
                     "summary_comment": summary_comment,
                     "thinking_process": thinking_process,
                     "status": "done",
-                    "token_input": 0,
-                    "token_output": 0,
-                    "cost_yuan": 0,
+                    "token_input": token_input,
+                    "token_output": token_output,
+                    "cost_yuan": cost_yuan,
                 }
             )
 
@@ -602,7 +630,16 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
+    ) -> tuple[
+        list[dict[str, object]],
+        int,
+        str,
+        str | None,
+        str | None,
+        int,
+        int,
+        Decimal,
+    ]:
         """Route to mock or AI answer generation based on AI_PROVIDER."""
 
         from app.core.config import get_settings
@@ -610,10 +647,22 @@ class EvaluationService:
         provider = get_settings().ai_provider
         if provider in {"ark", "deepseek"}:
             try:
-                return await self._generate_answer_with_ai(
+                result = await self._generate_answer_with_ai(
                     survey=survey,
                     persona=persona,
                     product_summary=product_summary,
+                )
+                if len(result) >= 8:
+                    return result  # type: ignore[return-value]
+                return (
+                    result[0],
+                    result[1],
+                    result[2],
+                    result[3],
+                    result[4],
+                    0,
+                    0,
+                    Decimal("0.0000"),
                 )
             except Exception as exc:
                 logger.exception(
@@ -634,6 +683,9 @@ class EvaluationService:
             self._mock_sentiment(overall_intent),
             None,
             None,
+            0,
+            0,
+            Decimal("0.0000"),
         )
 
     async def _generate_answer_with_ai(
@@ -642,16 +694,35 @@ class EvaluationService:
         survey: Survey,
         persona: Persona,
         product_summary: dict[str, object],
-    ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
-        """Call AI (via persona_answer.j2) to generate one persona's answers."""
+    ) -> tuple[
+        list[dict[str, object]],
+        int,
+        str,
+        str | None,
+        str | None,
+        int,
+        int,
+        Decimal,
+    ]:
+        """Call AI to generate one persona's answers with usage metadata."""
 
         from app.ai.adapters.structured_generation import PersonaAnswerGenerationAdapter
 
         adapter = PersonaAnswerGenerationAdapter(ai_client=self._ai_client)
-        return await adapter.generate_answer(
+        result = await adapter.generate_answer_with_usage(
             survey=survey,
             persona=persona,
             product_summary=product_summary,
+        )
+        return (
+            result.answers,
+            result.overall_intent,
+            result.sentiment,
+            result.summary_comment,
+            result.thinking_process,
+            result.usage.input_tokens,
+            result.usage.output_tokens,
+            result.usage.cost_yuan,
         )
 
     # ------------------------------------------------------------------

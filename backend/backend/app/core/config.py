@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic import Field, model_validator
@@ -37,6 +38,12 @@ class Settings(BaseSettings):
     qdrant_url: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     evaluation_run_mode: str = Field(default="sync", alias="EVALUATION_RUN_MODE")
+    persona_answer_concurrency: int = Field(
+        default=5,
+        ge=1,
+        le=5,
+        alias="PERSONA_ANSWER_CONCURRENCY",
+    )
     followup_webhook_url: str = Field(default="", alias="FOLLOWUP_WEBHOOK_URL")
     followup_webhook_secret: str = Field(default="", alias="FOLLOWUP_WEBHOOK_SECRET")
     followup_webhook_timeout_seconds: float = Field(
@@ -51,6 +58,16 @@ class Settings(BaseSettings):
 
     # Credit cost per persona in an evaluation run
     credit_cost_per_persona: int = Field(default=10, alias="CREDIT_COST_PER_PERSONA")
+
+    # AI cost estimate settings. Defaults are zero until finance confirms pricing.
+    ai_input_price_yuan_per_1k: Decimal = Field(
+        default=Decimal("0.0000"),
+        alias="AI_INPUT_PRICE_YUAN_PER_1K",
+    )
+    ai_output_price_yuan_per_1k: Decimal = Field(
+        default=Decimal("0.0000"),
+        alias="AI_OUTPUT_PRICE_YUAN_PER_1K",
+    )
 
     # Sentry error tracking (leave empty to disable)
     sentry_dsn: str = Field(default="", alias="SENTRY_DSN")

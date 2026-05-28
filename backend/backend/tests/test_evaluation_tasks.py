@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from decimal import Decimal
@@ -51,6 +52,7 @@ async def create_task_fixture(
     context: TaskContext,
     *,
     status: str = "answering",
+    persona_count: int = 1,
 ) -> tuple[int, int, int]:
     async with context.session_factory() as session:
         user = User(openid="task_user", nickname="Task User")
@@ -69,35 +71,38 @@ async def create_task_fixture(
         session.add(product)
         await session.flush()
 
-        persona = Persona(
-            owner_id=None,
-            name="任务测试角色",
-            avatar="person",
-            age=29,
-            gender="female",
-            city="上海",
-            city_tier=1,
-            occupation="运营",
-            income_monthly=18000,
-            ocean_o=60,
-            ocean_c=70,
-            ocean_e=50,
-            ocean_a=65,
-            ocean_n=45,
-            persona_tag="成分党",
-            profile={"bio": "关注成分和价格"},
-            categories=["美妆"],
-            is_critical=False,
-            version=1,
-            status="active",
-        )
-        session.add(persona)
-        await session.flush()
+        persona_ids: list[int] = []
+        for index in range(persona_count):
+            persona = Persona(
+                owner_id=None,
+                name=f"任务测试角色{index + 1}",
+                avatar="person",
+                age=29,
+                gender="female",
+                city="上海",
+                city_tier=1,
+                occupation="运营",
+                income_monthly=18000,
+                ocean_o=60,
+                ocean_c=70,
+                ocean_e=50,
+                ocean_a=65,
+                ocean_n=45,
+                persona_tag="成分党",
+                profile={"bio": "关注成分和价格"},
+                categories=["美妆"],
+                is_critical=False,
+                version=1,
+                status="active",
+            )
+            session.add(persona)
+            await session.flush()
+            persona_ids.append(persona.id)
 
         evaluation = Evaluation(
             user_id=user.id,
             product_id=product.id,
-            selected_persona_ids=[str(persona.id)],
+            selected_persona_ids=[str(persona_id) for persona_id in persona_ids],
             status=status,
             progress=0,
             task_id="existing-task-id",
@@ -126,7 +131,7 @@ async def create_task_fixture(
 
         evaluation.survey_id = survey.id
         await session.commit()
-        return evaluation.id, user.id, persona.id
+        return evaluation.id, user.id, persona_ids[0]
 
 
 async def test_evaluation_task_keeps_canceled_evaluation_canceled(
@@ -220,6 +225,62 @@ async def test_evaluation_task_marks_all_failed_when_persona_generation_fails(
         assert answer is not None
         assert answer.status == "failed"
         assert answer.error_message == "model unavailable"
+
+
+async def test_evaluation_task_limits_concurrent_persona_generation(
+    task_context: TaskContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ANSWER_CONCURRENCY", "2")
+    get_settings.cache_clear()
+    evaluation_id, user_id, _ = await create_task_fixture(task_context, persona_count=5)
+    active = 0
+    max_active = 0
+
+    async def fake_generate_answer(
+        *args: object,
+        **kwargs: object,
+    ) -> tuple[list[dict[str, object]], int, str, str, str]:
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        return (
+            [
+                {
+                    "qid": "q1",
+                    "type": "scale_1_5",
+                    "answer": 4,
+                    "reason": "并发测试答案",
+                }
+            ],
+            4,
+            "positive",
+            "并发测试总结",
+            "并发测试思考",
+        )
+
+    monkeypatch.setattr(
+        "app.services.evaluation_service.EvaluationService._generate_answer",
+        fake_generate_answer,
+    )
+
+    try:
+        result = await _run_evaluation_async(evaluation_id, user_id, "celery-task-id")
+    finally:
+        get_settings.cache_clear()
+
+    assert result["status"] == "done"
+    assert max_active == 2
+    async with task_context.session_factory() as session:
+        answers = (
+            await session.scalars(select(Answer).where(Answer.evaluation_id == evaluation_id))
+        ).all()
+        evaluation = await session.get(Evaluation, evaluation_id)
+        assert evaluation is not None
+        assert len(answers) == 5
+        assert evaluation.progress == 100
 
 
 async def test_evaluation_task_does_not_finalize_canceled_evaluation(

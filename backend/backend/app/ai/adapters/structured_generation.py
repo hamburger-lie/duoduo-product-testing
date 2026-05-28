@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from app.ai.exceptions import AIResponseInvalid
 from app.ai.json_utils import parse_json_response, validate_required_keys
 from app.ai.models import ModelRouter, TaskType
 from app.ai.prompt_manager import render_prompt
+from app.ai.usage import AIUsage
 from app.schemas.product import ProductAiSummary
 from app.schemas.survey import QuestionType, SurveyQuestion
 
@@ -145,7 +147,6 @@ class SurveyGenerationAdapter:
             system="你是专业的市场调研问卷设计专家。严格按 JSON schema 输出。",
             user=prompt,
             endpoint_id=route.endpoint_id,
-            max_tokens=8192,
         )
         data = parse_json_response(raw_json)
         validate_required_keys(data, ["questions"])
@@ -175,6 +176,18 @@ class SurveyGenerationAdapter:
         return result
 
 
+@dataclass(frozen=True)
+class PersonaAnswerGenerationResult:
+    """Validated persona answers plus model usage."""
+
+    answers: list[dict[str, object]]
+    overall_intent: int
+    sentiment: str
+    summary_comment: str | None
+    thinking_process: str | None
+    usage: AIUsage
+
+
 class PersonaAnswerGenerationAdapter:
     """Structured AI adapter for persona answer generation."""
 
@@ -189,6 +202,28 @@ class PersonaAnswerGenerationAdapter:
         product_summary: dict[str, object],
     ) -> tuple[list[dict[str, object]], int, str, str | None, str | None]:
         """Generate validated persona answer output."""
+
+        result = await self.generate_answer_with_usage(
+            survey=survey,
+            persona=persona,
+            product_summary=product_summary,
+        )
+        return (
+            result.answers,
+            result.overall_intent,
+            result.sentiment,
+            result.summary_comment,
+            result.thinking_process,
+        )
+
+    async def generate_answer_with_usage(
+        self,
+        *,
+        survey: Survey,
+        persona: Persona,
+        product_summary: dict[str, object],
+    ) -> PersonaAnswerGenerationResult:
+        """Generate validated persona answer output with token usage."""
 
         from app.ai.factory import get_ai_client
 
@@ -212,12 +247,12 @@ class PersonaAnswerGenerationAdapter:
             product_ai_summary=product_summary,
             survey_questions=survey.questions,
         )
-        raw_json = await ai_client.complete_json(
+        ai_result = await ai_client.complete_json_with_usage(
             system="你是一名真实的中国消费者，正在参与产品测评问卷。",
             user=prompt,
             endpoint_id=route.endpoint_id,
-            max_tokens=8192,
         )
+        raw_json = ai_result.content
         data = parse_json_response(raw_json)
         validate_required_keys(data, ["overall_intent", "sentiment", "answers"])
 
@@ -252,4 +287,11 @@ class PersonaAnswerGenerationAdapter:
         summary_comment: str | None = str(summary_comment_raw) if summary_comment_raw else None
         thinking_process_raw = data.get("thinking_process")
         thinking_process: str | None = str(thinking_process_raw) if thinking_process_raw else None
-        return answers, overall_intent, sentiment, summary_comment, thinking_process
+        return PersonaAnswerGenerationResult(
+            answers=answers,
+            overall_intent=overall_intent,
+            sentiment=sentiment,
+            summary_comment=summary_comment,
+            thinking_process=thinking_process,
+            usage=ai_result.usage,
+        )

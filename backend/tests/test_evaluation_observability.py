@@ -154,7 +154,7 @@ async def test_ai_fallback_log_includes_evaluation_and_provider_context(
 
             monkeypatch.setattr(
                 EvaluationService,
-                "_generate_answer_with_ai",
+                "_generate_answer_with_ai_usage",
                 fake_generate_answer_with_ai,
             )
 

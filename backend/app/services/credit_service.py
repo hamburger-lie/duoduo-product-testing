@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import secrets
 from datetime import UTC, datetime
 
+from fastapi import status
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.credit import CreditTransaction
+from app.core.exceptions import AppException
+from app.db.models.credit import CreditRechargeOrder, CreditTransaction
 from app.db.models.user import User
 from app.schemas.credit import (
     CreditBalanceResponse,
+    CreditRechargeCallbackRequest,
+    CreditRechargeRequest,
+    CreditRechargeResponse,
     CreditTransactionItem,
     CreditTransactionListResponse,
 )
@@ -104,6 +112,104 @@ class CreditService:
         await self.session.flush()
         return tx
 
+    async def create_recharge_order(
+        self,
+        user: User,
+        request: CreditRechargeRequest,
+        *,
+        idempotency_key: str | None,
+    ) -> CreditRechargeResponse:
+        """Create or return a pending recharge order for this user."""
+
+        normalized_key = idempotency_key.strip() if idempotency_key else None
+        if normalized_key:
+            existing = await self.session.scalar(
+                select(CreditRechargeOrder).where(
+                    CreditRechargeOrder.user_id == user.id,
+                    CreditRechargeOrder.idempotency_key == normalized_key,
+                    CreditRechargeOrder.deleted_at.is_(None),
+                )
+            )
+            if existing is not None:
+                return self._to_recharge_response(existing)
+
+        order = CreditRechargeOrder(
+            user_id=user.id,
+            order_no=self._generate_order_no(),
+            provider=request.provider,
+            idempotency_key=normalized_key,
+            amount_yuan=request.amount_yuan,
+            credits=request.credits,
+            status="pending",
+        )
+        self.session.add(order)
+        await self.session.commit()
+        await self.session.refresh(order)
+        return self._to_recharge_response(order)
+
+    async def settle_recharge_order(
+        self,
+        request: CreditRechargeCallbackRequest,
+        *,
+        raw_callback: dict[str, object],
+    ) -> CreditRechargeResponse:
+        """Mark a pending recharge order paid and credit the user exactly once."""
+
+        duplicate = await self.session.scalar(
+            select(CreditRechargeOrder).where(
+                CreditRechargeOrder.provider_transaction_id
+                == request.provider_transaction_id,
+                CreditRechargeOrder.deleted_at.is_(None),
+            )
+        )
+        if duplicate is not None:
+            return self._to_recharge_response(duplicate)
+
+        order = await self.session.scalar(
+            select(CreditRechargeOrder).where(
+                CreditRechargeOrder.order_no == request.order_no,
+                CreditRechargeOrder.deleted_at.is_(None),
+            )
+        )
+        if order is None:
+            raise AppException(
+                code="RESOURCE_NOT_FOUND",
+                message="Recharge order not found",
+                http_status=status.HTTP_404_NOT_FOUND,
+                details={"order_no": request.order_no},
+            )
+
+        if order.status == "paid":
+            return self._to_recharge_response(order)
+
+        user = await self.session.get(User, order.user_id)
+        if user is None:
+            raise AppException(
+                code="RESOURCE_NOT_FOUND",
+                message="Recharge order user not found",
+                http_status=status.HTTP_404_NOT_FOUND,
+                details={"order_no": request.order_no},
+            )
+
+        order.status = "paid"
+        order.provider_transaction_id = request.provider_transaction_id
+        order.paid_at = request.paid_at or datetime.now(UTC)
+        order.raw_callback = raw_callback
+        user.credit_balance += order.credits
+        tx = CreditTransaction(
+            user_id=user.id,
+            amount=order.credits,
+            balance_after=user.credit_balance,
+            reason="recharge",
+            ref_type="credit_recharge_order",
+            ref_id=order.id,
+            note=f"充值订单 {order.order_no}",
+        )
+        self.session.add(tx)
+        await self.session.commit()
+        await self.session.refresh(order)
+        return self._to_recharge_response(order)
+
     # ------------------------------------------------------------------ #
     # Read helpers  (T049)
     # ------------------------------------------------------------------ #
@@ -186,4 +292,43 @@ class CreditService:
             ref_id=str(tx.ref_id) if tx.ref_id is not None else None,
             note=tx.note,
             created_at=tx.created_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+        )
+
+    @staticmethod
+    def verify_recharge_callback_signature(
+        body: bytes,
+        signature: str,
+        secret: str,
+    ) -> None:
+        """Verify HMAC-SHA256 callback signature."""
+
+        if not secret:
+            raise AppException(
+                code="RECHARGE_SIGNATURE_NOT_CONFIGURED",
+                message="Recharge callback signature is not configured",
+                http_status=status.HTTP_401_UNAUTHORIZED,
+            )
+        expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            raise AppException(
+                code="INVALID_RECHARGE_SIGNATURE",
+                message="Invalid recharge callback signature",
+                http_status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+    @staticmethod
+    def _generate_order_no() -> str:
+        return f"rch_{secrets.token_urlsafe(18)}"
+
+    @staticmethod
+    def _to_recharge_response(order: CreditRechargeOrder) -> CreditRechargeResponse:
+        return CreditRechargeResponse(
+            id=str(order.id),
+            order_no=order.order_no,
+            provider=order.provider,
+            amount_yuan=order.amount_yuan,
+            credits=order.credits,
+            status=order.status,
+            created_at=order.created_at,
+            paid_at=order.paid_at,
         )

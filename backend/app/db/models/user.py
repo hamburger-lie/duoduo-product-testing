@@ -9,7 +9,7 @@ from app.db.base import Base, BaseModelMixin
 
 if TYPE_CHECKING:
     from app.db.models.conversation import Conversation
-    from app.db.models.credit import CreditTransaction
+    from app.db.models.credit import CreditRechargeOrder, CreditTransaction
     from app.db.models.evaluation import Evaluation
     from app.db.models.persona import Persona
     from app.db.models.product import Product
@@ -37,4 +37,6 @@ class User(Base, BaseModelMixin):
     evaluations: Mapped[list["Evaluation"]] = relationship(back_populates="user")
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="user")
     credit_transactions: Mapped[list["CreditTransaction"]] = relationship(back_populates="user")
-
+    credit_recharge_orders: Mapped[list["CreditRechargeOrder"]] = relationship(
+        back_populates="user"
+    )

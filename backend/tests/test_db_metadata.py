@@ -11,6 +11,7 @@ def test_sqlalchemy_metadata_loads_all_core_tables() -> None:
         "answers",
         "conversation_messages",
         "conversations",
+        "credit_recharge_orders",
         "credit_transactions",
         "evaluations",
         "personas",
@@ -22,4 +23,3 @@ def test_sqlalchemy_metadata_loads_all_core_tables() -> None:
     }
 
     assert expected_tables.issubset(Base.metadata.tables.keys())
-

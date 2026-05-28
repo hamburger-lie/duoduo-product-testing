@@ -3,7 +3,7 @@
 from app.db.repositories.answer import AnswerRepository
 from app.db.repositories.base import BaseRepository
 from app.db.repositories.conversation import ConversationMessageRepository, ConversationRepository
-from app.db.repositories.credit import CreditTransactionRepository
+from app.db.repositories.credit import CreditRechargeOrderRepository, CreditTransactionRepository
 from app.db.repositories.evaluation import EvaluationRepository
 from app.db.repositories.persona import PersonaRepository
 from app.db.repositories.product import ProductRepository
@@ -18,6 +18,7 @@ __all__ = [
     "ConversationMessageRepository",
     "ConversationRepository",
     "CreditTransactionRepository",
+    "CreditRechargeOrderRepository",
     "EvaluationRepository",
     "PersonaRepository",
     "ProductRepository",

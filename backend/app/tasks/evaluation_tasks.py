@@ -507,17 +507,17 @@ async def _generate_persona_answer_outcome(
         from app.services.evaluation_service import EvaluationService
 
         svc = EvaluationService(session)
-        (
-            answer_data,
-            overall_intent,
-            sentiment,
-            summary_comment,
-            thinking_process,
-        ) = await svc._generate_answer(
+        result = await svc._generate_answer(
             survey=survey,
             persona=persona,
             product_summary=product_summary,
         )
+        # 兼容 5 值（旧版）和 8 值（含 token/cost）两种返回格式
+        answer_data = result[0]
+        overall_intent = result[1]
+        sentiment = result[2]
+        summary_comment = result[3]
+        thinking_process = result[4]
         logger.info(
             "evaluation_persona_finished",
             extra={
@@ -554,6 +554,7 @@ async def _generate_persona_answer_outcome(
             persona_id=persona.id,
             error_message=str(exc)[:200],
         )
+
 
 
 async def _refund_failed_credits(

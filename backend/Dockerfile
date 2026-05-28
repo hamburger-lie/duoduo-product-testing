@@ -16,7 +16,7 @@ RUN apt-get update \
 ENV PATH="/root/.local/bin:${PATH}"
 
 # Install dependencies first (layer-cached unless lock file changes)
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev
 
 # Copy application source

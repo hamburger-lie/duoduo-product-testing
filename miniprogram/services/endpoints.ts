@@ -14,6 +14,7 @@ export const E = {
 
   // §2 Product
   PRODUCT_UPLOAD_URL:        '/products/upload-url',
+  PRODUCT_EXTRACT_FROM_IMAGES: '/products/extract-from-images',
   PRODUCT_CREATE:            '/products',
   PRODUCT_DETAIL: (id: string) => `/products/${id}`,
   PRODUCT_REANALYZE: (id: string) => `/products/${id}/reanalyze`,

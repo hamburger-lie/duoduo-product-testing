@@ -21,4 +21,6 @@ def create_mock_upload_url(*, filename: str, mime_type: str) -> ProductUploadUrl
         headers={"Content-Type": mime_type},
         object_key=object_key,
         expires_in=600,
+        # Mock CDN URL — blocked by vision_client in zhipu mode (expected).
+        image_url=f"https://mock-cdn.local/{object_key}",
     )

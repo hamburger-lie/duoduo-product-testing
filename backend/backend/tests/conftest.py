@@ -6,6 +6,16 @@ from pathlib import Path
 
 # Force mock AI in tests — real AI calls belong in tests/integration/
 os.environ["AI_PROVIDER"] = "mock"
+# Force mock vision in tests — prevents factory from picking up .env VISION_PROVIDER
+os.environ["VISION_PROVIDER"] = "mock"
+os.environ["IMAGE_EXTRACT_MODE"] = "vision"
+os.environ["VISION_IMAGE_MAX_SIDE"] = "720"
+os.environ["VISION_IMAGE_JPEG_QUALITY"] = "70"
+os.environ["IMAGE_EXTRACT_TIMEOUT_SECONDS"] = "120"
+os.environ["IMAGE_EXTRACT_CACHE_TTL_SECONDS"] = "3600"
+os.environ["DEBUG_AI_EXTRACT"] = "false"
+# Force non-production so internal_images router guard behaves correctly in tests
+os.environ.setdefault("APP_ENV", "testing")
 # Mark as testing environment so rate limiters fail-open even when Redis is up
 os.environ["APP_ENV"] = "testing"
 # Keep auth tests code-scoped unless a test explicitly enables fixed mock login.

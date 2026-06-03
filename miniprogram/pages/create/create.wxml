@@ -1,14 +1,19 @@
 <view class="page">
 
+  <!-- Section header -->
   <view class="section-head">
     <text class="section-title">产品图片</text>
-    <text class="section-required optional-pill">选填</text>
+    <text class="section-tag ai-tag">AI识图填表 · 选填</text>
   </view>
+
+  <!-- Empty upload zone -->
   <view wx:if="{{productImages.length === 0}}" class="upload-zone" bind:tap="onChooseImages">
     <view class="upload-icon">+</view>
-    <view class="upload-text">添加产品图</view>
-    <view class="upload-sub">没有图片也可以先开始产品调研</view>
+    <view class="upload-text">上传产品图</view>
+    <view class="upload-sub">包装图 / 成分表 / 宣传图都可以识别</view>
   </view>
+
+  <!-- Thumbnail grid -->
   <view wx:else class="thumb-grid">
     <block wx:for="{{productImages}}" wx:key="*this">
       <view class="thumb">
@@ -21,8 +26,45 @@
     </view>
   </view>
 
+  <!-- AI Extract button card (only after images uploaded) -->
+  <view wx:if="{{productImages.length > 0 && !extractDone}}" class="extract-card" bind:tap="onExtractFromImages">
+    <view wx:if="{{extracting}}" class="extract-card-inner disabled">
+      <text class="extract-card-title">识别中…</text>
+      <text class="extract-card-sub">正在上传并分析图片，通常需要 10–30 秒</text>
+    </view>
+    <view wx:else class="extract-card-inner">
+      <text class="extract-card-title">✨ AI识别并填充</text>
+      <text class="extract-card-sub">自动提取产品名、卖点、成分、价格等信息</text>
+    </view>
+    <view wx:if="{{extractError}}" class="extract-error">{{extractError}}</view>
+  </view>
+
+  <!-- Extract result notice (after successful extract) -->
+  <view wx:if="{{extractDone}}" class="extract-notice">
+    <view class="extract-notice-row">
+      <text class="extract-notice-icon">✅</text>
+      <text class="extract-notice-text">已识别出产品信息，请确认后再创建</text>
+    </view>
+    <view wx:if="{{extractNeedsReview}}" class="extract-notice-row review">
+      <text class="extract-notice-sub">部分内容识别不确定，请手动确认</text>
+    </view>
+
+    <!-- raw_text collapsible -->
+    <view wx:if="{{extractRawText}}" class="raw-text-section">
+      <view class="raw-text-toggle" bind:tap="onToggleRawText">
+        <text class="raw-text-label">原始识别文字</text>
+        <text class="raw-text-arrow">{{rawTextExpanded ? '收起' : '展开'}}</text>
+      </view>
+      <view wx:if="{{rawTextExpanded}}" class="raw-text-content">{{extractRawText}}</view>
+    </view>
+  </view>
+
+  <!-- Product name field -->
   <view class="field-card">
-    <view class="field-label">产品名 <text class="required">*</text></view>
+    <view class="field-label-row">
+      <text class="field-label">产品名 <text class="required">*</text></text>
+      <text wx:if="{{filledByAI.productName}}" class="field-ai-badge">已从图片识别</text>
+    </view>
     <input
       class="field-input"
       value="{{productName}}"
@@ -30,10 +72,15 @@
       placeholder="例如：焕颜修护面霜"
       placeholder-class="field-placeholder"
     />
+    <view wx:if="{{fieldWarnings.productName}}" class="field-warn-text">⚠ 识别不确定，请确认或修改</view>
   </view>
 
+  <!-- Product description field -->
   <view class="field-card">
-    <view class="field-label">产品描述 <text class="required">*</text></view>
+    <view class="field-label-row">
+      <text class="field-label">产品描述 <text class="required">*</text></text>
+      <text wx:if="{{filledByAI.researchDesc}}" class="field-ai-badge">已从图片识别</text>
+    </view>
     <textarea
       class="field-textarea"
       value="{{researchDesc}}"
@@ -43,12 +90,14 @@
       maxlength="500"
       auto-height
     />
-    <view class="field-count">{{researchDesc.length}}/500</view>
+    <view class="field-footer">
+      <view wx:if="{{fieldWarnings.researchDesc}}" class="field-warn-text">⚠ 识别不确定，请确认或修改</view>
+      <view class="field-count">{{researchDesc.length}}/500</view>
+    </view>
   </view>
 
-
+  <!-- Submit area -->
   <view class="submit-wrap">
-    <!-- 进行中：进度条卡片 -->
     <view wx:if="{{submitting}}" class="progress-card">
       <view class="progress-msg">{{createMsg}}</view>
       <view class="progress-track">
@@ -56,7 +105,6 @@
       </view>
       <view class="progress-pct">{{createProgress}}%</view>
     </view>
-    <!-- 默认：提交按钮 -->
     <view wx:else class="btn-primary" bind:tap="onSubmit">创建产品并生成问卷</view>
   </view>
 </view>

@@ -20,7 +20,12 @@ from app.schemas.product import (
     ProductUploadUrlRequest,
     ProductUploadUrlResponse,
 )
-from app.storage.adapters import MockProductStorageAdapter, ProductStorageAdapter
+from app.storage.adapters import (
+    LocalProductStorageAdapter,
+    MockProductStorageAdapter,
+    ProductStorageAdapter,
+    TosProductStorageAdapter,
+)
 
 if TYPE_CHECKING:
     from app.ai.client import AIClient
@@ -29,6 +34,55 @@ ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
 
 logger = logging.getLogger(__name__)
+
+
+def _make_storage_adapter() -> ProductStorageAdapter:
+    """Select a storage adapter based on STORAGE_ADAPTER env var.
+
+    "mock"  → MockProductStorageAdapter  (default, fake URLs, no real storage)
+    "local" → LocalProductStorageAdapter (stores on backend host; dev only)
+    "tos"   → TosProductStorageAdapter   (Volcengine TOS; production)
+    """
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    name = settings.storage_adapter.strip().lower()
+
+    if name == "local":
+        if settings.app_env == "production":
+            raise RuntimeError(
+                "STORAGE_ADAPTER=local must not be used in production. "
+                "Set STORAGE_ADAPTER=tos and configure TOS_* credentials."
+            )
+        return LocalProductStorageAdapter(settings.backend_base_url)
+
+    if name == "tos":
+        missing = [
+            k for k, v in {
+                "TOS_ACCESS_KEY": settings.tos_access_key,
+                "TOS_SECRET_KEY": settings.tos_secret_key,
+                "TOS_ENDPOINT": settings.tos_endpoint,
+                "TOS_REGION": settings.tos_region,
+                "TOS_BUCKET": settings.tos_bucket,
+            }.items()
+            if not v
+        ]
+        if missing:
+            raise RuntimeError(
+                f"STORAGE_ADAPTER=tos requires these env vars: {', '.join(missing)}"
+            )
+        return TosProductStorageAdapter(
+            access_key=settings.tos_access_key,
+            secret_key=settings.tos_secret_key,
+            endpoint=settings.tos_endpoint,
+            region=settings.tos_region,
+            bucket=settings.tos_bucket,
+            cdn_domain=settings.tos_cdn_domain,
+            presign_expire_seconds=settings.tos_presign_expire_seconds,
+        )
+
+    # Default: mock
+    return MockProductStorageAdapter()
 
 
 class ProductService:
@@ -43,7 +97,7 @@ class ProductService:
         self.session = session
         self.products = ProductRepository(session)
         self._ai_client = ai_client
-        self._storage_adapter = storage_adapter or MockProductStorageAdapter()
+        self._storage_adapter = storage_adapter if storage_adapter is not None else _make_storage_adapter()
 
     def create_upload_url(self, payload: ProductUploadUrlRequest) -> ProductUploadUrlResponse:
         """Create a mock upload URL after validating image constraints."""

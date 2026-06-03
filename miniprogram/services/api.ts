@@ -9,6 +9,7 @@ import type {
   Evaluation, EvaluationAnswer, Survey, SurveyQuestion, Conversation, Message, PersonaSummary,
   Product, CreateProductReq, UploadUrlRes, PersonaDetail, BackendReport, BusinessReport,
   AvatarUploadRes, ProfileUpdateReq, ReportPdfListResponse, DeepAnalysis,
+  ImageExtractResponse,
 } from '../types/api';
 import type {
   EvaluationCardVM, PersonaWithKey,
@@ -71,9 +72,20 @@ export const api = {
   // ---------- Product ----------
 
   async uploadProductImages(filePaths: string[]): Promise<string[]> {
+    const results = await this._uploadProductImagesInternal(filePaths);
+    return results.map(r => r.object_key);
+  },
+
+  /** Upload images and return both object_key (for createProduct) and public URL (for extractFromImages). */
+  async uploadProductImagesWithUrls(filePaths: string[]): Promise<{ object_key: string; image_url: string }[]> {
+    return this._uploadProductImagesInternal(filePaths);
+  },
+
+  async _uploadProductImagesInternal(filePaths: string[]): Promise<{ object_key: string; image_url: string }[]> {
     if (USE_MOCK || !filePaths.length) return [];
 
-    async function uploadOne(filePath: string): Promise<string> {
+    async function uploadOne(filePath: string): Promise<{ object_key: string; image_url: string }> {
+      const tOne0 = Date.now();
       // 1. 获取文件信息（PC/DevTools 下 tempFilePath 为 http://tmp/... 不支持 getFileInfo，降级为 0）
       let fileSize = 0;
       if (!filePath.startsWith('http')) {
@@ -88,6 +100,7 @@ export const api = {
       const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
       // 2. 申请预签名 URL
+      const tUrl0 = Date.now();
       const urlRes = await request<UploadUrlRes>({
         url: E.PRODUCT_UPLOAD_URL,
         method: 'POST',
@@ -97,11 +110,15 @@ export const api = {
           size_bytes: fileSize,
         },
       });
+      console.log(`[perf] upload-url request: ${Date.now() - tUrl0}ms`);
 
-      // 3. 若是 mock URL（本地开发），跳过真实上传直接使用 object_key
+      // 3. 若是 mock URL（本地开发），跳过真实上传
       const isMockUrl = urlRes.upload_url.includes('mock-tos.local');
       if (!isMockUrl) {
+        const tPut0 = Date.now();
         const fileContent = wx.getFileSystemManager().readFileSync(filePath);
+        console.log(`[perf] file read: ${Date.now() - tPut0}ms, size=${(fileContent as ArrayBuffer).byteLength || 'unknown'}`);
+        const tPut1 = Date.now();
         await new Promise<void>((resolve, reject) => {
           wx.request({
             url: urlRes.upload_url,
@@ -112,12 +129,65 @@ export const api = {
             fail: (e: any) => reject(new Error(e.errMsg)),
           });
         });
+        console.log(`[perf] PUT upload: ${Date.now() - tPut1}ms`);
       }
-      return urlRes.object_key;
+
+      // 4. Use the backend-provided image_url directly.
+      //    Backend always returns this field; never derive a URL from upload_url.
+      const imageUrl = urlRes.image_url;
+      if (!imageUrl) {
+        console.error('[upload-url] response missing image_url. Full response:', JSON.stringify(urlRes));
+        throw new Error('Backend upload-url response missing image_url. Please update backend.');
+      }
+
+      console.log(`[perf] uploadOne total: ${Date.now() - tOne0}ms`);
+      return { object_key: urlRes.object_key, image_url: imageUrl };
     }
 
     // 并行上传所有图片，保留顺序
     return Promise.all(filePaths.map(uploadOne));
+  },
+
+  async extractFromImages(opts: {
+    image_urls: string[];
+    target_fields?: string[];
+    locale?: string;
+  }): Promise<ImageExtractResponse> {
+    if (USE_MOCK) {
+      return delay({
+        status: 'ok',
+        source_image_count: opts.image_urls.length,
+        raw_text: '焕颜修护精华面霜 50ml 烟酰胺+神经酰胺 温和修护 适合敏感肌 建议零售价¥199',
+        fields: {
+          name:           { value: '焕颜修护精华面霜', confidence: 0.92, source: 'image_ocr' },
+          brand:          { value: '测试品牌',         confidence: 0.88, source: 'image_ocr' },
+          category:       { value: '护肤品',           confidence: 0.75, source: 'llm_inference' },
+          price:          { value: '199',              confidence: 0.70, source: 'image_ocr' },
+          specification:  { value: '50ml',             confidence: 0.85, source: 'image_ocr' },
+          ingredients:    { value: ['烟酰胺', '神经酰胺', '玻尿酸'], confidence: 0.78, source: 'vision_llm' },
+          selling_points: { value: ['温和修护', '长效保湿', '提亮肤色'], confidence: 0.72, source: 'vision_llm' },
+          usage_scenario: { value: '日常护肤',         confidence: 0.68, source: 'llm_inference' },
+          claims:         { value: ['经皮肤科测试', '适合敏感肌'], confidence: 0.65, source: 'vision_llm' },
+        },
+        suggested_description: '一款主打温和修护和提亮功效的面霜，含烟酰胺与神经酰胺核心成分，适合敏感肌日常使用。',
+        needs_review: true,
+      }, 800);
+    }
+    // Limit to 2 images to keep Zhipu response time reasonable
+    const limitedUrls = opts.image_urls.slice(0, 2);
+    if (opts.image_urls.length > 2) {
+      console.warn(`[extract] limiting images from ${opts.image_urls.length} to 2 for speed`);
+    }
+    return request<ImageExtractResponse>({
+      url: E.PRODUCT_EXTRACT_FROM_IMAGES,
+      method: 'POST',
+      data: {
+        image_urls: limitedUrls,
+        target_fields: opts.target_fields || [],
+        locale: opts.locale || 'zh-CN',
+      },
+      timeout: 120000, // 2 min timeout for vision AI
+    });
   },
 
   async listProducts(cursor?: string): Promise<CursorPaged<Product>> {

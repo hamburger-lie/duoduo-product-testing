@@ -97,6 +97,8 @@ export interface UploadUrlRes {
   headers: Record<string, string>;
   object_key: string;
   expires_in: number;
+  /** Backend-provided URL for AI vision download. Always use this field; never derive from upload_url. */
+  image_url: string;
 }
 
 export interface CreateProductReq {
@@ -106,6 +108,22 @@ export interface CreateProductReq {
   brand?: string;
   price?: number;
   target_channel?: 'ec' | 'offline' | 'livestream';
+}
+
+// ---------- Product Image Extract §2.2 ----------
+export interface ExtractedFieldValue {
+  value: string | string[] | null;
+  confidence: number;
+  source: string;
+}
+
+export interface ImageExtractResponse {
+  status: string;
+  source_image_count: number;
+  raw_text: string | null;
+  fields: Record<string, ExtractedFieldValue>;
+  suggested_description: string | null;
+  needs_review: boolean;
 }
 
 // ---------- Persona §3 ----------
@@ -351,6 +369,7 @@ export interface DeepAnalysisSection {
   title: string;
   highlight?: string; // 气泡摘要，用 \n 分隔多行
   content: string;
+  contentHtml?: string; // 前端渲染用：正文关键数据高亮后的 HTML 片段
 }
 
 export interface DeepAnalysis {

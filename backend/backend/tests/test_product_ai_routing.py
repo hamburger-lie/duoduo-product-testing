@@ -14,6 +14,15 @@ class _FakeSettings:
     deepseek_model_flash = "deepseek-v4-flash"
     zhipu_api_key = "zhipu-key"
     zhipu_model_vision = "glm-4.6v"
+    storage_adapter = "mock"
+    backend_base_url = "http://127.0.0.1:8000"
+    app_env = "development"
+    image_extract_mode = "vision"
+    vision_image_max_side = 720
+    vision_image_jpeg_quality = 70
+    image_extract_timeout_seconds = 120.0
+    image_extract_cache_ttl_seconds = 0
+    debug_ai_extract = False
 
 
 class _RecordingAIClient:

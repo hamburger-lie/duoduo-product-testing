@@ -7,12 +7,15 @@ from app.core.deps import get_db_session
 from app.core.security import get_current_user
 from app.db.models.user import User
 from app.schemas.product import (
+    ImageExtractRequest,
+    ImageExtractResponse,
     ProductCreateRequest,
     ProductListResponse,
     ProductResponse,
     ProductUploadUrlRequest,
     ProductUploadUrlResponse,
 )
+from app.services.product_image_extract_service import ProductImageExtractService
 from app.services.product_service import ProductService
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"])
@@ -30,6 +33,21 @@ async def create_product_upload_url(
 
     _ = current_user
     return ProductService(session).create_upload_url(payload)
+
+
+@router.post("/extract-from-images", response_model=ImageExtractResponse)
+async def extract_product_from_images(
+    payload: ImageExtractRequest,
+    current_user: User = current_user_dependency,
+) -> ImageExtractResponse:
+    """Extract product fields from image URLs using vision AI.
+
+    Returns candidate field values for user confirmation.
+    Does NOT create a Product record.
+    """
+
+    _ = current_user
+    return await ProductImageExtractService().extract(payload)
 
 
 @router.post("", response_model=ProductResponse)

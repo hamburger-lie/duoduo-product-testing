@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic import Field, model_validator
@@ -37,6 +38,12 @@ class Settings(BaseSettings):
     qdrant_url: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     evaluation_run_mode: str = Field(default="sync", alias="EVALUATION_RUN_MODE")
+    persona_answer_concurrency: int = Field(
+        default=5,
+        ge=1,
+        le=5,
+        alias="PERSONA_ANSWER_CONCURRENCY",
+    )
     followup_webhook_url: str = Field(default="", alias="FOLLOWUP_WEBHOOK_URL")
     followup_webhook_secret: str = Field(default="", alias="FOLLOWUP_WEBHOOK_SECRET")
     followup_webhook_timeout_seconds: float = Field(
@@ -51,6 +58,16 @@ class Settings(BaseSettings):
 
     # Credit cost per persona in an evaluation run
     credit_cost_per_persona: int = Field(default=10, alias="CREDIT_COST_PER_PERSONA")
+
+    # AI cost estimate settings. Defaults are zero until finance confirms pricing.
+    ai_input_price_yuan_per_1k: Decimal = Field(
+        default=Decimal("0.0000"),
+        alias="AI_INPUT_PRICE_YUAN_PER_1K",
+    )
+    ai_output_price_yuan_per_1k: Decimal = Field(
+        default=Decimal("0.0000"),
+        alias="AI_OUTPUT_PRICE_YUAN_PER_1K",
+    )
 
     # Sentry error tracking (leave empty to disable)
     sentry_dsn: str = Field(default="", alias="SENTRY_DSN")
@@ -73,6 +90,32 @@ class Settings(BaseSettings):
         alias="WHITEPAPER_TIMEOUT_SECONDS",
     )
 
+    # Storage adapter for product image uploads: "mock" | "local" | "tos"
+    # "mock"  — fake TOS URLs, suitable for pure-backend tests (no real images).
+    # "local" — stores files on the backend host; local dev only, NOT for production.
+    # "tos"   — Volcengine TOS (Tencent-compatible); requires TOS_* vars below.
+    storage_adapter: str = Field(default="mock", alias="STORAGE_ADAPTER")
+
+    # Base URL of this backend server (used by LocalProductStorageAdapter to
+    # build upload_url / image_url that point back to itself).
+    # In WeChat DevTools the miniprogram accesses the same localhost:port.
+    backend_base_url: str = Field(
+        default="http://127.0.0.1:8000",
+        alias="BACKEND_BASE_URL",
+    )
+
+    # === TOS (Volcengine Object Storage) ===
+    # Required when STORAGE_ADAPTER=tos
+    tos_access_key: str = Field(default="", alias="TOS_ACCESS_KEY")
+    tos_secret_key: str = Field(default="", alias="TOS_SECRET_KEY")
+    tos_endpoint: str = Field(default="", alias="TOS_ENDPOINT")     # e.g. tos-cn-beijing.volces.com
+    tos_region: str = Field(default="", alias="TOS_REGION")         # e.g. cn-beijing
+    tos_bucket: str = Field(default="", alias="TOS_BUCKET")         # bucket name
+    # CDN domain for public-read objects; leave empty to use presigned GET URLs
+    tos_cdn_domain: str = Field(default="", alias="TOS_CDN_DOMAIN") # e.g. cdn.example.com
+    # Presigned URL expiry (seconds) for private buckets
+    tos_presign_expire_seconds: int = Field(default=3600, alias="TOS_PRESIGN_EXPIRE_SECONDS")
+
     # AI provider: "mock" | "deepseek" | "ark" (deprecated)
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
     survey_ai_timeout_seconds: float = Field(default=8.0, alias="SURVEY_AI_TIMEOUT_SECONDS")
@@ -92,6 +135,29 @@ class Settings(BaseSettings):
         default="deepseek-v4-flash",
         alias="DEEPSEEK_MODEL_FLASH",
     )
+
+    # Vision provider for image extraction: "mock" | "zhipu"
+    # Defaults to AI_PROVIDER when not set (so AI_PROVIDER=mock → vision=mock too).
+    vision_provider: str = Field(default="", alias="VISION_PROVIDER")
+
+    # Image extraction mode: "vision" | "vision_text"
+    # "vision"      — GLM-4V does full field extraction in one call (slower, ~30s)
+    # "vision_text" — GLM-4V only extracts raw text, then DeepSeek structures
+    #                 fields from that text (faster: ~10s vision + ~3s text)
+    image_extract_mode: str = Field(default="vision", alias="IMAGE_EXTRACT_MODE")
+
+    # Vision image pre-processing before sending to GLM-4V
+    vision_image_max_side: int = Field(default=720, alias="VISION_IMAGE_MAX_SIDE")
+    vision_image_jpeg_quality: int = Field(default=70, alias="VISION_IMAGE_JPEG_QUALITY")
+
+    # Timeout for the full extract-from-images operation (seconds)
+    image_extract_timeout_seconds: float = Field(default=120.0, alias="IMAGE_EXTRACT_TIMEOUT_SECONDS")
+
+    # In-memory extract result cache TTL (seconds); 0 to disable
+    image_extract_cache_ttl_seconds: int = Field(default=86400, alias="IMAGE_EXTRACT_CACHE_TTL_SECONDS")
+
+    # Enable verbose AI extract debug logging (raw_text, fields, signed URLs)
+    debug_ai_extract: bool = Field(default=False, alias="DEBUG_AI_EXTRACT")
 
     # 智谱 GLM (多模态/视觉，产品图片理解专用)
     zhipu_api_key: str = Field(default="", alias="ZHIPU_API_KEY")

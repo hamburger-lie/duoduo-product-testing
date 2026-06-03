@@ -26,6 +26,7 @@ from app.core.exceptions import (
 from app.core.logging import configure_logging, get_logger
 from app.core.metrics import record_http_request, update_db_pool_metrics
 from app.routers.auth import router as auth_router
+from app.routers.internal_images import router as internal_images_router
 from app.routers.conversation import router as conversation_router
 from app.routers.credit import router as credit_router
 from app.routers.evaluation import router as evaluation_router
@@ -219,6 +220,15 @@ def create_app() -> FastAPI:
         """Return Prometheus metrics in text format."""
 
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    # Internal local-dev storage endpoint.
+    # Only registered when BOTH conditions hold:
+    #   STORAGE_ADAPTER=local  AND  APP_ENV != production
+    # This prevents the unauthenticated endpoint from being exposed in production.
+    _is_local_adapter = settings.storage_adapter.strip().lower() == "local"
+    _is_dev = settings.app_env.strip().lower() != "production"
+    if _is_local_adapter and _is_dev:
+        app.include_router(internal_images_router)
 
     app.include_router(auth_router)
     app.include_router(product_router)

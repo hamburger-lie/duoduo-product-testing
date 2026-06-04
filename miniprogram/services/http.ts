@@ -143,9 +143,12 @@ export function request<T>(opts: RequestOptions): Promise<T> {
 export function resolveMediaUrl(url: string | null | undefined): string {
   if (!url) return '';
   if (url.includes('mock-cdn.local') || url.includes('mock-tos.local')) return '';
-  if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
-    return BASE_URL + url.replace(/^https?:\/\/[^/]+/, '');
-  }
+  // Upgrade our production CDN domain to https
+  if (url.startsWith('http://cpg.cibe.cn')) return 'https' + url.slice(4);
+  // Local dev server: don't pass http://localhost images to wx-image (causes protocol warning)
+  if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) return '';
   if (url.startsWith('/')) return BASE_URL + url;
+  // Block any other plain-http URLs to avoid wx-image protocol warnings
+  if (url.startsWith('http://')) return '';
   return url;
 }

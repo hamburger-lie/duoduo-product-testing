@@ -29,6 +29,13 @@
   - `PRODUCT_EXTRACT_FROM_IMAGES: '/products/extract-from-images'`
 - `miniprogram/services/api.ts`：上传 + 识图 API 链路完整
 
+#### history 页面 — HTTP 图片链接修复
+- `miniprogram/services/http.ts`：`resolveMediaUrl` 新增协议升级规则
+  - `http://cpg.cibe.cn/...` → `https://cpg.cibe.cn/...`（生产域名统一 HTTPS）
+  - `http://127.0.0.1` / `http://localhost` → `''`（本地开发不直接展示，避免 wx-image 协议警告）
+  - 其他 `http://` 第三方 URL → `''`（不展示，避免警告）
+  - 修复 `[pages/history/history] <wx-image>: 图片链接不再支持 HTTP 协议` 警告
+
 #### 调试日志收口（默认关闭）
 - `miniprogram/pages/report/report.ts`：`DEBUG_RADAR = false`（雷达图调试日志关闭）
 - `miniprogram/pages/create/create.ts`：`DEBUG_PERF = false`（上传性能日志关闭）
@@ -59,6 +66,7 @@
 - `PRODUCT_UPLOAD_URL` endpoint：✅ 存在
 - `PRODUCT_EXTRACT_FROM_IMAGES` endpoint：✅ 存在
 - 后端健康检查：✅ `{"status":"ok","service":"duoduo-product-testing-api"}`
+- history 页面不再直接展示 `http://cpg.cibe.cn` 图片地址，生产域名统一升级为 HTTPS
 - `.env` 已从工作区删除，不在本次提交中
 
 ---

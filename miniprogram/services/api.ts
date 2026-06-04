@@ -28,6 +28,9 @@ import { startMockStream, startRealStream, type StreamHandle, type StreamHandler
 /** true = 本地 mock，false = 真后端 (需先运行 start-backend.bat) */
 export const USE_MOCK = false;
 
+// 上传性能日志开关：正式版保持 false，本地调试时可临时改为 true
+const DEBUG_UPLOAD_PERF = false;
+
 function delay<T>(value: T, ms = 200): Promise<T> {
   return new Promise(resolve => setTimeout(() => resolve(value), ms));
 }
@@ -110,14 +113,14 @@ export const api = {
           size_bytes: fileSize,
         },
       });
-      console.log(`[perf] upload-url request: ${Date.now() - tUrl0}ms`);
+      if (DEBUG_UPLOAD_PERF) console.log(`[perf] upload-url request: ${Date.now() - tUrl0}ms`);
 
       // 3. 若是 mock URL（本地开发），跳过真实上传
       const isMockUrl = urlRes.upload_url.includes('mock-tos.local');
       if (!isMockUrl) {
         const tPut0 = Date.now();
         const fileContent = wx.getFileSystemManager().readFileSync(filePath);
-        console.log(`[perf] file read: ${Date.now() - tPut0}ms, size=${(fileContent as ArrayBuffer).byteLength || 'unknown'}`);
+        if (DEBUG_UPLOAD_PERF) console.log(`[perf] file read: ${Date.now() - tPut0}ms, size=${(fileContent as ArrayBuffer).byteLength || 'unknown'}`);
         const tPut1 = Date.now();
         await new Promise<void>((resolve, reject) => {
           wx.request({
@@ -129,7 +132,7 @@ export const api = {
             fail: (e: any) => reject(new Error(e.errMsg)),
           });
         });
-        console.log(`[perf] PUT upload: ${Date.now() - tPut1}ms`);
+        if (DEBUG_UPLOAD_PERF) console.log(`[perf] PUT upload: ${Date.now() - tPut1}ms`);
       }
 
       // 4. Use the backend-provided image_url directly.
@@ -140,7 +143,7 @@ export const api = {
         throw new Error('Backend upload-url response missing image_url. Please update backend.');
       }
 
-      console.log(`[perf] uploadOne total: ${Date.now() - tOne0}ms`);
+      if (DEBUG_UPLOAD_PERF) console.log(`[perf] uploadOne total: ${Date.now() - tOne0}ms`);
       return { object_key: urlRes.object_key, image_url: imageUrl };
     }
 

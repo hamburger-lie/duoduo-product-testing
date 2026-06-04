@@ -3,6 +3,9 @@ import type { ImageExtractResponse } from '../../types/api';
 
 const CONFIDENCE_THRESHOLD = 0.8;
 
+// 性能日志开关：正式版保持 false，本地调试时可临时改为 true
+const DEBUG_PERF = false;
+
 function shortProductName(name: string): string {
   return Array.from(String(name || '').trim()).slice(0, 10).join('');
 }
@@ -126,11 +129,11 @@ Page({
         // Limit to first 2 images for extract (speed vs completeness trade-off)
         const imagesToUpload = this.data.productImages.slice(0, 2);
         if (this.data.productImages.length > 2) {
-          console.log(`[extract] using first 2 of ${this.data.productImages.length} images for speed`);
+          if (DEBUG_PERF) console.log(`[extract] using first 2 of ${this.data.productImages.length} images for speed`);
         }
         const tUpload0 = Date.now();
         const uploadResults = await api.uploadProductImagesWithUrls(imagesToUpload);
-        console.log(`[perf] upload ${imagesToUpload.length} images: ${Date.now() - tUpload0}ms`);
+        if (DEBUG_PERF) console.log(`[perf] upload ${imagesToUpload.length} images: ${Date.now() - tUpload0}ms`);
         // Cache object keys so onSubmit can skip re-uploading
         this._uploadedKeys = uploadResults.map(r => r.object_key);
         // Use the public image_url for the extract API
@@ -142,14 +145,14 @@ Page({
       const result: ImageExtractResponse = await api.extractFromImages({
         image_urls: imageUrls,
       });
-      console.log(`[perf] extract-from-images API: ${Date.now() - tExtract0}ms`);
+      if (DEBUG_PERF) console.log(`[perf] extract-from-images API: ${Date.now() - tExtract0}ms`);
 
       // Step 3: Process result and apply to form with conflict detection
       await this._applyExtractResult(result);
-      console.log(`[perf] onExtractFromImages total: ${Date.now() - t0}ms`);
+      if (DEBUG_PERF) console.log(`[perf] onExtractFromImages total: ${Date.now() - t0}ms`);
 
     } catch (err: any) {
-      console.log(`[perf] onExtractFromImages failed after: ${Date.now() - t0}ms`);
+      if (DEBUG_PERF) console.log(`[perf] onExtractFromImages failed after: ${Date.now() - t0}ms`);
       let msg = '识别失败，请手动填写或稍后重试';
       const raw = err?.message || err?.code || '';
       if (raw.includes('timeout') || raw.includes('Timeout') || err?.code === 'IMAGE_EXTRACT_TIMEOUT') {

@@ -196,6 +196,93 @@ def test_render_survey_generate_includes_psychology_techniques() -> None:
     assert "至少用 5 种" in rendered
 
 
+def test_render_dimension_score_returns_tuple() -> None:
+    """dimension_score renders without error and returns the standard tuple."""
+    rendered, name, versioned = render_prompt(
+        "dimension_score",
+        product_name="测试洁面",
+        dimension_inputs=[
+            {
+                "dim": "first_impression",
+                "label": "第一印象",
+                "snippets": ["包装好看，会点进去看看"],
+            }
+        ],
+    )
+    assert isinstance(rendered, str)
+    assert len(rendered) > 50
+    assert name == "dimension_score"
+    assert versioned.startswith("dimension_score@v")
+
+
+def test_render_dimension_score_includes_inputs_and_schema() -> None:
+    """Prompt must embed the dimension inputs and require 0-100 semantic score fields."""
+    rendered, _, _ = render_prompt(
+        "dimension_score",
+        product_name="欧莱雅氨基酸洁面",
+        dimension_inputs=[
+            {
+                "dim": "price_sensitivity",
+                "label": "价格敏感度",
+                "snippets": ["到手价两百多太贵了"],
+            }
+        ],
+    )
+    assert "欧莱雅氨基酸洁面" in rendered
+    assert "price_sensitivity" in rendered
+    assert "到手价两百多太贵了" in rendered
+    assert "score" in rendered
+    assert "confidence" in rendered
+    assert "has_data" in rendered
+    assert "0-100" in rendered
+    assert "正向" in rendered
+    assert any(kw in rendered for kw in ["禁止编造", "禁止 Markdown", "禁止编造没有出现过"])
+
+
+def test_dimension_score_schema_fragment_is_valid_json() -> None:
+    """The JSON schema embedded in the dimension_score prompt must be parseable."""
+    import json
+
+    rendered, _, _ = render_prompt(
+        "dimension_score",
+        product_name="测试品",
+        dimension_inputs=[],
+    )
+    marker = "输出 JSON schema："
+    idx = rendered.find(marker)
+    assert idx != -1
+    schema_text = rendered[idx + len(marker):].strip()
+    brace_start = schema_text.find("{")
+    assert brace_start != -1
+    depth = 0
+    end_idx = -1
+    in_str = False
+    esc = False
+    for i, ch in enumerate(schema_text[brace_start:], brace_start):
+        if esc:
+            esc = False
+            continue
+        if ch == "\\" and in_str:
+            esc = True
+            continue
+        if ch == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end_idx = i + 1
+                break
+    assert end_idx != -1
+    parsed = json.loads(schema_text[brace_start:end_idx])
+    assert isinstance(parsed, dict)
+    assert "dimension_scores" in parsed
+
+
 def test_render_unknown_template_raises_not_found() -> None:
     with pytest.raises(AIPromptNotFound):
         render_prompt("nonexistent_template", foo="bar")

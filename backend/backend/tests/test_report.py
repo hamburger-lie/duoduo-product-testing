@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import app.db.session as _db_session_module
 from app.core.deps import get_db_session
 from app.db.models.answer import Answer
 from app.db.models.credit import CreditTransaction
@@ -19,6 +20,7 @@ from app.db.models.report import Report
 from app.db.models.survey import Survey
 from app.db.models.user import User
 from app.main import app
+from app.schemas.report import DimensionRadarItem
 from app.services.report_service import ReportService
 
 
@@ -49,6 +51,13 @@ async def report_context() -> AsyncIterator[ReportContext]:
 
     app.dependency_overrides[get_db_session] = override_get_db_session
 
+    # Patch the module-level session factory so background tasks (which call
+    # get_session_factory() directly, bypassing FastAPI DI) also use the
+    # in-memory test database. Otherwise the async AI work commits "done" to a
+    # different DB and the report fetch sees a stale "answering" status.
+    _orig_factory = _db_session_module._session_factory
+    _db_session_module._session_factory = session_factory
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://testserver",
@@ -56,6 +65,21 @@ async def report_context() -> AsyncIterator[ReportContext]:
         yield ReportContext(client=client, session_factory=session_factory)
 
     app.dependency_overrides.clear()
+    _db_session_module._session_factory = _orig_factory
+
+    # Drain fire-and-forget background tasks (e.g. dimension analysis launched
+    # via asyncio.create_task) before disposing the engine, otherwise an
+    # in-flight query races teardown and raises "no active connection".
+    import asyncio
+
+    pending = [
+        task
+        for task in asyncio.all_tasks()
+        if task is not asyncio.current_task() and not task.done()
+    ]
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
     await engine.dispose()
 
 
@@ -190,8 +214,51 @@ async def prepare_done_evaluation(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert run_response.status_code == 202
-    assert run_response.json()["status"] == "done"
+    # Sync mode runs the AI work in a FastAPI background task that httpx drains
+    # before the next request, so the run response itself may still be
+    # "answering"; it will be "done" by the time the report is fetched below.
+    assert run_response.json()["status"] in {"answering", "done"}
     return evaluation_id, product_id
+
+
+async def upsert_report_pdf(
+    ctx: ReportContext,
+    *,
+    evaluation_id: int,
+    summary: str,
+    pdf_url: str,
+) -> str:
+    """Attach a PDF url to the report for an evaluation, returning its id.
+
+    The dimension-analysis background task launched during evaluation run may
+    already have created the (unique-per-evaluation) report row, so we update an
+    existing report when present and only insert when it is missing.
+    """
+
+    async with ctx.session_factory() as session:
+        report = (
+            await session.scalars(
+                select(Report).where(Report.evaluation_id == evaluation_id)
+            )
+        ).first()
+        if report is None:
+            report = Report(
+                evaluation_id=evaluation_id,
+                summary=summary,
+                metrics={},
+                top_pros=[],
+                top_cons=[],
+                persona_segments={},
+                pdf_url=pdf_url,
+                share_token=None,
+            )
+            session.add(report)
+        else:
+            report.summary = summary
+            report.pdf_url = pdf_url
+        await session.commit()
+        await session.refresh(report)
+        return str(report.id)
 
 
 async def test_report_success_for_done_evaluation(report_context: ReportContext) -> None:
@@ -330,6 +397,269 @@ async def test_report_dimensions_radar_has_data(report_context: ReportContext) -
         assert isinstance(item["score"], (int, float))
 
 
+async def test_business_report_metrics_returns_10_dimension_scores_from_mixed_answers(
+    report_context: ReportContext,
+) -> None:
+    token = await login(report_context, "report_10_dimension_scores")
+    product_id = await create_product(report_context, token, "十维雷达测试产品")
+    evaluation = await create_evaluation(report_context, token, product_id)
+    evaluation_id = int(str(evaluation["id"]))
+    required_dims = [
+        "first_impression",
+        "purchase_motivation",
+        "price_sensitivity",
+        "package_appearance",
+        "competitor_comparison",
+        "usage_scenario",
+        "repurchase_intent",
+        "nps_recommendation",
+        "channel_touchpoint",
+        "painpoint_improvement",
+    ]
+
+    async with report_context.session_factory() as session:
+        survey = Survey(
+            evaluation_id=evaluation_id,
+            product_id=int(product_id),
+            questions=[
+                {"id": "q01", "dim": "first_impression", "type": "open"},
+                {"id": "q04", "dim": "purchase_motivation", "type": "single"},
+                {"id": "q07", "dim": "price_sensitivity", "type": "open"},
+                {"id": "q10", "dim": "package_appearance", "type": "multi"},
+                {"id": "q13", "dim": "competitor_comparison", "type": "open"},
+                {"id": "q16", "dim": "usage_scenario", "type": "open"},
+                {"id": "q19", "dim": "repurchase_intent", "type": "scale_1_5"},
+                {"id": "q22", "dim": "nps_recommendation", "type": "scale_1_5"},
+                {"id": "q25", "dim": "channel_touchpoint", "type": "single"},
+                {"id": "q28", "dim": "painpoint_improvement", "type": "open"},
+            ],
+            version=1,
+            generated_by="ai",
+        )
+        persona = Persona(
+            owner_id=None,
+            name="角色甲",
+            avatar="person",
+            age=29,
+            gender="female",
+            city="上海",
+            city_tier=1,
+            occupation="运营",
+            income_monthly=18000,
+            ocean_o=60,
+            ocean_c=70,
+            ocean_e=50,
+            ocean_a=60,
+            ocean_n=45,
+            persona_tag="成分党",
+            profile={"info_channels": ["小红书", "电商"]},
+            categories=["美妆"],
+            is_critical=False,
+            version=1,
+            status="active",
+        )
+        session.add_all([survey, persona])
+        await session.flush()
+        entity = await session.get(Evaluation, evaluation_id)
+        assert entity is not None
+        entity.survey_id = survey.id
+        entity.status = "done"
+        entity.selected_persona_ids = [str(persona.id)]
+        session.add(
+            Answer(
+                evaluation_id=evaluation_id,
+                survey_id=survey.id,
+                persona_id=persona.id,
+                answers=[
+                    {"qid": "q01", "type": "open", "answer": "第一眼温和清爽，愿意了解。"},
+                    {"qid": "q04", "type": "single", "answer": "敏感肌需求匹配"},
+                    {"qid": "q07", "type": "open", "answer": "159 元可以接受，超过 260 元会犹豫。"},
+                    {"qid": "q10", "type": "multi", "answer": ["高级", "安全感", "识别度高"]},
+                    {"qid": "q13", "type": "open", "answer": "比同类更温和，但差异化还要讲清楚。"},
+                    {"qid": "q16", "type": "open", "answer": "换季敏感和早晚洁面都能想到使用场景。"},
+                    {"qid": "q19", "type": "scale_1_5", "answer": 4, "reason": "效果稳定会复购。"},
+                    {"qid": "q22", "type": "scale_1_5", "answer": 5, "reason": "会推荐给敏感肌朋友。"},
+                    {"qid": "q25", "type": "single", "answer": "小红书和电商评价会影响我"},
+                    {"qid": "q28", "type": "open", "answer": "能降低清洁后紧绷痛点。"},
+                ],
+                overall_intent=5,
+                sentiment="positive",
+                summary_comment="整体愿意试用，价格可接受。",
+                status="done",
+            )
+        )
+        await session.commit()
+
+    response = await report_context.client.get(
+        f"/api/v1/reports/by-evaluation/{evaluation_id}/business",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    scores = response.json()["metrics"]["dimension_scores"]
+    dims = [item["dim"] for item in scores]
+    assert dims == required_dims
+    assert len(scores) == 10
+    assert all(item["score"] is not None for item in scores)
+    assert {"first_impression", "purchase_motivation"} <= set(dims)
+    assert {"package_appearance", "usage_scenario"} <= set(dims)
+    assert {"price_sensitivity", "competitor_comparison"} <= set(dims)
+    assert {"repurchase_intent", "nps_recommendation"} <= set(dims)
+    assert {"painpoint_improvement", "channel_touchpoint"} <= set(dims)
+
+
+async def test_business_report_refreshes_stale_sparse_report_metrics_when_analysis_ready(
+    report_context: ReportContext,
+) -> None:
+    token = await login(report_context, "report_refreshes_sparse_metrics")
+    product_id = await create_product(report_context, token, "旧缓存刷新雷达测试产品")
+    evaluation = await create_evaluation(report_context, token, product_id)
+    evaluation_id = int(str(evaluation["id"]))
+    required_dims = [
+        "first_impression",
+        "purchase_motivation",
+        "price_sensitivity",
+        "package_appearance",
+        "competitor_comparison",
+        "usage_scenario",
+        "repurchase_intent",
+        "nps_recommendation",
+        "channel_touchpoint",
+        "painpoint_improvement",
+    ]
+    ready_scores = [
+        {"dim": "first_impression", "score": 82, "confidence": 0.80},
+        {"dim": "purchase_motivation", "score": 78, "confidence": 0.80},
+        {"dim": "price_sensitivity", "score": 62, "confidence": 0.70},
+        {"dim": "package_appearance", "score": 80, "confidence": 0.75},
+        {"dim": "competitor_comparison", "score": 66, "confidence": 0.70},
+        {"dim": "usage_scenario", "score": 76, "confidence": 0.76},
+        {"dim": "repurchase_intent", "score": 70, "confidence": 0.72},
+        {"dim": "nps_recommendation", "score": 74, "confidence": 0.74},
+        {"dim": "channel_touchpoint", "score": 68, "confidence": 0.70},
+        {"dim": "painpoint_improvement", "score": 77, "confidence": 0.78},
+    ]
+
+    async with report_context.session_factory() as session:
+        survey = Survey(
+            evaluation_id=evaluation_id,
+            product_id=int(product_id),
+            questions=[
+                {"id": "q01", "dim": "first_impression", "type": "open"},
+                {"id": "q04", "dim": "purchase_motivation", "type": "single"},
+                {"id": "q07", "dim": "price_sensitivity", "type": "open"},
+                {"id": "q10", "dim": "package_appearance", "type": "multi"},
+                {"id": "q13", "dim": "competitor_comparison", "type": "open"},
+                {"id": "q16", "dim": "usage_scenario", "type": "open"},
+                {"id": "q19", "dim": "repurchase_intent", "type": "scale_1_5"},
+                {"id": "q22", "dim": "nps_recommendation", "type": "scale_1_5"},
+                {"id": "q25", "dim": "channel_touchpoint", "type": "single"},
+                {"id": "q28", "dim": "painpoint_improvement", "type": "open"},
+            ],
+            version=1,
+            generated_by="ai",
+        )
+        persona = Persona(
+            owner_id=None,
+            name="角色乙",
+            avatar="person",
+            age=31,
+            gender="female",
+            city="杭州",
+            city_tier=1,
+            occupation="市场",
+            income_monthly=20000,
+            ocean_o=60,
+            ocean_c=70,
+            ocean_e=50,
+            ocean_a=60,
+            ocean_n=45,
+            persona_tag="功效党",
+            profile={"info_channels": ["小红书"]},
+            categories=["美妆"],
+            is_critical=False,
+            version=1,
+            status="active",
+        )
+        session.add_all([survey, persona])
+        await session.flush()
+        entity = await session.get(Evaluation, evaluation_id)
+        assert entity is not None
+        entity.survey_id = survey.id
+        entity.status = "done"
+        entity.selected_persona_ids = [str(persona.id)]
+        session.add(
+            Answer(
+                evaluation_id=evaluation_id,
+                survey_id=survey.id,
+                persona_id=persona.id,
+                answers=[
+                    {"qid": "q01", "type": "open", "answer": "第一眼愿意了解。"},
+                    {"qid": "q04", "type": "single", "answer": "购买理由明确"},
+                    {"qid": "q07", "type": "open", "answer": "159 元可以接受。"},
+                    {"qid": "q10", "type": "multi", "answer": ["高级", "安心"]},
+                    {"qid": "q13", "type": "open", "answer": "比同类更温和。"},
+                    {"qid": "q16", "type": "open", "answer": "换季敏感可以使用。"},
+                    {"qid": "q19", "type": "scale_1_5", "answer": 4},
+                    {"qid": "q22", "type": "scale_1_5", "answer": 5},
+                    {"qid": "q25", "type": "single", "answer": "小红书会影响购买"},
+                    {"qid": "q28", "type": "open", "answer": "能降低紧绷痛点。"},
+                ],
+                overall_intent=5,
+                sentiment="positive",
+                summary_comment="整体愿意购买。",
+                status="done",
+            )
+        )
+        session.add(
+            Report(
+                evaluation_id=evaluation_id,
+                summary="旧缓存报告",
+                metrics={
+                    "overall_intent": {
+                        "average": 5,
+                        "distribution": [{"score": s, "count": 1 if s == 5 else 0} for s in range(1, 6)],
+                        "nps": 0,
+                    },
+                    "dimensions_radar": [
+                        {"dim": "repurchase_intent", "score": 4.0},
+                        {"dim": "nps_recommendation", "score": 5.0},
+                    ],
+                    "price_sensitivity": {"median_acceptable_price": 0, "distribution": []},
+                    "segment_intent": [],
+                },
+                top_pros=[],
+                top_cons=[],
+                persona_segments={
+                    "most_positive": [],
+                    "most_negative": [],
+                    "highest_value": [],
+                },
+                dimension_analysis=ready_scores,
+                dimension_analysis_status="ready",
+            )
+        )
+        await session.commit()
+
+    response = await report_context.client.get(
+        f"/api/v1/reports/by-evaluation/{evaluation_id}/business",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    scores = response.json()["metrics"]["dimension_scores"]
+    dims = [item["dim"] for item in scores]
+    assert dims == required_dims
+    assert len(scores) == 10
+    assert dims[6:] != ["repurchase_intent", "nps_recommendation"]
+    async with report_context.session_factory() as session:
+        refreshed = (
+            await session.execute(select(Report).where(Report.evaluation_id == evaluation_id))
+        ).scalar_one()
+        stored_dims = [item["dim"] for item in refreshed.metrics["dimensions_radar"]]
+    assert stored_dims == required_dims
+
+
 async def test_report_top_pros_has_data(report_context: ReportContext) -> None:
     token = await login(report_context, "report_pros")
     evaluation_id, _ = await prepare_done_evaluation(report_context, token=token)
@@ -460,21 +790,12 @@ async def test_list_report_pdfs_returns_current_user_pdfs(report_context: Report
     token = await login(report_context, "report_pdf_list")
     evaluation_id, product_id = await prepare_done_evaluation(report_context, token=token)
 
-    async with report_context.session_factory() as session:
-        report = Report(
-            evaluation_id=int(evaluation_id),
-            summary="pdf report",
-            metrics={},
-            top_pros=[],
-            top_cons=[],
-            persona_segments={},
-            pdf_url="/static/reports/user/evaluation.pdf",
-            share_token=None,
-        )
-        session.add(report)
-        await session.commit()
-        await session.refresh(report)
-        report_id = str(report.id)
+    report_id = await upsert_report_pdf(
+        report_context,
+        evaluation_id=int(evaluation_id),
+        summary="pdf report",
+        pdf_url="/static/reports/user/evaluation.pdf",
+    )
 
     response = await report_context.client.get(
         "/api/v1/reports/pdfs",
@@ -484,10 +805,11 @@ async def test_list_report_pdfs_returns_current_user_pdfs(report_context: Report
     assert response.status_code == 200
     body = response.json()
     assert body["items"] == [
-            {
-                "report_id": report_id,
+        {
+            "report_id": report_id,
             "evaluation_id": evaluation_id,
             "product_name": "报告测试产品",
+            "pdf_title": "evaluation",
             "pdf_url": "/static/reports/user/evaluation.pdf",
             "generated_at": body["items"][0]["generated_at"],
         }
@@ -503,33 +825,18 @@ async def test_delete_report_pdfs_only_deletes_current_user_reports(
     owner_evaluation_id, _ = await prepare_done_evaluation(report_context, token=owner_token)
     other_evaluation_id, _ = await prepare_done_evaluation(report_context, token=other_token)
 
-    async with report_context.session_factory() as session:
-        owner_report = Report(
-            evaluation_id=int(owner_evaluation_id),
-            summary="owner pdf report",
-            metrics={},
-            top_pros=[],
-            top_cons=[],
-            persona_segments={},
-            pdf_url="/static/reports/owner.pdf",
-            share_token=None,
-        )
-        other_report = Report(
-            evaluation_id=int(other_evaluation_id),
-            summary="other pdf report",
-            metrics={},
-            top_pros=[],
-            top_cons=[],
-            persona_segments={},
-            pdf_url="/static/reports/other.pdf",
-            share_token=None,
-        )
-        session.add_all([owner_report, other_report])
-        await session.commit()
-        await session.refresh(owner_report)
-        await session.refresh(other_report)
-        owner_report_id = str(owner_report.id)
-        other_report_id = str(other_report.id)
+    owner_report_id = await upsert_report_pdf(
+        report_context,
+        evaluation_id=int(owner_evaluation_id),
+        summary="owner pdf report",
+        pdf_url="/static/reports/owner.pdf",
+    )
+    other_report_id = await upsert_report_pdf(
+        report_context,
+        evaluation_id=int(other_evaluation_id),
+        summary="other pdf report",
+        pdf_url="/static/reports/other.pdf",
+    )
 
     response = await report_context.client.post(
         "/api/v1/reports/pdfs/delete",
@@ -867,6 +1174,289 @@ async def test_report_theme_support_count_matches_dialogue_mentions(
     )
     assert brand_item["support_count"] == 3
     assert len(brand_item["evidence_quotes"]) == 3
+
+
+async def test_resolve_dimensions_radar_returns_all_ready_llm_scores(
+    report_context: ReportContext,
+) -> None:
+    service = ReportService(report_context.session_factory())
+    rule = [DimensionRadarItem(dim="first_impression", score=4.0)]
+    report = Report(
+        evaluation_id=1,
+        dimension_analysis=[
+            {"dim": "first_impression", "score": 82, "confidence": 0.80},
+            {"dim": "purchase_motivation", "score": 78, "confidence": 0.80},
+            {"dim": "price_sensitivity", "score": 62, "confidence": 0.70},
+            {"dim": "package_appearance", "score": 80, "confidence": 0.75},
+            {"dim": "competitor_comparison", "score": 66, "confidence": 0.70},
+            {"dim": "usage_scenario", "score": 76, "confidence": 0.76},
+            {"dim": "repurchase_intent", "score": 70, "confidence": 0.72},
+            {"dim": "nps_recommendation", "score": 74, "confidence": 0.74},
+            {"dim": "channel_touchpoint", "score": 68, "confidence": 0.70},
+            {"dim": "painpoint_improvement", "score": 77, "confidence": 0.78},
+        ],
+        dimension_analysis_status="ready",
+    )
+    result = service._resolve_dimensions_radar(rule, report)
+
+    assert [item.dim for item in result] == [
+        "first_impression",
+        "purchase_motivation",
+        "price_sensitivity",
+        "package_appearance",
+        "competitor_comparison",
+        "usage_scenario",
+        "repurchase_intent",
+        "nps_recommendation",
+        "channel_touchpoint",
+        "painpoint_improvement",
+    ]
+    assert [item.score for item in result] == [82, 78, 62, 80, 66, 76, 70, 74, 68, 77]
+
+
+async def test_build_dimension_inputs_keeps_all_10_dims_and_mixed_answer_types(
+    report_context: ReportContext,
+) -> None:
+    service = ReportService(report_context.session_factory())
+    survey = Survey(
+        questions=[
+            {"id": "q01", "dim": "first_impression", "type": "open", "title": "第一眼感觉"},
+            {"id": "q04", "dim": "purchase_motivation", "type": "single", "title": "购买理由"},
+            {"id": "q07", "dim": "price_sensitivity", "type": "open", "title": "价格"},
+            {"id": "q10", "dim": "package_appearance", "type": "multi", "title": "包装"},
+            {"id": "q13", "dim": "competitor_comparison", "type": "open", "title": "竞品"},
+            {"id": "q16", "dim": "usage_scenario", "type": "open", "title": "场景"},
+            {"id": "q19", "dim": "repurchase_intent", "type": "scale_1_5", "title": "复购"},
+            {"id": "q22", "dim": "nps_recommendation", "type": "scale_1_5", "title": "推荐"},
+            {"id": "q25", "dim": "channel_touchpoint", "type": "single", "title": "渠道"},
+            {"id": "q28", "dim": "painpoint_improvement", "type": "open", "title": "痛点"},
+        ]
+    )
+    answers = [
+        Answer(
+            persona_id=11,
+            answers=[
+                {"qid": "q01", "type": "open", "answer": "第一眼温和，愿意试试"},
+                {"qid": "q04", "type": "single", "answer": "敏感肌需求匹配"},
+                {"qid": "q10", "type": "multi", "answer": ["高级", "安全感"]},
+                {"qid": "q19", "type": "scale_1_5", "answer": 4, "reason": "愿意复购"},
+            ],
+            overall_intent=4,
+            sentiment="positive",
+            summary_comment="整体愿意进一步了解。",
+        )
+    ]
+
+    inputs = service._build_dimension_inputs(survey, answers, personas={})
+
+    assert [item["dim"] for item in inputs] == [
+        "first_impression",
+        "purchase_motivation",
+        "price_sensitivity",
+        "package_appearance",
+        "competitor_comparison",
+        "usage_scenario",
+        "repurchase_intent",
+        "nps_recommendation",
+        "channel_touchpoint",
+        "painpoint_improvement",
+    ]
+    first = inputs[0]
+    package = inputs[3]
+    repurchase = inputs[6]
+    assert first["has_data"] is True
+    assert first["answers"][0]["type"] == "open"
+    assert first["answers"][0]["text"] == "第一眼温和，愿意试试"
+    assert package["answers"][0]["type"] == "multi"
+    assert package["answers"][0]["text"] == "高级 安全感"
+    assert repurchase["answers"][0]["type"] == "scale_1_5"
+    assert repurchase["answers"][0]["score"] == 4
+    assert inputs[2]["has_data"] is False
+
+
+async def test_resolve_dimensions_radar_falls_back_when_not_ready(
+    report_context: ReportContext,
+) -> None:
+    service = ReportService(report_context.session_factory())
+    rule = [DimensionRadarItem(dim="first_impression", score=4.0)]
+
+    generating = Report(
+        evaluation_id=1,
+        dimension_analysis=None,
+        dimension_analysis_status="generating",
+    )
+    assert service._resolve_dimensions_radar(rule, generating) == rule
+    assert service._resolve_dimensions_radar(rule, None) == rule
+
+    # ready but empty payload -> still fall back, never return an empty radar
+    empty = Report(
+        evaluation_id=1,
+        dimension_analysis=[],
+        dimension_analysis_status="ready",
+    )
+    assert service._resolve_dimensions_radar(rule, empty) == rule
+
+
+async def test_theme_quote_matches_its_theme_across_multiple_questions(
+    report_context: ReportContext,
+) -> None:
+    token = await login(report_context, "report_theme_quote_match")
+    product_id = await create_product(report_context, token, "多题主题归因产品")
+    evaluation = await create_evaluation(report_context, token, product_id)
+    evaluation_id = int(str(evaluation["id"]))
+
+    async with report_context.session_factory() as session:
+        survey = Survey(
+            evaluation_id=evaluation_id,
+            product_id=int(product_id),
+            questions=[
+                {"id": "q01", "dim": "purchase_motivation", "type": "open"},
+                {"id": "q02", "dim": "price_sensitivity", "type": "open"},
+                {"id": "q03", "dim": "painpoint_improvement", "type": "open"},
+            ],
+            version=1,
+            generated_by="ai",
+        )
+        session.add(survey)
+        await session.flush()
+        entity = await session.get(Evaluation, evaluation_id)
+        assert entity is not None
+        entity.survey_id = survey.id
+        entity.status = "done"
+        persona_a = Persona(
+            owner_id=None,
+            name="林雪",
+            avatar="person",
+            age=29,
+            gender="female",
+            city="上海",
+            city_tier=1,
+            occupation="产品经理",
+            income_monthly=22000,
+            ocean_o=70,
+            ocean_c=80,
+            ocean_e=50,
+            ocean_a=60,
+            ocean_n=45,
+            persona_tag="成分党",
+            profile={},
+            categories=["美妆"],
+            is_critical=False,
+            version=1,
+            status="active",
+        )
+        persona_b = Persona(
+            owner_id=None,
+            name="周曼",
+            avatar="person",
+            age=33,
+            gender="female",
+            city="杭州",
+            city_tier=2,
+            occupation="运营",
+            income_monthly=17000,
+            ocean_o=55,
+            ocean_c=70,
+            ocean_e=50,
+            ocean_a=55,
+            ocean_n=50,
+            persona_tag="性价比党",
+            profile={},
+            categories=["美妆"],
+            is_critical=True,
+            version=1,
+            status="active",
+        )
+        session.add_all([persona_a, persona_b])
+        await session.flush()
+        entity.selected_persona_ids = [str(persona_a.id), str(persona_b.id)]
+        session.add_all(
+            [
+                Answer(
+                    evaluation_id=evaluation_id,
+                    survey_id=survey.id,
+                    persona_id=persona_a.id,
+                    answers=[
+                        {
+                            "qid": "q01",
+                            "type": "open",
+                            "answer": "欧莱雅大牌我比较信。",
+                            "reason": "品牌背书让我更想了解。",
+                        },
+                        {
+                            "qid": "q02",
+                            "type": "open",
+                            "answer": "到手价两百多太贵了。",
+                            "reason": "价格超预算我会犹豫。",
+                        },
+                        {
+                            "qid": "q03",
+                            "type": "open",
+                            "answer": "希望温和不刺激。",
+                            "reason": "敏感肌怕刺激，看重温和修护。",
+                        },
+                    ],
+                    overall_intent=4,
+                    sentiment="positive",
+                    summary_comment="认可品牌，但价格偏贵。",
+                    status="done",
+                ),
+                Answer(
+                    evaluation_id=evaluation_id,
+                    survey_id=survey.id,
+                    persona_id=persona_b.id,
+                    answers=[
+                        {
+                            "qid": "q01",
+                            "type": "open",
+                            "answer": "是欧莱雅旗下产品，信任感强。",
+                            "reason": "大牌可信。",
+                        },
+                        {
+                            "qid": "q02",
+                            "type": "open",
+                            "answer": "一百以内我会下单。",
+                            "reason": "看预期到手价。",
+                        },
+                        {
+                            "qid": "q03",
+                            "type": "open",
+                            "answer": "担心功效不够。",
+                            "reason": "不确定有没有用。",
+                        },
+                    ],
+                    overall_intent=3,
+                    sentiment="neutral",
+                    summary_comment="认可大牌，担心功效。",
+                    status="done",
+                ),
+            ]
+        )
+        await session.commit()
+
+    response = await report_context.client.get(
+        f"/api/v1/reports/by-evaluation/{evaluation_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    top_pros = body["top_pros"]
+    top_cons = body["top_cons"]
+
+    # 品牌背书：两位角色的 q01 都提到 -> support_count 是真实提及人数，不虚高
+    brand_pro = next(p for p in top_pros if "品牌" in p["title"] or "背书" in p["title"])
+    assert brand_pro["support_count"] == 2
+
+    # 价格顾虑：只有林雪的 q02 提到 -> support_count == 1
+    price_con = next(c for c in top_cons if "价格" in c["title"])
+    assert price_con["support_count"] == 1
+    # 关键回归点：价格主题的证据 quote 必须来自真正谈价格的那道题，
+    # 而不是错配成 q01 里讲品牌的话。
+    price_quote = price_con["quotes"][0]["quote"]
+    assert any(word in price_quote for word in ["价格", "预算", "贵"])
+    assert "品牌" not in price_quote
+    assert "欧莱雅" not in price_quote
 
 
 async def test_existing_report_is_refreshed_from_real_answers(

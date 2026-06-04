@@ -26,6 +26,8 @@ class Report(Base, BaseModelMixin):
     top_pros: Mapped[JsonList | None] = mapped_column(JSONB_TYPE, nullable=True)
     top_cons: Mapped[JsonList | None] = mapped_column(JSONB_TYPE, nullable=True)
     persona_segments: Mapped[JsonDict | None] = mapped_column(JSONB_TYPE, nullable=True)
+    dimension_analysis: Mapped[JsonList | None] = mapped_column(JSONB_TYPE, nullable=True)
+    dimension_analysis_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     pdf_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     share_token: Mapped[str | None] = mapped_column(String(32), nullable=True)
 

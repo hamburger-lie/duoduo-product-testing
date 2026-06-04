@@ -13,7 +13,7 @@ import type { ApiError } from '../types/api';
 // 建议在路由器或 Windows 网络设置里给这台电脑分配固定 IP，这样永远不用改
 const DEV_LAN_IP = '192.168.3.114';
 
-export const BASE_URL = 'https://cpg.cibe.cn';
+export const BASE_URL = 'http://127.0.0.1:8000';
 
 interface RequestOptions {
   url: string;                 // 不含 BASE_URL 与版本前缀

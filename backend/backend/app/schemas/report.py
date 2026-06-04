@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class IntentDistributionItem(BaseModel):
@@ -28,7 +28,43 @@ class DimensionRadarItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dim: str
-    score: float
+    score: float | None
+    confidence: float = 0.0
+    has_data: bool = True
+    reason: str = ""
+
+
+class DimensionScoreItem(BaseModel):
+    """LLM-analysed score for one experience dimension.
+
+    Parsed from the ``dimension_score`` prompt output. Scores are normalized to
+    0-100 and positive-directional: higher means stronger performance.
+    ``extra="ignore"`` keeps parsing resilient when the model returns the
+    evidence fields requested by the prompt.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    dim: str
+    score: float | None
+    confidence: float = 0.0
+    has_data: bool = True
+    reason: str = ""
+
+
+class DimensionScoreResult(BaseModel):
+    """Top-level container for LLM dimension scoring output."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    dimension_scores: list[DimensionScoreItem] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_dimensions_key(cls, data: object) -> object:
+        if isinstance(data, dict) and "dimension_scores" not in data and "dimensions" in data:
+            data = {**data, "dimension_scores": data["dimensions"]}
+        return data
 
 
 class PriceSensitivityDistItem(BaseModel):

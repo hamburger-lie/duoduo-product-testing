@@ -236,7 +236,62 @@ data: {"event":"done"}
 
 ---
 
-### 2.2 创建产品（含多模态理解）
+### 2.2 图片识别预填充（辅助）
+`POST /products/extract-from-images`
+
+**说明**：
+- 产品创建前的辅助功能：从产品图片中提取结构化字段供用户确认。
+- **不会创建 Product**，不会触发测评流程。
+- 识别结果必须先返回前端让用户确认后再手动创建产品。
+- 当前阶段使用 MockVisionClient 返回稳定假数据，后续接入真实多模态模型。
+
+**请求**：
+```json
+{
+  "image_urls": ["https://example.com/a.jpg"],   // 必填，1–5 张公开可访问图片 URL
+  "target_fields": ["name", "brand", "category", "price", "specification", "ingredients", "selling_points", "usage_scenario", "claims"],  // 可选，空数组则提取所有已知字段
+  "locale": "zh-CN"                               // 可选，默认 zh-CN
+}
+```
+
+**响应 200**：
+```json
+{
+  "status": "ok",
+  "source_image_count": 1,
+  "raw_text": "焕颜修护精华面霜 50ml ...",
+  "fields": {
+    "name": { "value": "焕颜修护精华面霜", "confidence": 0.92, "source": "image_ocr" },
+    "brand": { "value": "测试品牌", "confidence": 0.88, "source": "image_ocr" },
+    "category": { "value": "护肤品", "confidence": 0.75, "source": "llm_inference" },
+    "price": { "value": "199", "confidence": 0.70, "source": "image_ocr" },
+    "selling_points": { "value": ["温和修护", "长效保湿"], "confidence": 0.72, "source": "vision_llm" }
+  },
+  "suggested_description": "一款主打温和修护和提亮功效的面霜...",
+  "needs_review": true
+}
+```
+
+**字段说明**：
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `status` | string | 固定 `"ok"` |
+| `source_image_count` | int | 实际处理的图片数量 |
+| `raw_text` | string \| null | 图片中识别出的原始文字，可为空 |
+| `fields` | object | 字段名 → `{value, confidence, source}` 映射 |
+| `fields.*.value` | any | 识别值；未识别到为 `null` 或空数组 |
+| `fields.*.confidence` | float | 置信度 0.0–1.0 |
+| `fields.*.source` | string | `image_ocr` / `llm_inference` / `vision_llm` |
+| `suggested_description` | string \| null | AI 生成的产品描述建议 |
+| `needs_review` | bool | 任一字段 confidence < 0.8 时为 `true` |
+
+**错误**：
+- `400 VALIDATION_ERROR` — `image_urls` 为空或缺失、字段类型错误
+- `401 AUTH_TOKEN_INVALID` — 未登录
+
+---
+
+### 2.3 创建产品（含多模态理解）
 `POST /products`
 
 **请求**：
@@ -287,21 +342,21 @@ data: {"event":"done"}
 
 ---
 
-### 2.3 查询产品详情
+### 2.4 查询产品详情
 `GET /products/{product_id}`
 
 **响应 200**：同 2.2 响应结构
 
 ---
 
-### 2.4 重试产品理解
+### 2.5 重试产品理解
 `POST /products/{product_id}/reanalyze`
 
 **响应 200**：同 2.2 响应结构
 
 ---
 
-### 2.5 列出我的产品
+### 2.6 列出我的产品
 `GET /products?cursor=&limit=20`
 
 **响应 200**：

@@ -4,6 +4,18 @@ import type { BackendReport, BusinessReport, DeepAnalysis, DeepAnalysisSection }
 
 const WHITEPAPER_VIEWER_PATH = '/whitepaper-static/index.html';
 const REPORT_CACHE_PREFIX = 'business_report_cache_';
+const REQUIRED_RAW_DIMS = [
+  'first_impression',
+  'purchase_motivation',
+  'price_sensitivity',
+  'package_appearance',
+  'competitor_comparison',
+  'usage_scenario',
+  'repurchase_intent',
+  'nps_recommendation',
+  'channel_touchpoint',
+  'painpoint_improvement',
+];
 
 interface CachedReportSnapshot {
   report: BusinessReport;
@@ -28,6 +40,7 @@ const DIM_LABELS: Record<string, string> = {
   uniqueness: '独特性',
   distinctiveness: '差异化',
   novelty: '新颖性',
+  differentiation: '差异化',
   // 相关性/契合度
   relevance: '相关性',
   brand_fit: '品牌契合度',
@@ -287,7 +300,16 @@ function readCachedReport(evalId: string): CachedReportSnapshot | null {
     const raw = wx.getStorageSync(reportCacheKey(evalId));
     if (!raw) return null;
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return parsed?.report ? parsed as CachedReportSnapshot : null;
+    if (!parsed?.report) return null;
+    if (!hasCompleteRawRadarDims(parsed.report)) {
+      if (DEBUG_RADAR) console.log('[radar-real] discard stale report cache:', {
+        evaluationId: evalId,
+        extractedDims: extractRadarDims(parsed.report).map(d => d.dim),
+      });
+      wx.removeStorageSync(reportCacheKey(evalId));
+      return null;
+    }
+    return parsed as CachedReportSnapshot;
   } catch {
     return null;
   }
@@ -295,6 +317,14 @@ function readCachedReport(evalId: string): CachedReportSnapshot | null {
 
 function writeCachedReport(evalId: string, snapshot: CachedReportSnapshot): void {
   try {
+    if (!hasCompleteRawRadarDims(snapshot.report)) {
+      if (DEBUG_RADAR) console.log('[radar-real] skip sparse report cache:', {
+        evaluationId: evalId,
+        extractedDims: extractRadarDims(snapshot.report).map(d => d.dim),
+      });
+      wx.removeStorageSync(reportCacheKey(evalId));
+      return;
+    }
     wx.setStorageSync(reportCacheKey(evalId), JSON.stringify(snapshot));
   } catch {
     // cache is only for faster history display
@@ -391,14 +421,103 @@ function buildCompositeScore(dims: Array<{ dim: string; score: number }>, avgInt
 
 const ORDINAL_ZH = ['一', '二', '三', '四', '五', '六'];
 
-const SIX_DIM_WEIGHTS = [
-  { dimKeys: ['purchase_intent', 'purchase_willingness', 'purchase_motivation', 'first_impression'], label: '高意向购买率', weight: 35, isTop2: true },
-  { dimKeys: ['uniqueness', 'distinctiveness', 'novelty', 'differentiation'], label: '差异化', weight: 20 },
-  { dimKeys: ['relevance', 'brand_fit', 'clarity'], label: '相关性', weight: 15 },
-  { dimKeys: ['believability', 'credibility', 'trust'], label: '可信度', weight: 15 },
-  { dimKeys: ['appeal', 'likeability', 'premium', 'competitive_advantage', 'competitor_comparison', 'overall', 'satisfaction'], label: '优势感', weight: 10 },
-  { dimKeys: ['value_for_money', 'price_perception', 'price_acceptance', 'price_sensitivity'], label: '价值感', weight: 5 },
-];
+/**
+ * 六维商业判断框架 — 对齐后端真实问卷 10 个维度。
+ *
+ * 分数方向说明（来自 seed 模板 beauty_survey_template.json）：
+ *   price_sensitivity  → 实际题目：「性价比如何」，高分 = 性价比好 = 正向，无需反向。
+ *   painpoint_improvement → 实际题目：「综合购买意愿」，高分 = 意愿强 = 正向，无需反向。
+ *   competitor_comparison / channel_touchpoint → 无 scale_1_5 题，由 LLM 分析时才有数据。
+ */
+/**
+ * ══════════════════════════════════════════════════════════════════
+ * 六维商业诊断雷达图配置
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 六维雷达图 ≠ 问卷原始维度。它是由 10 个问卷采集维度归并成的 6 个商业判断维度。
+ *
+ *   问卷 10 维（原始采集层）          六维雷达图（商业判断层）
+ *   ──────────────────────────────    ──────────────────────
+ *   first_impression   q01–q03  ──┐
+ *   purchase_motivation q04–q06  ──┘→ ① 购买意愿
+ *   package_appearance  q10–q12  ──┐
+ *   usage_scenario      q16–q18  ──┘→ ② 产品感知
+ *   price_sensitivity   q07–q09  ────→ ③ 价格接受度  ⚠ 见下方方向说明
+ *   competitor_comparison q13–q15 ────→ ④ 竞争力
+ *   repurchase_intent   q19–q21  ──┐
+ *   nps_recommendation  q22–q24  ──┘→ ⑤ 口碑潜力
+ *   painpoint_improvement q28–q30 ──┐
+ *   channel_touchpoint   q25–q27  ──┘→ ⑥ 痛点解决
+ *
+ * 数据来源：
+ *   后端 _resolve_dimensions_radar 优先使用 LLM 文本分析分数（dimension_analysis），
+ *   LLM 分析覆盖所有题型（open / single / multi / scale_1_5），不仅限于 scale 题。
+ *   当 LLM 分析未就绪时，回退到 scale_1_5 题的规则均值（仅 ≤4 道题），
+ *   此时雷达图数据覆盖不完整——没有 scale 题的维度将显示为无数据。
+ *
+ * ⚠ 价格接受度方向说明：
+ *   后端原始字段是 price_sensitivity，由 LLM 基于 PSM 三问（q07–q09）评分。
+ *   当前 LLM prompt 让 AI "为每个维度打分"，高分含义取决于 LLM 对题目的理解。
+ *   根据问卷设计，q07–q09 实际问的是"性价比如何"，高分 = 性价比好 = 正向。
+ *   因此当前直接使用 LLM 分数，不做反向处理。
+ *   如果后续发现 LLM 将高分解读为"越敏感"，需在此处或后端做 100 - score 反向。
+ */
+const SIX_DIM_CONFIG = [
+  {
+    label: '购买意愿',
+    sourceKeys: ['first_impression', 'purchase_motivation'],
+    sourceText: '来自第一印象、购买动机',
+    explainText: '判断用户是否有兴趣继续了解并形成购买理由。',
+    actionText: '若偏低，优先强化首屏卖点和购买动机。',
+    bubbleDesc: '用户是否愿意了解并形成购买理由。',
+    bubbleAction: '建议：强化首屏卖点和购买动机。',
+  },
+  {
+    label: '产品感知',
+    sourceKeys: ['package_appearance', 'usage_scenario'],
+    sourceText: '来自包装外观、使用场景',
+    explainText: '判断用户是否理解产品，并能代入真实使用场景。',
+    actionText: '若偏低，优化包装识别和场景表达。',
+    bubbleDesc: '用户是否理解产品并代入使用场景。',
+    bubbleAction: '建议：优化包装识别和场景表达。',
+  },
+  {
+    label: '竞争力',
+    sourceKeys: ['competitor_comparison'],
+    sourceText: '来自竞品对比',
+    explainText: '判断产品相比同类是否有清晰优势。',
+    actionText: '若偏低，补强差异化卖点和对比理由。',
+    bubbleDesc: '产品相比同类是否有清晰优势。',
+    bubbleAction: '建议：补强差异化卖点和对比理由。',
+  },
+  {
+    label: '口碑潜力',
+    sourceKeys: ['nps_recommendation', 'repurchase_intent'],
+    sourceText: '来自复购意向、推荐意愿',
+    explainText: '判断用户是否愿意复购或推荐给别人。',
+    actionText: '若偏低，强化使用后确定性和分享理由。',
+    bubbleDesc: '用户是否愿意复购或推荐给他人。',
+    bubbleAction: '建议：强化确定感和分享理由。',
+  },
+  {
+    label: '价格接受度',
+    sourceKeys: ['price_sensitivity'],
+    sourceText: '来自 PSM 价格三问',
+    explainText: '判断当前价格是否会成为下单阻力。',
+    actionText: '若偏低，补充价格锚点、试用装或组合装。',
+    bubbleDesc: '当前价格是否落在可接受范围内。',
+    bubbleAction: '建议：补充价格锚点或试用装。',
+  },
+  {
+    label: '痛点解决',
+    sourceKeys: ['painpoint_improvement', 'channel_touchpoint'],
+    sourceText: '来自痛点改善、渠道触达',
+    explainText: '判断产品是否解决真实顾虑，购买路径是否顺畅。',
+    actionText: '若偏低，优化核心痛点表达和购买路径。',
+    bubbleDesc: '是否解决真实顾虑，购买路径是否顺畅。',
+    bubbleAction: '建议：优化痛点表达和购买路径。',
+  },
+] as const;
 
 function buildReverseDimMap(): Record<string, string> {
   const map: Record<string, string> = {};
@@ -417,56 +536,201 @@ function reverseDimMapCache(): Record<string, string> {
   return _reverseDimMap;
 }
 
-function matchDimCategory(raw: string): string | null {
-  const rev = reverseDimMapCache();
-  const lower = raw.toLowerCase().replace(/[-\s]/g, '_');
-  if (rev[lower]) {
-    const eng = rev[lower];
-    for (const cfg of SIX_DIM_WEIGHTS) {
-      if (cfg.dimKeys.includes(eng)) return cfg.label;
-    }
-  }
-  const cn = dimLabel(raw);
-  if (cn && rev[cn]) {
-    const eng = rev[cn];
-    for (const cfg of SIX_DIM_WEIGHTS) {
-      if (cfg.dimKeys.includes(eng)) return cfg.label;
-    }
-  }
-  for (const cfg of SIX_DIM_WEIGHTS) {
-    if (cfg.dimKeys.includes(lower)) return cfg.label;
-  }
-  return null;
+/**
+ * 将后端 score 归一化到 0-100 整数。
+ * 兼容三种单位：[0,1] → ×100；(1,5] → /5×100；(5,100] → 直接取整。
+ */
+function normalizeRadarScore(raw: number): number {
+  if (!isFinite(raw) || raw < 0) return 0;
+  if (raw <= 1)   return Math.round(raw * 100);
+  if (raw <= 5)   return Math.round((raw / 5) * 100);
+  return Math.round(Math.min(raw, 100));
 }
 
-function buildSixDimBreakdown(
-  dims: Array<{ dim: string; score: number }>,
-  top2BoxPct: number,
-  avgIntent: number,
-): Array<{ label: string; weight: number; score: number; contribution: number }> {
-  const categoryScores: Record<string, number[]> = {};
-  for (const d of dims) {
-    const cat = matchDimCategory(d.dim);
-    if (cat) {
-      if (!categoryScores[cat]) categoryScores[cat] = [];
-      categoryScores[cat].push(Math.round((d.score / 5) * 100));
+/** 简短截断 JSON，避免控制台爆炸 */
+function _short(v: unknown, maxLen = 600): string {
+  try { const s = JSON.stringify(v); return s.length > maxLen ? s.slice(0, maxLen) + '…' : s; }
+  catch { return String(v).slice(0, maxLen); }
+}
+
+// 调试开关：正式版保持 false，本地调试时可临时改为 true
+const DEBUG_RADAR = false;
+
+/** @deprecated 旧递归扫描，仅保留供调试，不在主逻辑中调用 */
+function debugRadarPaths(obj: any, path = 'report', depth = 0): void {
+  if (!DEBUG_RADAR) return;
+  if (!obj || typeof obj !== 'object' || depth > 3) return;
+  if (depth === 0) console.log('[radar-debug] report root keys:', Object.keys(obj));
+  const HINTS = ['dim', 'dimension', 'radar', 'score'];
+  for (const k of Object.keys(obj)) {
+    const kLow = k.toLowerCase();
+    if (!HINTS.some(h => kLow.includes(h))) continue;
+    const val = obj[k];
+    if (val == null) continue;
+    console.log(`[radar-debug] path="${path}.${k}" val=${_short(val, 300)}`);
+    if (val && typeof val === 'object' && depth < 3) debugRadarPaths(val, `${path}.${k}`, depth + 1);
+  }
+}
+
+/**
+ * 从完整 report 对象中提取雷达图维度数据，兼容多种字段名和数据格式。
+ * 先搜 metrics 下，再搜 report 根层，都找不到返回空数组。
+ * 不补默认值，不伪造维度分数。
+ */
+type RadarDim = { dim: string; score: number | null };
+
+function extractRadarDims(report: any): RadarDim[] {
+  if (!report) return [];
+  const metrics = report.metrics ?? report;
+
+  // 候选来源：先 metrics 下，再 report 根
+  const candidates: Array<[string, any]> = [
+    ['metrics.dimensions_radar',  metrics?.dimensions_radar],
+    ['metrics.dimension_scores',  metrics?.dimension_scores],
+    ['metrics.dimensionsRadar',   metrics?.dimensionsRadar],
+    ['metrics.dimensionScores',   metrics?.dimensionScores],
+    ['metrics.radar_dimensions',  metrics?.radar_dimensions],
+    ['metrics.radar',             metrics?.radar],
+    ['root.dimensions_radar',     report?.dimensions_radar],
+    ['root.dimension_scores',     report?.dimension_scores],
+    ['root.radar',                report?.radar],
+  ];
+
+  let firstParsed: RadarDim[] = [];
+  for (const [label, raw] of candidates) {
+    if (!raw) continue;
+    if (DEBUG_RADAR) console.log(`[radar] trying ${label}:`, _short(raw, 300));
+
+    if (Array.isArray(raw) && raw.length > 0) {
+      const parsed = (raw as any[]).map((item: any) => {
+        const dimKey   = item.dim   ?? item.name  ?? item.label ?? item.key ?? '';
+        const scoreVal = item.score ?? item.value ?? item.avg   ?? null;
+        if (!dimKey) return null;
+        if (scoreVal == null) return { dim: String(dimKey), score: null };
+        if (!isFinite(Number(scoreVal))) return null;
+        return { dim: String(dimKey), score: Number(scoreVal) };
+      }).filter(Boolean) as RadarDim[];
+      if (parsed.length > 0) {
+        if (DEBUG_RADAR) console.log(`[radar-real] extracted dims from ${label}:`, parsed);
+        if (hasAllRequiredRawDims(parsed)) return parsed;
+        if (firstParsed.length === 0) firstParsed = parsed;
+      }
+    }
+
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const parsed = Object.entries(raw as Record<string, unknown>)
+        .filter(([, v]) => v == null || (typeof v === 'number' && isFinite(v as number)))
+        .map(([k, v]) => ({ dim: k, score: v == null ? null : v as number }));
+      if (parsed.length > 0) {
+        if (DEBUG_RADAR) console.log(`[radar-real] extracted dims from ${label} (obj):`, parsed);
+        if (hasAllRequiredRawDims(parsed)) return parsed;
+        if (firstParsed.length === 0) firstParsed = parsed;
+      }
     }
   }
-  const avgNorm = Math.round((avgIntent / 5) * 100);
 
-  return SIX_DIM_WEIGHTS.map(cfg => {
-    let score: number;
-    if (cfg.isTop2) {
-      score = top2BoxPct;
-    } else {
-      const scores = categoryScores[cfg.label];
-      score = scores && scores.length > 0
-        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-        : avgNorm;
+  if (firstParsed.length > 0) return firstParsed;
+  if (DEBUG_RADAR) console.log('[radar] ✗ no valid radar field found → []');
+  return [];
+}
+
+function hasAllRequiredRawDims(dims: RadarDim[]): boolean {
+  const present = new Set(
+    dims
+      .filter(d => d.score !== null)
+      .map(d => d.dim.toLowerCase().replace(/[-\s]/g, '_')),
+  );
+  return REQUIRED_RAW_DIMS.every(dim => present.has(dim));
+}
+
+function hasCompleteRawRadarDims(report: any): boolean {
+  return hasAllRequiredRawDims(extractRadarDims(report));
+}
+
+/**
+ * 将后端 10 个问卷维度映射到 6 个商业判断维度，构建雷达图数据。
+ *
+ * 分数可信度原则：
+ *   - 只使用 extractRadarDims 返回的真实问卷维度数据
+ *   - 某维度 sourceKeys 全部无匹配 → hasRealData=false, score=null
+ *   - 不使用 avgIntent / top2BoxPct 填充任何维度（已删除 isTop2 逻辑）
+ */
+function buildSixDimBreakdown(
+  dims: RadarDim[],
+  _top2BoxPct: number,   // 已不再使用：新六维不依赖 Top-2 Box 补齐任何维度
+  _avgIntent: number,
+): Array<{ label: string; weight: number; score: number | null; contribution: number; hasRealData: boolean; sourceText: string; explainText: string; actionText: string; bubbleDesc: string; bubbleAction: string }> {
+  if (!dims || dims.length === 0) return [];
+
+  // 构建 key → scores 映射（normalizeRadarScore 兼容 0-1/0-5/0-100）
+  const keyScores: Record<string, number[]> = {};
+  for (const d of dims) {
+    if (d.score === null) continue;
+    const k = d.dim.toLowerCase().replace(/[-\s]/g, '_');
+    if (!keyScores[k]) keyScores[k] = [];
+    keyScores[k].push(normalizeRadarScore(d.score));
+  }
+
+  if (DEBUG_RADAR) {
+    console.log('[radar] raw dims:', JSON.stringify(dims));
+    console.log('[radar] keyScores:', JSON.stringify(keyScores));
+  }
+
+  const result = SIX_DIM_CONFIG.map(cfg => {
+    const foundScores: number[] = [];
+    const matchedKeys: string[] = [];
+    for (const srcKey of cfg.sourceKeys) {
+      const k = srcKey.toLowerCase().replace(/[-\s]/g, '_');
+      if (keyScores[k]) {
+        foundScores.push(...keyScores[k]);
+        matchedKeys.push(k);
+      }
     }
-    const contribution = parseFloat(((cfg.weight / 100) * score).toFixed(1));
-    return { label: cfg.label, weight: cfg.weight, score, contribution };
+
+    const hasRealData = foundScores.length > 0;
+    const score = hasRealData
+      ? Math.round(foundScores.reduce((a, b) => a + b, 0) / foundScores.length)
+      : null;
+    const contribution = hasRealData && score !== null
+      ? parseFloat(((100 / SIX_DIM_CONFIG.length / 100) * score).toFixed(1))
+      : 0;
+
+    if (DEBUG_RADAR) {
+      console.log('[radar-real] dimension mapping:', {
+        label: cfg.label,
+        sourceKeys: cfg.sourceKeys,
+        matchedKeys,
+        matchedScores: foundScores,
+        score,
+        hasRealData,
+      });
+    }
+
+    return {
+      label: cfg.label,
+      weight: Math.round(100 / SIX_DIM_CONFIG.length),
+      score,
+      contribution,
+      hasRealData,
+      sourceText: cfg.sourceText,
+      explainText: cfg.explainText,
+      actionText: cfg.actionText,
+      bubbleDesc: cfg.bubbleDesc,
+      bubbleAction: cfg.bubbleAction,
+    };
   });
+
+  if (DEBUG_RADAR) {
+    const realCount = result.filter(d => d.hasRealData).length;
+    console.log('[radar-real] sixDimBreakdown:', result.map(d => ({
+      label: d.label,
+      score: d.score,
+      hasRealData: d.hasRealData,
+    })));
+    console.log('[radar] radarRealCount:', realCount);
+  }
+
+  return result;
 }
 
 function pickSegmentLabel(
@@ -509,41 +773,19 @@ function buildConclusion(
   top2BoxPct: number,
   compositeGrade: string,
 ): { text: string } {
-  // 主力受众：取前2个，过长则截断
-  const topAudiences = audiences.slice(0, 2).map(a => {
-    const parts = String(a || '').split(/[/／·×\s]/);
-    return parts[0].trim();
-  }).filter(Boolean);
+  void audiences;
+  void opportunities;
+  void top2BoxPct;
+  const risk = joinTopSignals(cons, '信任证据');
+  if (compositeGrade === 'S' || compositeGrade === 'A') return { text: `购买兴趣成立，但${risk}仍需补强。` };
+  if (compositeGrade === 'B') return { text: `购买兴趣成立，但${risk}仍需补强。` };
+  return { text: '购买兴趣偏弱，需重构卖点。' };
+}
 
-  // 核心卖点短标题
-  const topPro = opportunities[0];
-  const proLabel = topPro ? (topPro.shortTitle || topPro.title) : '';
-
-  // 首要顾虑
-  const topCon = cons[0];
-  const conLabel = topCon ? (topCon.shortTitle || topCon.title) : '';
-
-  // 组装结论句
-  const audienceStr = topAudiences.length ? topAudiences.join('、') : '目标受众';
-  const intentStr = top2BoxPct > 0 ? `高意向购买率 ${top2BoxPct}%` : '';
-
-  let text = '';
-  if (compositeGrade === 'S' || compositeGrade === 'A') {
-    text = `概念整体成熟，${intentStr ? intentStr + '，' : ''}${audienceStr}群体共鸣明确`;
-    if (proLabel) text += `，${proLabel}是核心驱动卖点`;
-    text += '，可推进投放验证。';
-  } else if (compositeGrade === 'B') {
-    text = `概念具备潜力，${intentStr ? intentStr + '，' : ''}${audienceStr}群体反馈积极`;
-    if (proLabel) text += `，${proLabel}形成初步共鸣`;
-    if (conLabel) text += `，但${conLabel}仍是主要阻力`;
-    text += '，建议优化表达后再扩量。';
-  } else {
-    text = `概念尚需打磨，${audienceStr}群体接受度有限`;
-    if (conLabel) text += `，${conLabel}是最主要的决策障碍`;
-    if (proLabel) text += `，${proLabel}可作为下阶段优化重点`;
-    text += '，建议深度复测后再推进。';
-  }
-  return { text };
+function buildHeroAdvice(compositeGrade: string): string {
+  if (compositeGrade === 'S' || compositeGrade === 'A') return '建议：先小规模验证';
+  if (compositeGrade === 'B') return '建议：补强证据后复测';
+  return '建议：重构卖点再验证';
 }
 
 function buildPersonaCards(
@@ -568,6 +810,194 @@ function buildPersonaCards(
     return { name: pickSegmentLabel(s.segment, i, tagMap, sortedAnswers), score, tag, tone: tones[i] || 'slate' };
   });
   return all.slice(0, 6);
+}
+
+function shortSignalTitle(text: string, fallback: string): string {
+  // extractShortTitle 先提取关键名词（如"品牌背书"而非"品牌背书是主要正向信号"）
+  const extracted = extractShortTitle(String(text || ''));
+  const cleaned = cleanReportText(stripPersonaNames(extracted || text || '')).replace(/[。；;，,].*$/g, '').trim();
+  const chars = Array.from(cleaned || fallback);
+  return chars.slice(0, 5).join(''); // 每个关键词最多 5 个字
+}
+
+function joinTopSignals(items: Array<{ title?: string; shortTitle?: string }>, fallback: string): string {
+  const signals = items
+    .map(item => shortSignalTitle(item.shortTitle || item.title || '', ''))
+    .filter(Boolean)
+    .slice(0, 2);
+  return signals.length ? signals.join('、') : fallback; // 用顿号而非"与"
+}
+
+function compactSignalAction(title: string, positive: boolean): string {
+  const value = cleanReportText(title || '');
+  if (value.includes('品牌') || value.includes('背书') || value.includes('信任')) return positive ? '放大品牌信任' : '补强品牌信任';
+  if (value.includes('温和') || value.includes('修护')) return positive ? '强化温和修护' : '补强温和证明';
+  if (value.includes('价格') || value.includes('性价比') || value.includes('贵')) return positive ? '验证价格优势' : '降低价格门槛';
+  if (value.includes('成分') || value.includes('安全')) return positive ? '突出成分安全' : '补强成分安全';
+  if (value.includes('功效') || value.includes('效果')) return positive ? '放大功效证据' : '补充功效证据';
+  if (value.includes('包装') || value.includes('颜值')) return positive ? '强化包装记忆' : '优化包装表达';
+  return positive ? '放大核心卖点' : '补强决策证据';
+}
+
+function firstOpenAnswerText(answerItems: unknown): string {
+  if (!Array.isArray(answerItems)) return '';
+  const open = answerItems.find((item: any) => {
+    const value = item?.answer;
+    return item?.type === 'open' && typeof value === 'string' && value.trim();
+  }) as any;
+  return String(open?.answer || '').trim();
+}
+
+/** 从长句中提取关键词短语，精简到一句话 */
+function compactVoiceText(text: string, max = 12): string {
+  const value = cleanReportText(String(text || '').replace(/\s+/g, ' ').trim());
+  if (!value) return '';
+  // 按句号等拆分，取第一个语义片段
+  const clauses = value.split(/[。；;！!？?\n]/).map(s => s.trim()).filter(Boolean);
+  let phrase = clauses[0] || value;
+  // 去掉引导词，提取核心
+  phrase = phrase
+    .replace(/^(?:被|对|因为|由于|主要是|觉得|认为|希望|感觉|看重|关注)\s*/g, '')
+    .replace(/(?:所以|因此|但是|不过|然而).*$/g, '')
+    .trim();
+  // 按逗号/顿号再拆，取最有信息量的短关键词
+  const subParts = phrase.split(/[，,、]/).map(s => s.trim()).filter(s => s.length >= 2);
+  if (subParts.length > 1) {
+    const best = subParts.find(s => Array.from(s).length >= 4 && Array.from(s).length <= 8) || subParts[0];
+    phrase = best;
+  }
+  const chars = Array.from(phrase);
+  if (chars.length <= max) return phrase;
+  return chars.slice(0, max).join('');
+}
+
+function compactGroupTitle(text: string, fallback: string): string {
+  const value = stripPersonaNames(normalizeSegmentLabel(text || '')).trim();
+  if (!value || value === '消费者' || value === '消费群体') return fallback;
+  if (value.includes('学生') || value.includes('小红书')) return '学生党';
+  if (value.includes('家庭')) return '家庭用户';
+  if (value.includes('男士') || value.includes('男性')) return '男士新手';
+  if (value.includes('成分') || value.includes('理性')) return '成分党';
+  if (value.includes('彩妆') || value.includes('尝鲜')) return '彩妆尝鲜';
+  if (value.includes('价格') || value.includes('预算') || value.includes('性价比')) return '预算用户';
+  const labels = value
+    .split(/[/／｜|、，,·×\s\-_—]+/)
+    .map(label => label.trim())
+    .filter(Boolean);
+  const title = (labels.length ? labels[0] : value).trim();
+  return Array.from(title).slice(0, 6).join('');
+}
+
+function personaAttractionText(score: number, opportunities: Array<{ title?: string; shortTitle?: string }>): string {
+  if (opportunities[0]?.title || opportunities[0]?.shortTitle) return joinTopSignals(opportunities.slice(0, 1), '核心卖点');
+  return score >= 4 ? '整体兴趣较强' : '有初步兴趣';
+}
+
+function personaHesitationText(score: number, risks: Array<{ title?: string; shortTitle?: string }>): string {
+  if (risks[0]?.title || risks[0]?.shortTitle) return joinTopSignals(risks.slice(0, 1), '决策证据');
+  return score >= 4 ? '仍需更多证据' : '购买理由不足';
+}
+
+function splitPersonaQuote(
+  quote: string,
+  score: number,
+  opportunities: Array<{ title?: string; shortTitle?: string }>,
+  risks: Array<{ title?: string; shortTitle?: string }>,
+): { attractedBy: string; hesitation: string } {
+  const cleaned = cleanReportText(quote || '').trim();
+  if (!cleaned) {
+    return {
+      attractedBy: personaAttractionText(score, opportunities),
+      hesitation: personaHesitationText(score, risks),
+    };
+  }
+  const parts = cleaned.split(/[。；;，,]/).map(p => p.trim()).filter(Boolean);
+  return {
+    attractedBy: compactVoiceText(parts[0] || personaAttractionText(score, opportunities)),
+    hesitation: compactVoiceText(parts[1] || personaHesitationText(score, risks)),
+  };
+}
+
+/**
+ * 生成角色总结性发言：
+ * 优先使用 summary_comment / 开放题原声（rawQuote），
+ * 无真实内容时按评分+吸引点+犹豫点组合第一人称短句。
+ */
+function buildPersonaStatement(
+  rawQuote: string,
+  score: number,
+  attractedBy: string,
+  hesitation: string,
+): string {
+  const FALLBACK_TEXTS = ['核心卖点', '整体兴趣较强', '有初步兴趣', '决策证据', '仍需更多证据', '购买理由不足'];
+  const cleaned = cleanReportText(String(rawQuote || '').replace(/\s+/g, ' ').trim());
+  // 真实原声 ≥ 8 字时直接使用（弹窗完整展示，不截断）
+  if (cleaned && Array.from(cleaned).length >= 8) {
+    return cleaned;
+  }
+  const hasA = attractedBy && !FALLBACK_TEXTS.includes(attractedBy);
+  const hasH = hesitation && !FALLBACK_TEXTS.includes(hesitation);
+  if (score >= 4.5) {
+    if (hasA && hasH) return `愿意优先尝试，${attractedBy}很打动我，还会关注${hesitation}。`;
+    if (hasA) return `很感兴趣，${attractedBy}是主要吸引点。`;
+    return '整体印象不错，有较强购买意愿。';
+  }
+  if (score >= 3.5) {
+    if (hasA && hasH) return `有购买兴趣，${attractedBy}加分，但${hesitation}会影响下单。`;
+    if (hasH) return `有初步兴趣，还想弄清楚${hesitation}再决定。`;
+    return '有一定兴趣，需要再考虑一下。';
+  }
+  if (score >= 3) {
+    if (hasH) return `先观望，${hesitation}是主要顾虑。`;
+    return '目前还在观望，不会马上购买。';
+  }
+  return '目前购买意愿较低，还需要更多理由。';
+}
+
+/** 从吸引点/犹豫点提取 1-2 个关注点标签 */
+function buildPersonaTags(attractedBy: string, hesitation: string): string[] {
+  const NOISE = ['核心卖点', '整体兴趣较强', '有初步兴趣', '决策证据', '仍需更多证据', '购买理由不足'];
+  const tags: string[] = [];
+  if (attractedBy && !NOISE.includes(attractedBy)) tags.push(Array.from(attractedBy).slice(0, 5).join(''));
+  if (hesitation  && !NOISE.includes(hesitation))  tags.push(Array.from(hesitation).slice(0, 5).join(''));
+  return [...new Set(tags)].slice(0, 2);
+}
+
+function buildPersonaVoices(
+  answers: Array<{
+    persona_id?: string;
+    persona_name?: string;
+    persona_tag?: string;
+    overall_intent?: number;
+    summary_comment?: string;
+    answers?: unknown;
+  }> = [],
+  opportunities: Array<{ title?: string; shortTitle?: string }> = [],
+  risks: Array<{ title?: string; shortTitle?: string }> = [],
+): Array<{ groupTitle: string; score: string; statement: string; tags: string[]; attractedBy: string; hesitation: string; tone: string; avatar: string }> {
+  const tones = ['violet', 'green', 'amber', 'blue', 'slate'];
+  return [...answers]
+    .filter(item => item.persona_name || item.persona_tag || item.summary_comment)
+    .sort((a, b) => (b.overall_intent ?? 0) - (a.overall_intent ?? 0))
+    .slice(0, 5)
+    .map((item, index) => {
+      const rawScore = item.overall_intent ?? 0;
+      const score = rawScore > 5 ? rawScore / 2 : rawScore;
+      const quote = item.summary_comment || firstOpenAnswerText(item.answers);
+      const split = splitPersonaQuote(quote || '', score, opportunities, risks);
+      const statement = buildPersonaStatement(quote || '', score, split.attractedBy, split.hesitation);
+      const tags = buildPersonaTags(split.attractedBy, split.hesitation);
+      return {
+        groupTitle: compactGroupTitle(item.persona_tag || item.persona_name || '', `群体${ORDINAL_ZH[index] ?? index + 1}`),
+        score: score ? `${score.toFixed(1)}/5` : '未评分',
+        statement,
+        tags,
+        attractedBy: split.attractedBy,
+        hesitation: split.hesitation,
+        tone: tones[index] || 'slate',
+        avatar: `/assets/persona-avatars/avatar-${String((index % 10) + 1).padStart(2, '0')}.png`,
+      };
+    });
 }
 
 function hmCellBg(score: number | null): string {
@@ -895,7 +1325,7 @@ function buildBaseAttributedQuotes(
  * 通过归因推理和因果链条增强说服力，避免平铺罗列。
  *
  * 每段结构：
- *   highlight —— 气泡摘要，突出核心结论，用 \n 分隔多行
+ *   highlight —— 章节重点，前端只取一句放在正文前
  *   content   —— 正文详解，数据驱动归因，突出关键发现
  *
  * 章节设计：
@@ -1009,10 +1439,75 @@ function buildDeepSectionsFromVM(
   }
 
   return [
-    { title: '一、卖点共鸣与群体锁定', highlight: h1Lines.join('\n'), content: s1.join('') },
-    { title: '二、失效信号与阻力区间', highlight: h2Lines.join('\n'), content: s2.join('') },
-    { title: '三、市场建议', highlight: h3Lines.join('\n'), content: s3.join('') },
+    { title: '一、卖点共鸣与群体锁定', highlight: h1Lines.join('\n'), content: s1.join('\n\n') },
+    { title: '二、失效信号与阻力区间', highlight: h2Lines.join('\n'), content: s2.join('\n\n') },
+    { title: '三、市场建议', highlight: h3Lines.join('\n'), content: s3.join('\n\n') },
   ];
+}
+
+type DeepAnalysisViewSection = DeepAnalysisSection & {
+  highlightText: string;
+  contentParagraphs: string[];
+};
+type DeepAnalysisView = DeepAnalysis & { sections: DeepAnalysisViewSection[] };
+
+function splitDeepSentences(text: string): string[] {
+  return (cleanReportText(text).replace(/\s+/g, ' ').match(/[^。！？；]+[。！？；]?/g) || [])
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function splitDeepParagraphs(content: string): string[] {
+  const explicit = String(content || '')
+    .split(/\n{2,}/)
+    .map(item => cleanReportText(item))
+    .filter(Boolean);
+  if (explicit.length > 1) return explicit;
+
+  const sentences = splitDeepSentences(content);
+  if (sentences.length > 1) return sentences;
+
+  return explicit.length ? explicit : [cleanReportText(content || '暂无更多正文分析。')];
+}
+
+function pickDeepSentence(sentences: string[], patterns: RegExp[], fallbackIndex: number): string {
+  const matched = sentences.find(sentence => patterns.some(pattern => pattern.test(sentence)));
+  return matched || sentences[Math.min(fallbackIndex, Math.max(sentences.length - 1, 0))] || '暂无明确结论。';
+}
+
+function trimDeepHighlight(text: string): string {
+  const sentences = splitDeepSentences(text);
+  return (sentences[0] || cleanReportText(text)).slice(0, 96);
+}
+
+function buildDeepHighlightText(section: DeepAnalysisSection): string {
+  const highlightLines = String(section.highlight || '')
+    .split(/\n+/)
+    .map(item => cleanReportText(item))
+    .filter(Boolean);
+  const paragraphs = splitDeepParagraphs(section.content);
+  const sentences = paragraphs.flatMap(splitDeepSentences);
+
+  const core = highlightLines[0] || pickDeepSentence(sentences, [/表明|形成|集中|明确|最高|最强|成立|核心|共鸣|建议|优先/], 0);
+  const risk = pickDeepSentence(
+    sentences,
+    [/风险|顾虑|阻力|犹豫|不足|薄弱|缺口|拦截|失效|敏感|依赖|无法|未能|须优先/],
+    Math.min(1, Math.max(sentences.length - 1, 0)),
+  );
+
+  if (core === risk || risk === '暂无明确结论。') return trimDeepHighlight(core);
+  return trimDeepHighlight(`${core.replace(/[。！？；]$/, '')}，但${risk.replace(/^[但，。；\s]+/, '')}`);
+}
+
+function normalizeDeepAnalysis(raw: DeepAnalysis): DeepAnalysisView {
+  return {
+    ...raw,
+    sections: (raw.sections || []).map(section => ({
+      ...section,
+      highlightText: buildDeepHighlightText(section),
+      contentParagraphs: splitDeepParagraphs(section.content),
+    })),
+  };
 }
 
 // ── Default VM shape ─────────────────────────────────────────────────────────
@@ -1035,7 +1530,11 @@ function defaultVM() {
     summary: [] as string[],
     stackedBar: [] as Array<{ key: string; color: string; width: number; count: number }>,
     conclusion: { text: '' },
+    heroAdviceText: '',
+    topOpportunityText: '',
+    topRiskText: '',
     personaCards: [] as Array<{ name: string; score: number; tag: string }>,
+    personaVoices: [] as Array<{ groupTitle: string; score: string; statement: string; tags: string[]; attractedBy: string; hesitation: string; tone: string; avatar: string }>,
     segmentRows: [] as Array<{ label: string; count: number; value: string; width: number }>,
     heatmapDimHeaders: [] as string[],
     heatmapRows: [] as Array<{ segment: string; cells: Array<{ score: number; bg: string; label: string }> }>,
@@ -1069,7 +1568,7 @@ function defaultVM() {
     nextSteps: [] as string[],
     opportunities: [] as Array<{ title: string; note: string; concise: string; count: number }>,
     risks: [] as Array<{ title: string; note: string; concise: string; count: number }>,
-    sixDimBreakdown: [] as Array<{ label: string; weight: number; score: number; contribution: number }>,
+    sixDimBreakdown: [] as Array<{ label: string; weight: number; score: number | null; contribution: number; hasRealData: boolean; sourceText: string; explainText: string; actionText: string; bubbleDesc: string; bubbleAction: string }>,
     formulaNotes: [
       '购买均值 = 购买意愿评分总和 / 有效样本数。',
       '最高档占比 = 5分人数 / 有效样本数；高意向占比 = 4-5分人数 / 有效样本数；低意向占比 = 1-2分人数 / 有效样本数。',
@@ -1086,9 +1585,22 @@ Page({
     evaluationId: '',
     error: '',
     vm: defaultVM(),
-    deepAnalysis: null as DeepAnalysis | null,
+    deepAnalysis: null as DeepAnalysisView | null,
     deepAnalysisExpanded: false,
+    /** 01 机会与阻力 swiper 当前页索引（0=机会, 1=阻力） */
+    diSwiperIdx: 0,
+    /** 01 进度条展开动画开关 */
+    diBarAnimating: true,
     deepAnalysisLoading: false,
+    flippedVoiceIdx: -1,
+    /** 03 雷达图：真实维度数量（< 3 时不绘图） */
+    radarRealCount: 0,
+    /** 03 雷达图：当前选中的维度下标 */
+    selectedRadarDimIndex: 0,
+    /** 03 雷达图：气泡是否可见 */
+    radarBubbleVisible: false,
+    /** 03 雷达图：气泡 position 样式 */
+    radarBubbleStyle: '',
   },
 
   async onLoad(query: Record<string, string | undefined>) {
@@ -1102,7 +1614,7 @@ Page({
     const cached = readCachedReport(evalId);
     if (cached) {
       this.setData({ phase: 'ready', vm: this.buildVM(cached.report, cached.productName || '') });
-      this.drawRadarChart();
+      this.initRadarDimSelection(); // drawRadarChart 由其 setData 回调触发
       await this.loadReport(false);
       this.loadDeepAnalysis(evalId);
       return;
@@ -1144,7 +1656,7 @@ Page({
       }
       writeCachedReport(evalId, { report: businessReport, productName });
       this.setData({ phase: 'ready', vm: this.buildVM(businessReport, productName, tagMap, (answers as any[]) || []) });
-      this.drawRadarChart();
+      this.initRadarDimSelection(); // drawRadarChart 由其 setData 回调触发
     } catch (err: any) {
       if (!showLoading) {
         return;
@@ -1162,7 +1674,7 @@ Page({
           productName = product?.name || '';
         }
         this.setData({ phase: 'ready', vm: this.buildBaseVM(report, productName, tagMap, (baseAnswers as any[]) || []) });
-        this.drawRadarChart();
+        this.initRadarDimSelection(); // drawRadarChart 由其 setData 回调触发
       } catch {
         this.setData({
           phase: 'error',
@@ -1195,7 +1707,15 @@ Page({
       count: item.support_count || 0,
     }));
 
-    const dims = report.metrics?.dimensions_radar || [];
+    debugRadarPaths(report);
+    if (DEBUG_RADAR) {
+      console.log('[radar-real] report.metrics keys:', Object.keys(report.metrics || {}));
+      console.log('[radar-real] dimensions_radar:', _short(report.metrics?.dimensions_radar));
+      console.log('[radar-real] dimension_scores:', _short((report.metrics as any)?.dimension_scores));
+    }
+    const dims = extractRadarDims(report);
+    if (DEBUG_RADAR) console.log('[radar-real] extracted dims:', dims);
+    const scoredDims = dims.filter((d): d is { dim: string; score: number } => d.score !== null);
     const segs = report.metrics?.segment_intent || [];
     const priceArr = report.metrics?.price_sensitivity?.distribution || [];
     const priceChart = buildPriceBars(priceArr);
@@ -1225,10 +1745,10 @@ Page({
       stackedBar: buildStackedBar(distMap),
       personaCards: buildPersonaCards(segs, tagMap, answers),
       segmentRows: buildSegmentRows(segs, tagMap, answers),
-      heatmapDimHeaders: buildHeatmapDimHeaders(dims),
-      heatmapRows: buildHeatmapRows(segs, dims, avg, tagMap, answers),
-      dimensionBars: buildDimensionBars(dims),
-      ...buildCompositeScore(dims, avg),
+      heatmapDimHeaders: buildHeatmapDimHeaders(scoredDims),
+      heatmapRows: buildHeatmapRows(segs, scoredDims, avg, tagMap, answers),
+      dimensionBars: buildDimensionBars(scoredDims),
+      ...buildCompositeScore(scoredDims, avg),
       prosRanked: buildProsRanked(
         (report.top_pros || []).map(p => ({ title: p.title, support_count: p.support_count, evidence_quotes: p.quotes })),
         top2BoxTotal2,
@@ -1251,8 +1771,8 @@ Page({
       quotes: [],
       evidenceChains: [],
       focusCards: [
-        { label: '首要机会', title: opportunities[0]?.title || '机会点待识别', text: opportunities[0]?.note || '优先从高意向消费者反馈中找可放大的卖点。' },
-        { label: '主要风险', title: risks[0]?.title || '风险点待识别', text: risks[0]?.note || '优先从低意向消费者反馈中找转化阻力。' },
+        { label: '首要机会', title: opportunities[0]?.title || '机会点待识别', text: compactSignalAction(opportunities[0]?.title || '', true) },
+        { label: '主要风险', title: risks[0]?.title || '风险点待识别', text: compactSignalAction(risks[0]?.title || '', false) },
         { label: '优先动作', title: '明确下一轮验证', text: '优先复核购买意向较低的问题，定位价格、功效或信任阻碍。' },
       ],
       opportunities,
@@ -1262,8 +1782,28 @@ Page({
         opportunities,
         risks,
         top2BoxPct,
-        buildCompositeScore(dims, avg).compositeGrade,
+        buildCompositeScore(scoredDims, avg).compositeGrade,
       ),
+      heroAdviceText: buildHeroAdvice(buildCompositeScore(scoredDims, avg).compositeGrade),
+      topOpportunityText: joinTopSignals(opportunities, '高意向卖点'),
+      topRiskText: joinTopSignals(risks, '决策证据不足'),
+      personaVoices: (() => {
+        const primary = buildPersonaVoices(answers as any[], opportunities, risks);
+        if (primary.length) return primary;
+        // fallback：从群体意向数据生成，确保 02 模块始终有内容
+        const tones = ['violet', 'green', 'amber', 'blue', 'slate'];
+        const sortedA = [...(answers as any[])].sort((a: any, b: any) => (b.overall_intent ?? 0) - (a.overall_intent ?? 0));
+        return [...segs].sort((a, b) => b.avg_intent - a.avg_intent).slice(0, 5).map((seg, i) => ({
+          groupTitle: compactGroupTitle(pickSegmentLabel(seg.segment, i, tagMap, sortedA), `群体${ORDINAL_ZH[i] ?? i + 1}`),
+          score: `${seg.avg_intent.toFixed(1)}/5`,
+          statement: buildPersonaStatement('', seg.avg_intent, joinTopSignals(opportunities.slice(0, 1), ''), joinTopSignals(risks.slice(0, 1), '')),
+          tags: buildPersonaTags(joinTopSignals(opportunities.slice(0, 1), ''), joinTopSignals(risks.slice(0, 1), '')),
+          attractedBy: joinTopSignals(opportunities.slice(0, 1), '核心卖点'),
+          hesitation: joinTopSignals(risks.slice(0, 1), '决策证据'),
+          tone: tones[i] || 'slate',
+          avatar: `/assets/persona-avatars/avatar-${String((i % 10) + 1).padStart(2, '0')}.png`,
+        }));
+      })(),
       nextSteps: (() => {
         const steps: string[] = [];
         if (risks[0]?.title) {
@@ -1291,7 +1831,15 @@ Page({
     const distMap = report.metrics?.intent_distribution || {};
     const { topBoxPct, top2BoxPct, bottom2BoxPct, total: top2BoxTotal } = calcBoxScores(distMap);
 
-    const dims = report.metrics?.dimension_scores || [];
+    debugRadarPaths(report);
+    if (DEBUG_RADAR) {
+      console.log('[radar-real] report.metrics keys:', Object.keys(report.metrics || {}));
+      console.log('[radar-real] dimensions_radar:', _short((report.metrics as any)?.dimensions_radar));
+      console.log('[radar-real] dimension_scores:', _short(report.metrics?.dimension_scores));
+    }
+    const dims = extractRadarDims(report);
+    if (DEBUG_RADAR) console.log('[radar-real] extracted dims:', dims);
+    const scoredDims = dims.filter((d): d is { dim: string; score: number } => d.score !== null);
     const segs = report.metrics?.persona_segments || [];
     const priceArr = report.metrics?.price_sensitivity || [];
     const priceChart = buildPriceBars(priceArr);
@@ -1325,8 +1873,8 @@ Page({
     ).slice(0, 4).map(cleanReportText).map(cleanNextStep);
     const firstAction = nextSteps[0] || '继续验证价格、卖点和渠道表达。';
     const focusCards = [
-      { label: '首要机会', title: dedupedOpportunities[0]?.title || '机会点待识别', text: dedupedOpportunities[0]?.note || '优先从高意向消费者反馈中找可放大的卖点。' },
-      { label: '主要风险', title: dedupedRisks[0]?.title || '风险点待识别', text: dedupedRisks[0]?.note || '优先从低意向消费者反馈中找转化阻力。' },
+      { label: '首要机会', title: dedupedOpportunities[0]?.title || '机会点待识别', text: compactSignalAction(dedupedOpportunities[0]?.title || '', true) },
+      { label: '主要风险', title: dedupedRisks[0]?.title || '风险点待识别', text: compactSignalAction(dedupedRisks[0]?.title || '', false) },
       { label: '优先动作', title: actionTitleFromRecommendation(firstAction), text: firstAction },
     ];
     const attributedQuotes = buildAttributedQuotes(report.top_pros || [], report.top_cons || []);
@@ -1356,10 +1904,10 @@ Page({
       stackedBar: buildStackedBar(distMap),
       personaCards: buildPersonaCards(segs, tagMap, answers),
       segmentRows: buildSegmentRows(segs, tagMap, answers),
-      heatmapDimHeaders: buildHeatmapDimHeaders(dims),
-      heatmapRows: buildHeatmapRows(segs, dims, avg, tagMap, answers),
-      dimensionBars: buildDimensionBars(dims),
-      ...buildCompositeScore(dims, avg),
+      heatmapDimHeaders: buildHeatmapDimHeaders(scoredDims),
+      heatmapRows: buildHeatmapRows(segs, scoredDims, avg, tagMap, answers),
+      dimensionBars: buildDimensionBars(scoredDims),
+      ...buildCompositeScore(scoredDims, avg),
       prosRanked: buildProsRanked(report.top_pros || [], totalRespondents),
       consRanked: buildConsRanked(report.top_cons || [], totalRespondents),
       themeBubbles: buildThemeBubbles(report.top_pros || [], report.top_cons || []),
@@ -1383,32 +1931,139 @@ Page({
         dedupedOpportunities,
         dedupedRisks,
         top2BoxPct,
-        buildCompositeScore(dims, avg).compositeGrade,
+        buildCompositeScore(scoredDims, avg).compositeGrade,
       ),
+      heroAdviceText: buildHeroAdvice(buildCompositeScore(scoredDims, avg).compositeGrade),
+      topOpportunityText: joinTopSignals(dedupedOpportunities, '高意向卖点'),
+      topRiskText: joinTopSignals(dedupedRisks, '决策证据不足'),
+      personaVoices: (() => {
+        const primary = buildPersonaVoices(answers as any[], dedupedOpportunities, dedupedRisks);
+        if (primary.length) return primary;
+        // fallback：从群体意向数据生成，确保 02 模块始终有内容
+        const tones = ['violet', 'green', 'amber', 'blue', 'slate'];
+        const sortedA = [...(answers as any[])].sort((a: any, b: any) => (b.overall_intent ?? 0) - (a.overall_intent ?? 0));
+        return [...segs].sort((a, b) => b.avg_intent - a.avg_intent).slice(0, 5).map((seg, i) => ({
+          groupTitle: compactGroupTitle(pickSegmentLabel(seg.segment, i, tagMap, sortedA), `群体${ORDINAL_ZH[i] ?? i + 1}`),
+          score: `${seg.avg_intent.toFixed(1)}/5`,
+          attractedBy: joinTopSignals(dedupedOpportunities.slice(0, 1), '核心卖点'),
+          hesitation: joinTopSignals(dedupedRisks.slice(0, 1), '决策证据'),
+          tone: tones[i] || 'slate',
+          avatar: `/assets/persona-avatars/avatar-${String((i % 10) + 1).padStart(2, '0')}.png`,
+        }));
+      })(),
       nextSteps,
       sixDimBreakdown: buildSixDimBreakdown(dims, top2BoxPct, avg),
       disclaimer: report.ai_disclaimer || '报告由 AI 聚合调研回答生成，仅供决策参考。',
     };
   },
 
+  /** 雷达图维度选择初始化：计算 radarRealCount 并选中第一个有真实数据的维度 */
+  initRadarDimSelection() {
+    const breakdown = this.data.vm.sixDimBreakdown;
+    const realCount = breakdown.filter((d: { hasRealData: boolean }) => d.hasRealData).length;
+    const defaultIdx = breakdown.findIndex((d: { hasRealData: boolean }) => d.hasRealData);
+
+    // 与 drawRadarChart 完全一致的坐标系：r = maxR*(score/100)
+    // hit-area 叠在红色折线数据节点上；_px/_py 供气泡定位使用
+    const SIZE = 280, cx = SIZE / 2, cy = SIZE / 2, maxR = 68, n = 6;
+    const updatedBreakdown = breakdown.map((d: any, i: number) => {
+      const a = (Math.PI * 2 * i / n) - Math.PI / 2;
+      const ratio = d.hasRealData && typeof d.score === 'number' ? d.score / 100 : 0;
+      const r = maxR * ratio;
+      const px = cx + Math.cos(a) * r;
+      const py = cy + Math.sin(a) * r;
+      return {
+        ...d,
+        _px: px,   // 像素坐标，供 buildRadarBubbleStyle 使用
+        _py: py,
+        // CSS margin-left/margin-top 负半宽居中，无需 transform
+        nodeStyle: `left:${(px / SIZE * 100).toFixed(2)}%;top:${(py / SIZE * 100).toFixed(2)}%;`,
+      };
+    });
+
+    // setData 回调：canvas 挂载完成后再绘图，避免 wx.nextTick 早于 canvas 挂载
+    this.setData({
+      radarRealCount: realCount,
+      selectedRadarDimIndex: defaultIdx >= 0 ? defaultIdx : 0,
+      'vm.sixDimBreakdown': updatedBreakdown,
+    }, () => {
+      this.drawRadarChart();
+    });
+  },
+
+  /** 点击雷达数据节点：高亮 + 显示气泡卡 */
+  onTapRadarNode(e: WechatMiniprogram.TouchEvent) {
+    const index = Number(e.currentTarget.dataset.index);
+    const item = (this.data.vm.sixDimBreakdown as any[])[index];
+    if (!item || !item.hasRealData) return;
+    this.setData({
+      selectedRadarDimIndex: index,
+      radarBubbleVisible: true,
+      radarBubbleStyle: this.buildRadarBubbleStyle(index),
+    });
+  },
+
+  /** 点击雷达图空白处，收起气泡 */
+  onTapRadarBlank() {
+    if ((this.data as any).radarBubbleVisible) {
+      this.setData({ radarBubbleVisible: false });
+    }
+  },
+
+  /** 阻止气泡点击事件冒泡到空白区，防止气泡自身关闭 */
+  noop() {},
+
+  /**
+   * 根据数据点位置 (_px, _py) 计算气泡的 absolute 定位样式。
+   * 上半区 → 气泡出现在点下方；下半区 → 气泡出现在点上方。
+   * 横向以数据点为中心，边界夹拢不超出容器。
+   */
+  buildRadarBubbleStyle(index: number): string {
+    const breakdown = this.data.vm.sixDimBreakdown as any[];
+    const item = breakdown[index];
+    if (!item) return '';
+
+    const SIZE = 280;                        // 容器与 canvas 等宽 (px)
+    const px: number = typeof item._px === 'number' ? item._px : SIZE / 2;
+    const py: number = typeof item._py === 'number' ? item._py : SIZE / 2;
+
+    // 气泡宽度约占容器 89%（500rpx ≈ 250px on 375px 设备 / 280px 容器）
+    const BW = 0.89;
+    const BH_EST = 0.45;   // 估算气泡高度占容器比例（更大尺寸）
+    const GAP = 14 / SIZE; // 点到气泡边缘间距
+
+    // 纵向：上半区气泡放点下方，下半区放点上方
+    let topFrac = py / SIZE <= 0.5
+      ? py / SIZE + GAP
+      : py / SIZE - GAP - BH_EST;
+    topFrac = Math.max(0.01, Math.min(topFrac, 1 - BH_EST - 0.01));
+
+    // 横向：以点为中心，夹拢在 [0, 1-BW]
+    let leftFrac = px / SIZE - BW / 2;
+    leftFrac = Math.max(0, Math.min(leftFrac, 1 - BW));
+
+    return `left:${(leftFrac * 100).toFixed(1)}%;top:${(topFrac * 100).toFixed(1)}%;`;
+  },
+
   drawRadarChart() {
     wx.nextTick(() => {
       const breakdown = this.data.vm.sixDimBreakdown;
       if (!breakdown || !breakdown.length) return;
+      // 真实维度不足 3 个时不绘图，避免展示无意义图形
+      const realCount = (this.data as any).radarRealCount as number;
+      if (realCount < 3) return;
       const ctx = wx.createCanvasContext('rp-radar', this);
       const SIZE = 280;
-      const cx = SIZE / 2;   // 140
-      const cy = SIZE / 2;   // 140
-      const maxR = 90;       // outer ring radius
-      const labelR = 118;    // label distance from center
+      const cx = SIZE / 2;
+      const cy = SIZE / 2;
+      const maxR = 68;       // 缩小：给 15px 标签留足 canvas 内安全边距
+      const labelR = 90;     // 标签离圆心距离
       const n = 6;
-      const values = breakdown.map((d: { score: number }) => d.score / 100);
+      // 无真实数据的维度绘制在圆心（score=0），不伪造图形
+      const values = breakdown.map((d: { score: number | null; hasRealData: boolean }) =>
+        d.hasRealData && d.score !== null ? d.score / 100 : 0
+      );
       const labels = breakdown.map((d: { label: string }) => d.label);
-
-      // textAlign per axis position (clockwise from top)
-      const aligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'left', 'center', 'right', 'right'];
-      // vertical nudge per position so text is visually centred on the axis tip
-      const vNudge = [0, 4, 4, 14, 4, 4];
 
       // Grid rings
       for (let ring = 1; ring <= 3; ring++) {
@@ -1470,14 +2125,32 @@ Page({
         ctx.fill();
       }
 
-      // Axis labels
-      ctx.setFontSize(14);
-      ctx.setFillStyle('#1A1A2E');
+      // Axis labels — 根据角度动态设置 textAlign，防止右侧/左侧标签越界
+      ctx.setFontSize(15);
+      ctx.setFillStyle('#374151');
+      const SAFE_X = 46;   // 左右安全边距（中文标签宽约 60-75px）
+      const SAFE_Y = 18;   // 上下安全边距
       for (let i = 0; i < n; i++) {
         const a = (Math.PI * 2 * i / n) - Math.PI / 2;
-        const lx = cx + labelR * Math.cos(a);
-        const ly = cy + labelR * Math.sin(a) + vNudge[i];
-        ctx.setTextAlign(aligns[i]);
+        const cosA = Math.cos(a);
+        const sinA = Math.sin(a);
+        let lx = cx + labelR * cosA;
+        let ly = cy + labelR * sinA;
+        // textAlign：右半区 left，左半区 right，顶底 center
+        let align: 'center' | 'left' | 'right' = 'center';
+        if (cosA > 0.35) {
+          align = 'left';
+          lx = Math.min(lx, SIZE - SAFE_X);
+        } else if (cosA < -0.35) {
+          align = 'right';
+          lx = Math.max(lx, SAFE_X);
+        }
+        // 垂直微调：底部文字往下推，顶部文字往上提
+        if (sinA < -0.3) ly -= 4;   // 上方
+        if (sinA > 0.3) ly += 10;   // 下方
+        // clamp Y
+        ly = Math.max(SAFE_Y, Math.min(SIZE - SAFE_Y, ly));
+        ctx.setTextAlign(align);
         ctx.fillText(labels[i], lx, ly);
       }
 
@@ -1485,44 +2158,24 @@ Page({
     });
   },
 
-  onTapRadarCanvas(e: WechatMiniprogram.TouchEvent) {
-    const breakdown = this.data.vm.sixDimBreakdown;
-    if (!breakdown?.length) return;
-    wx.createSelectorQuery().in(this)
-      .select('#rp-radar')
-      .boundingClientRect((rect: WechatMiniprogram.BoundingClientRectCallbackResult) => {
-        if (!rect) return;
-        const touch = e.changedTouches?.[0];
-        if (!touch) return;
-        const tapX = touch.clientX - rect.left;
-        const tapY = touch.clientY - rect.top;
-        const cx = 140;
-        const cy = 140;
-        const maxR = 90;
-        const n = 6;
+  /** 01 swiper 翻页（滑动触发） */
+  onDiSwiperChange(e: WechatMiniprogram.SwiperChange) {
+    const idx = (e.detail as any).current as number;
+    this.setData({ diSwiperIdx: idx, diBarAnimating: false });
+    setTimeout(() => { this.setData({ diBarAnimating: true }); }, 30);
+  },
 
-        // Find nearest dot
-        let nearest = -1;
-        let minDist = 28; // tap radius threshold (CSS px)
-        for (let i = 0; i < n; i++) {
-          const a = (Math.PI * 2 * i / n) - Math.PI / 2;
-          const v = (breakdown[i].score ?? 0) / 100;
-          const px = cx + maxR * v * Math.cos(a);
-          const py = cy + maxR * v * Math.sin(a);
-          const dist = Math.sqrt((tapX - px) ** 2 + (tapY - py) ** 2);
-          if (dist < minDist) { minDist = dist; nearest = i; }
-        }
+  /** 01 segmented tab 点击 */
+  onTapDiTab(e: WechatMiniprogram.TouchEvent) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    this.setData({ diSwiperIdx: idx, diBarAnimating: false });
+    setTimeout(() => { this.setData({ diBarAnimating: true }); }, 30);
+  },
 
-        if (nearest >= 0) {
-          const d = breakdown[nearest];
-          wx.showToast({
-            title: `${d.label}：${d.score}分\n权重 ${d.weight}%  贡献 ${d.contribution}`,
-            icon: 'none',
-            duration: 2500,
-          });
-        }
-      })
-      .exec();
+  /** 点击六维 chip，更新选中维度 */
+  onTapRadarDimChip(e: WechatMiniprogram.TouchEvent) {
+    const idx = e.currentTarget.dataset.idx as number;
+    this.setData({ selectedRadarDimIndex: idx });
   },
 
   async loadDeepAnalysis(evalId: string) {
@@ -1533,7 +2186,7 @@ Page({
       if (cached) {
         const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
         if (parsed?.sections?.length) {
-          this.setData({ deepAnalysis: parsed });
+          this.setData({ deepAnalysis: normalizeDeepAnalysis(parsed) });
         }
       }
     } catch { /* ignore */ }
@@ -1541,7 +2194,7 @@ Page({
     try {
       const result = await api.getDeepAnalysis(evalId);
       if (result?.sections?.length) {
-        this.setData({ deepAnalysis: result });
+        this.setData({ deepAnalysis: normalizeDeepAnalysis(result) });
         try { wx.setStorageSync(cacheKey, JSON.stringify(result)); } catch { /* ignore */ }
         return;
       }
@@ -1550,7 +2203,7 @@ Page({
     if (!this.data.deepAnalysis) {
       const sections = buildDeepSectionsFromVM(this.data.vm);
       this.setData({
-        deepAnalysis: { sections, generated_at: new Date().toISOString() },
+        deepAnalysis: normalizeDeepAnalysis({ sections, generated_at: new Date().toISOString() }),
       });
     }
   },
@@ -1568,6 +2221,11 @@ Page({
       showCancel: false,
       confirmText: '知道了',
     });
+  },
+
+  onTapVoiceCard(e: any) {
+    const idx = Number(e.currentTarget.dataset.idx ?? -1);
+    this.setData({ flippedVoiceIdx: idx === this.data.flippedVoiceIdx ? -1 : idx });
   },
 
   onTapDeepToggle() {

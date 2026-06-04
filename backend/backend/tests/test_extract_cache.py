@@ -44,7 +44,6 @@ async def test_extract_cache_hit_skips_vision_call() -> None:
         vision_image_jpeg_quality = 70
         image_extract_cache_ttl_seconds = 3600
         debug_ai_extract = False
-        vision_text_review_enabled = False
 
     payload = ImageExtractRequest(
         image_urls=["https://example.com/test_cache_hit.jpg"],
@@ -89,7 +88,6 @@ async def test_extract_cache_disabled_when_ttl_zero() -> None:
         vision_image_jpeg_quality = 70
         image_extract_cache_ttl_seconds = 0
         debug_ai_extract = False
-        vision_text_review_enabled = False
 
     svc = ProductImageExtractService(vision_client=_CountingClient())  # type: ignore[arg-type]
     payload = ImageExtractRequest(

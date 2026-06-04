@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections import Counter, defaultdict
 from datetime import UTC, datetime
@@ -12,7 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppException
 from app.db.models.answer import Answer
+from app.db.models.evaluation import Evaluation
 from app.db.models.persona import Persona
+from app.db.models.product import Product
 from app.db.models.report import Report
 from app.db.models.survey import Survey
 from app.db.models.user import User
@@ -56,6 +59,23 @@ from app.schemas.report import (
 )
 
 AI_DISCLAIMER = "本报告由 AI 模拟生成，仅供决策参考"
+
+logger = logging.getLogger(__name__)
+
+# Maps survey dimension keys to display labels used in the dimension-scoring prompt.
+DIMENSION_LABELS: dict[str, str] = {
+    "first_impression": "第一印象",
+    "purchase_motivation": "购买动机",
+    "price_sensitivity": "价格敏感度",
+    "package_appearance": "包装外观",
+    "competitor_comparison": "竞品对比",
+    "usage_scenario": "使用场景",
+    "repurchase_intent": "复购意愿",
+    "nps_recommendation": "推荐意愿",
+    "channel_touchpoint": "渠道触点",
+    "painpoint_improvement": "痛点改进",
+}
+REQUIRED_DIMENSIONS = list(DIMENSION_LABELS.keys())
 
 
 class ReportService:
@@ -135,15 +155,72 @@ class ReportService:
 
         qid_to_dim = await self._build_qid_dim_map(evaluation.survey_id)
         personas = await self._load_personas(answer_rows)
+        survey = await self.session.get(Survey, evaluation.survey_id) if evaluation.survey_id else None
 
         overall_intent = self._calc_overall_intent(answer_rows)
-        dimensions_radar = self._calc_dimensions_radar(answer_rows, qid_to_dim)
+        rule_dimensions = self._calc_dimensions_radar(answer_rows, qid_to_dim)
         price_sensitivity = self._calc_price_sensitivity(answer_rows, qid_to_dim)
         segment_intent = self._calc_segment_intent(answer_rows, personas)
         top_pros = self._calc_top_pros(answer_rows, personas)
         top_cons = self._calc_top_cons(answer_rows, personas)
         persona_segments = self._calc_persona_segments(answer_rows, personas)
         summary = self._generate_summary(answer_rows, overall_intent)
+
+        existing = await self.reports.get_by_evaluation_id(
+            evaluation_id=evaluation.id,
+            include_deleted=True,
+        )
+        # Prefer LLM text-analysed dimension scores when pre-generation is ready,
+        # otherwise fall back to rule-based scale_1_5 averages.
+        dimensions_radar = self._resolve_dimensions_radar(rule_dimensions, existing)
+
+        # If LLM dimension analysis hasn't completed yet (status is "generating"
+        # or not started), wait briefly for it, or trigger it synchronously.
+        # This ensures the radar chart has all 10 dimensions when possible.
+        if (
+            existing is not None
+            and not self._has_all_required_dimensions(dimensions_radar)
+            and existing.dimension_analysis_status in (None, "generating", "ready")
+        ):
+            import asyncio as _asyncio
+
+            if existing.dimension_analysis_status == "generating":
+                # Wait up to 20 seconds for the background task to finish
+                for _ in range(10):
+                    await _asyncio.sleep(2)
+                    await self.session.refresh(existing)
+                    if existing.dimension_analysis_status == "ready":
+                        dimensions_radar = self._resolve_dimensions_radar(
+                            rule_dimensions, existing
+                        )
+                        break
+            if not self._has_all_required_dimensions(dimensions_radar):
+                # Not started yet, stale top-6 cache, or still incomplete after
+                # waiting: run analysis now so cached sparse metrics are replaced.
+                try:
+                    await self._run_dimension_analysis(
+                        session=self.session,
+                        evaluation_id=evaluation.id,
+                    )
+                    await self.session.refresh(existing)
+                    if existing.dimension_analysis_status == "ready":
+                        dimensions_radar = self._resolve_dimensions_radar(
+                            rule_dimensions, existing
+                        )
+                except Exception:
+                    await self.session.rollback()
+                    await self._mark_dimension_analysis_failed(
+                        session=self.session,
+                        evaluation_id=evaluation.id,
+                    )
+                    logger.exception("sync dimension_analysis failed, using rule-based fallback")
+
+        if not self._has_all_required_dimensions(dimensions_radar) and survey is not None:
+            dimensions_radar = self._score_dimensions_from_answers(
+                survey,
+                answer_rows,
+                personas=personas,
+            )
 
         metrics = ReportMetrics(
             overall_intent=overall_intent,
@@ -152,10 +229,6 @@ class ReportService:
             segment_intent=segment_intent,
         )
 
-        existing = await self.reports.get_by_evaluation_id(
-            evaluation_id=evaluation.id,
-            include_deleted=True,
-        )
         if existing is not None:
             existing.deleted_at = None
             existing.summary = summary
@@ -213,7 +286,24 @@ class ReportService:
             )
             product_name = (product.name or "") if product else ""
 
-        return self._to_business_response(report, answer_rows, personas, product_name)
+        business_response = self._to_business_response(report, answer_rows, personas, product_name)
+        stored_report = await self.reports.get_by_evaluation_id(
+            evaluation_id=evaluation_id,
+            include_deleted=True,
+        )
+        logger.info(
+            "[radar-real] report api metrics report_id=%s evaluation_id=%s "
+            "dimension_analysis_status=%s metrics_keys=%s dimension_scores=%s "
+            "dimensions_radar=%s",
+            report.id,
+            report.evaluation_id,
+            stored_report.dimension_analysis_status if stored_report is not None else None,
+            list(business_response.metrics.model_dump().keys()),
+            [item.model_dump() for item in business_response.metrics.dimension_scores],
+            [item.model_dump() for item in report.metrics.dimensions_radar],
+        )
+
+        return business_response
 
     async def get_deep_analysis(
         self,
@@ -284,6 +374,384 @@ class ReportService:
             sections=sections,
             generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
         )
+
+    async def generate_dimension_analysis(self, *, evaluation_id: int) -> None:
+        """Analyse per-dimension scores from answer text and persist them.
+
+        Runs as a fire-and-forget background task after an evaluation finishes.
+        Uses its own database session so it is safe to launch via
+        ``asyncio.create_task``. On any failure the report's
+        ``dimension_analysis_status`` is set to ``failed`` and the radar chart
+        falls back to rule-based scores at read time.
+        """
+
+        from app.db.session import AsyncSessionFactory
+
+        async with AsyncSessionFactory() as session:
+            try:
+                await self._run_dimension_analysis(session=session, evaluation_id=evaluation_id)
+            except Exception as exc:  # AI/network/parse failure -> keep rule-based fallback
+                logger.exception("dimension_analysis_failed: %s", exc)
+                await self._mark_dimension_analysis_failed(
+                    session=session, evaluation_id=evaluation_id
+                )
+
+    async def _run_dimension_analysis(
+        self,
+        *,
+        session: AsyncSession,
+        evaluation_id: int,
+    ) -> None:
+        """Aggregate per-dimension answer text, score it via the AI model, and store it."""
+
+        from app.ai.factory import get_ai_client
+        from app.ai.json_utils import parse_json_response
+        from app.ai.models import ModelRouter, TaskType
+        from app.ai.prompt_manager import render_prompt
+        from app.schemas.report import DimensionScoreResult
+
+        evaluation = await session.get(Evaluation, evaluation_id)
+        reports = ReportRepository(session)
+        report = await reports.get_by_evaluation_id(
+            evaluation_id=evaluation_id,
+            include_deleted=True,
+        )
+        if report is None:
+            # Report row not generated yet (nobody opened the report). Generate it
+            # first so the dimension analysis has a row to attach to.
+            if evaluation is None:
+                return
+            user = await session.get(User, evaluation.user_id)
+            if user is None:
+                return
+            await ReportService(session).get_or_create_report(
+                user=user, evaluation_id=evaluation_id
+            )
+            report = await reports.get_by_evaluation_id(
+                evaluation_id=evaluation_id,
+                include_deleted=True,
+            )
+            if report is None:
+                return
+
+        survey = (
+            await session.get(Survey, evaluation.survey_id)
+            if evaluation is not None and evaluation.survey_id is not None
+            else None
+        )
+        if survey is None:
+            await self._mark_dimension_analysis_failed(
+                session=session, evaluation_id=evaluation_id
+            )
+            return
+
+        answer_rows = await AnswerRepository(session).list_by_evaluation_id(
+            evaluation_id=evaluation_id
+        )
+        personas = await self._load_personas_for_session(session, answer_rows)
+        dimension_inputs = self._build_dimension_inputs(
+            survey,
+            answer_rows,
+            personas=personas,
+        )
+        if not dimension_inputs:
+            await self._mark_dimension_analysis_failed(
+                session=session, evaluation_id=evaluation_id
+            )
+            return
+
+        product = (
+            await session.get(Product, evaluation.product_id)
+            if evaluation is not None and evaluation.product_id is not None
+            else None
+        )
+        product_name = (product.name if product is not None else "") or "本次测品"
+
+        report.dimension_analysis_status = "generating"
+        await session.commit()
+
+        prompt, _, _ = render_prompt(
+            "dimension_score",
+            product_name=product_name,
+            dimension_inputs=dimension_inputs,
+        )
+        system = "你是问卷语义编码器。只依据给出的问卷回答评分，严格输出 JSON，不编造信息。"
+        ai_client = get_ai_client()
+        route = ModelRouter().get(TaskType.REPORT_SYNTHESIZE)
+        try:
+            raw = await ai_client.complete(
+                system=system,
+                user=prompt,
+                endpoint_id=route.endpoint_id,
+            )
+            parsed = parse_json_response(raw)
+            payload = parsed if isinstance(parsed, dict) else {"dimensions": parsed}
+            result = DimensionScoreResult.model_validate(payload)
+        except Exception:
+            logger.exception("dimension_analysis_llm_failed, using semantic scorer")
+            fallback_scores = self._score_dimensions_from_answers(
+                survey,
+                answer_rows,
+                personas=personas,
+            )
+            report.dimension_analysis = [item.model_dump() for item in fallback_scores]
+            report.dimension_analysis_status = "ready"
+            await session.commit()
+            return
+        valid_dims = {str(item["dim"]) for item in dimension_inputs}
+        by_dim = {
+            item.dim: item
+            for item in result.dimension_scores
+            if item.dim in valid_dims
+            and (item.score is None or 0.0 <= item.score <= 100.0)
+        }
+        scored = []
+        for dim_input in dimension_inputs:
+            dim = str(dim_input["dim"])
+            item = by_dim.get(dim)
+            if item is not None:
+                scored.append(item)
+                continue
+            scored.append(
+                self._score_dimension_input(dim_input)
+            )
+        if not scored:
+            await self._mark_dimension_analysis_failed(
+                session=session, evaluation_id=evaluation_id
+            )
+            return
+
+        report.dimension_analysis = [item.model_dump() for item in scored]
+        report.dimension_analysis_status = "ready"
+        await session.commit()
+
+    def _build_dimension_inputs(
+        self,
+        survey: Survey,
+        answers: list[Answer],
+        *,
+        personas: dict[int, Persona] | None = None,
+    ) -> list[dict[str, object]]:
+        """Group all answer types by the 10 original survey dimensions."""
+
+        questions = survey.questions or []
+        qid_to_dim: dict[str, str] = {}
+        qid_to_question: dict[str, dict[str, object]] = {}
+        dim_questions: dict[str, list[dict[str, object]]] = defaultdict(list)
+        for question in questions:
+            qid = str(question.get("id", ""))
+            dim = str(question.get("dim", "unknown"))
+            qid_to_dim[qid] = dim
+            qid_to_question[qid] = question
+            if dim in DIMENSION_LABELS:
+                dim_questions[dim].append(
+                    {
+                        "qid": qid,
+                        "type": question.get("type", ""),
+                        "title": question.get("title") or question.get("text") or "",
+                    }
+                )
+
+        personas = personas or {}
+        dim_answers: dict[str, list[dict[str, object]]] = defaultdict(list)
+        for answer in answers:
+            persona = personas.get(answer.persona_id)
+            persona_label = self._persona_group_label(persona)
+            for item in answer.answers:
+                qid = str(item.get("qid", ""))
+                mapped_dim = qid_to_dim.get(qid)
+                if mapped_dim not in DIMENSION_LABELS:
+                    continue
+                text = self._item_text(item).strip()
+                score = item.get("answer") if item.get("type") == "scale_1_5" else None
+                dim_answers[mapped_dim].append(
+                    {
+                        "qid": qid,
+                        "question": (
+                            qid_to_question.get(qid, {}).get("title")
+                            or qid_to_question.get(qid, {}).get("text")
+                            or ""
+                        ),
+                        "type": item.get("type") or qid_to_question.get(qid, {}).get("type") or "",
+                        "text": text,
+                        "score": score if isinstance(score, (int, float)) else None,
+                        "persona_id": str(answer.persona_id),
+                        "persona_label": persona_label,
+                        "persona_tag": persona.persona_tag if persona is not None else "",
+                        "overall_intent": answer.overall_intent,
+                        "sentiment": answer.sentiment or "",
+                        "summary_comment": answer.summary_comment or "",
+                    }
+                )
+
+        inputs: list[dict[str, object]] = []
+        for dim in REQUIRED_DIMENSIONS:
+            dim_answer_items = dim_answers.get(dim, [])
+            inputs.append(
+                {
+                    "dim": dim,
+                    "label": DIMENSION_LABELS.get(dim, dim),
+                    "questions": dim_questions.get(dim, []),
+                    "answers": dim_answer_items[:80],
+                    "snippets": [str(item["text"]) for item in dim_answer_items if item.get("text")][:40],
+                    "has_data": any(item.get("text") or item.get("score") is not None for item in dim_answer_items),
+                }
+            )
+        return inputs
+
+    def _score_dimensions_from_answers(
+        self,
+        survey: Survey,
+        answers: list[Answer],
+        *,
+        personas: dict[int, Persona] | None = None,
+    ) -> list[DimensionRadarItem]:
+        """Deterministic semantic encoding from real mixed-type answers.
+
+        This is a resilience layer for the report API: it uses the same grouped
+        inputs as the LLM prompt and never fills from purchase averages, Top-2
+        Box, or unrelated metrics.
+        """
+
+        dimension_inputs = self._build_dimension_inputs(
+            survey,
+            answers,
+            personas=personas,
+        )
+        return [
+            self._score_dimension_input(item)
+            for item in dimension_inputs
+        ]
+
+    def _score_dimension_input(self, dimension_input: dict[str, object]) -> DimensionRadarItem:
+        dim = str(dimension_input.get("dim", ""))
+        raw_answers = dimension_input.get("answers", [])
+        answers = raw_answers if isinstance(raw_answers, list) else []
+        if not answers:
+            return DimensionRadarItem(
+                dim=dim,
+                score=None,
+                confidence=0.0,
+                has_data=False,
+                reason="missing",
+            )
+
+        scores: list[float] = []
+        evidence_count = 0
+        positive_hits = 0
+        negative_hits = 0
+        for answer in answers:
+            if not isinstance(answer, dict):
+                continue
+            text = " ".join(
+                str(part)
+                for part in [
+                    answer.get("text", ""),
+                    answer.get("summary_comment", ""),
+                    answer.get("sentiment", ""),
+                ]
+                if part is not None
+            )
+            scale_score = answer.get("score")
+            if isinstance(scale_score, (int, float)):
+                scores.append(max(0.0, min(float(scale_score), 5.0)) * 20.0)
+                evidence_count += 1
+            text_score, pos, neg = self._semantic_text_score(dim, text)
+            if text.strip():
+                scores.append(text_score)
+                evidence_count += 1
+                positive_hits += pos
+                negative_hits += neg
+
+        if not scores:
+            return DimensionRadarItem(
+                dim=dim,
+                score=None,
+                confidence=0.0,
+                has_data=False,
+                reason="missing",
+            )
+
+        score = round(sum(scores) / len(scores))
+        confidence = min(0.95, 0.35 + evidence_count * 0.08)
+        if negative_hits > positive_hits:
+            reason = "真实回答中阻力信号多于正向信号"
+        elif positive_hits > negative_hits:
+            reason = "真实回答中正向信号多于阻力信号"
+        else:
+            reason = "根据真实回答形成中性语义评分"
+        return DimensionRadarItem(
+            dim=dim,
+            score=float(max(0, min(score, 100))),
+            confidence=round(confidence, 2),
+            has_data=True,
+            reason=reason,
+        )
+
+    def _semantic_text_score(self, dim: str, text: str) -> tuple[float, int, int]:
+        value = text.strip()
+        if not value:
+            return 50.0, 0, 0
+
+        positive_keywords = [
+            "愿意", "可以接受", "能接受", "喜欢", "信任", "清晰", "明确", "高级",
+            "安全感", "推荐", "复购", "优势", "解决", "降低", "匹配", "适合",
+            "温和", "修护", "有兴趣", "会买", "考虑", "合理", "好", "顺畅",
+            "小红书", "电商", "朋友推荐", "场景",
+        ]
+        negative_keywords = [
+            "不愿意", "不会", "不想", "不清楚", "不足", "担心", "犹豫", "太贵",
+            "偏贵", "贵", "超过", "需要", "缺少", "没有", "替代", "风险", "刺激",
+            "过敏", "没用", "不明显", "不确定", "门槛",
+        ]
+        pos = sum(1 for keyword in positive_keywords if keyword in value)
+        neg = sum(1 for keyword in negative_keywords if keyword in value)
+        score = 58 + pos * 8 - neg * 10
+
+        if dim == "price_sensitivity":
+            if any(keyword in value for keyword in ["可以接受", "能接受", "合理", "划算", "性价比"]):
+                score += 12
+            if any(keyword in value for keyword in ["太贵", "偏贵", "超过", "优惠", "试用装", "门槛"]):
+                score -= 14
+
+        if dim in {"repurchase_intent", "nps_recommendation"}:
+            if any(keyword in value for keyword in ["复购", "推荐", "朋友"]):
+                score += 10
+        if dim == "competitor_comparison" and any(keyword in value for keyword in ["差异化还要", "替代", "同类"]):
+            score -= 8
+
+        return float(max(15, min(score, 95))), pos, neg
+
+    async def _load_personas_for_session(
+        self,
+        session: AsyncSession,
+        answers: list[Answer],
+    ) -> dict[int, Persona]:
+        result: dict[int, Persona] = {}
+        repo = PersonaRepository(session)
+        for answer in answers:
+            if answer.persona_id in result:
+                continue
+            persona = await repo.get_active_by_id(persona_id=answer.persona_id)
+            if persona is not None:
+                result[answer.persona_id] = persona
+        return result
+
+    async def _mark_dimension_analysis_failed(
+        self,
+        *,
+        session: AsyncSession,
+        evaluation_id: int,
+    ) -> None:
+        """Mark dimension analysis failed so the radar falls back to rule-based scores."""
+
+        report = await ReportRepository(session).get_by_evaluation_id(
+            evaluation_id=evaluation_id
+        )
+        if report is None:
+            return
+        report.dimension_analysis_status = "failed"
+        await session.commit()
 
     def _fallback_deep_analysis_sections(
         self,
@@ -467,6 +935,44 @@ class ReportService:
             result.append(DimensionRadarItem(dim=dim, score=avg))
         return result
 
+    def _resolve_dimensions_radar(
+        self,
+        rule_based: list[DimensionRadarItem],
+        report: Report | None,
+    ) -> list[DimensionRadarItem]:
+        """Return all ready LLM dimension scores, otherwise use rule-based scores."""
+
+        if report is None or report.dimension_analysis_status != "ready":
+            return rule_based
+        scored_by_dim: dict[str, DimensionRadarItem] = {}
+        for entry in report.dimension_analysis or []:
+            if not isinstance(entry, dict):
+                continue
+            if "relevance" in entry and "confidence" not in entry:
+                continue
+            dim = entry.get("dim")
+            score = entry.get("score")
+            if not isinstance(dim, str) or dim not in DIMENSION_LABELS:
+                continue
+            if score is not None and not isinstance(score, (int, float)):
+                continue
+            confidence = entry.get("confidence", 0.0)
+            has_data = entry.get("has_data", score is not None)
+            reason = entry.get("reason", "")
+            scored_by_dim[dim] = DimensionRadarItem(
+                dim=dim,
+                score=float(score) if isinstance(score, (int, float)) else None,
+                confidence=float(confidence) if isinstance(confidence, (int, float)) else 0.0,
+                has_data=bool(has_data),
+                reason=str(reason) if reason is not None else "",
+            )
+        if not scored_by_dim:
+            return rule_based
+        return [scored_by_dim[dim] for dim in REQUIRED_DIMENSIONS if dim in scored_by_dim]
+
+    def _has_all_required_dimensions(self, items: list[DimensionRadarItem]) -> bool:
+        return {item.dim for item in items} >= set(REQUIRED_DIMENSIONS)
+
     def _calc_price_sensitivity(
         self,
         answers: list[Answer],
@@ -566,15 +1072,15 @@ class ReportService:
         fallback_answers: list[Answer] = []
 
         for answer in answers:
-            quote_text = self._extract_quote(answer, positive=positive)
-            evidence_text = self._answer_evidence_text(answer, quote_text)
+            persona_label = self._persona_group_label(personas.get(answer.persona_id))
             matched = False
             for title, keywords in themes:
-                if any(keyword in evidence_text for keyword in keywords):
+                quote_text = self._theme_quote_from_answer(answer, keywords)
+                if quote_text is not None:
                     theme_quotes[title].append(
                         QuoteItem(
                             persona_id=str(answer.persona_id),
-                            persona_name=self._persona_group_label(personas.get(answer.persona_id)),
+                            persona_name=persona_label,
                             quote=quote_text,
                         )
                     )
@@ -638,11 +1144,37 @@ class ReportService:
             ("成分安全是主要决策顾虑", ["刺激", "过敏", "安全", "敏感"]),
         ]
 
-    def _answer_evidence_text(self, answer: Answer, quote_text: str) -> str:
-        parts = [quote_text, answer.summary_comment or ""]
+    def _theme_quote_from_answer(
+        self,
+        answer: Answer,
+        keywords: list[str],
+    ) -> str | None:
+        """Return a quote from the answer item that actually mentions the theme.
+
+        Scans each question the persona answered and returns the reason (or the
+        answer text) of the first item whose text contains a theme keyword, so the
+        evidence quote always matches the theme it is attached to. Falls back to the
+        summary comment when only that mentions the theme; returns ``None`` when the
+        persona never touched this theme.
+        """
+
         for item in answer.answers:
-            parts.append(self._item_text(item))
-        return " ".join(part for part in parts if part)
+            text = self._item_text(item)
+            if not any(keyword in text for keyword in keywords):
+                continue
+            reason = item.get("reason", "")
+            if isinstance(reason, str) and reason.strip():
+                return reason.strip()
+            answer_value = item.get("answer", "")
+            if isinstance(answer_value, list):
+                joined = " ".join(str(part) for part in answer_value).strip()
+                return joined or None
+            text_value = str(answer_value).strip()
+            return text_value or None
+        summary = answer.summary_comment or ""
+        if summary and any(keyword in summary for keyword in keywords):
+            return summary
+        return None
 
     def _extract_quote(self, answer: Answer, *, positive: bool) -> str:
         """Extract a quote from answer reasons or open-ended answers."""

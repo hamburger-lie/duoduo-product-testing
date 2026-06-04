@@ -69,3 +69,28 @@ def validate_base64_image(b64_str: str, claimed_mime: str | None = None) -> str 
 def is_allowed_mime_type(mime_type: str) -> bool:
     """Check whether a MIME type is in the allow-list."""
     return mime_type in ALLOWED_MIME_TYPES
+
+
+# ---------------------------------------------------------------------------
+# Avatar upload: stricter subset (no GIF, no BMP)
+# ---------------------------------------------------------------------------
+
+AVATAR_MAX_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
+
+
+def detect_avatar_image_type(file_bytes: bytes) -> str | None:
+    """Detect image type from magic bytes for avatar uploads.
+
+    Returns ``"jpg"``, ``"png"``, or ``"webp"`` on success, ``None`` otherwise.
+    Only these three types are allowed for avatars — GIF, BMP, SVG, etc. are
+    rejected.
+    """
+    if not file_bytes:
+        return None
+    if file_bytes[:3] == b"\xff\xd8\xff":
+        return "jpg"
+    if file_bytes[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if len(file_bytes) >= 12 and file_bytes[:4] == b"RIFF" and file_bytes[8:12] == b"WEBP":
+        return "webp"
+    return None

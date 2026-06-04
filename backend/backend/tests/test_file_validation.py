@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import base64
 
-from app.storage.file_validation import is_allowed_mime_type, validate_base64_image
+from app.storage.file_validation import (
+    detect_avatar_image_type,
+    is_allowed_mime_type,
+    validate_base64_image,
+)
 
 
 def _b64(header_bytes: bytes, pad_to: int = 64) -> str:
@@ -78,3 +82,46 @@ def test_is_allowed_mime_type() -> None:
     assert is_allowed_mime_type("image/png") is True
     assert is_allowed_mime_type("application/exe") is False
     assert is_allowed_mime_type("text/html") is False
+
+
+# ---------------------------------------------------------------------------
+# detect_avatar_image_type — avatar-specific, stricter subset
+# ---------------------------------------------------------------------------
+
+
+def test_detect_avatar_jpeg() -> None:
+    assert detect_avatar_image_type(b"\xff\xd8\xff\xe0" + b"\x00" * 60) == "jpg"
+
+
+def test_detect_avatar_png() -> None:
+    assert detect_avatar_image_type(b"\x89PNG\r\n\x1a\n" + b"\x00" * 60) == "png"
+
+
+def test_detect_avatar_webp() -> None:
+    header = b"RIFF\x00\x00\x00\x00WEBP" + b"\x00" * 52
+    assert detect_avatar_image_type(header) == "webp"
+
+
+def test_detect_avatar_gif_rejected() -> None:
+    assert detect_avatar_image_type(b"GIF89a" + b"\x00" * 60) is None
+
+
+def test_detect_avatar_bmp_rejected() -> None:
+    assert detect_avatar_image_type(b"BM\x00\x00\x00\x00" + b"\x00" * 58) is None
+
+
+def test_detect_avatar_html_rejected() -> None:
+    assert detect_avatar_image_type(b"<html><body>XSS</body></html>") is None
+
+
+def test_detect_avatar_svg_rejected() -> None:
+    assert detect_avatar_image_type(b'<svg xmlns="http://www.w3.org/2000/svg">') is None
+
+
+def test_detect_avatar_empty_rejected() -> None:
+    assert detect_avatar_image_type(b"") is None
+
+
+def test_detect_avatar_short_webp_rejected() -> None:
+    """RIFF header too short to contain WEBP marker."""
+    assert detect_avatar_image_type(b"RIFF\x00\x00") is None

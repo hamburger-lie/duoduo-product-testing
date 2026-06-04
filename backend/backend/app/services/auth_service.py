@@ -142,11 +142,32 @@ class AuthService:
         from pathlib import Path
         from uuid import uuid4
 
-        ext = Path(filename).suffix.lower() or ".jpg"
+        from app.storage.file_validation import AVATAR_MAX_SIZE_BYTES, detect_avatar_image_type
+
+        if not file_bytes:
+            raise AppException(
+                code="EMPTY_UPLOAD",
+                message="Upload body is empty",
+                http_status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(file_bytes) > AVATAR_MAX_SIZE_BYTES:
+            raise AppException(
+                code="FILE_TOO_LARGE",
+                message="Avatar image must be under 2 MB",
+                http_status=status.HTTP_400_BAD_REQUEST,
+            )
+        image_ext = detect_avatar_image_type(file_bytes)
+        if image_ext is None:
+            raise AppException(
+                code="INVALID_FILE_TYPE",
+                message="Only JPG, PNG, or WebP images are allowed",
+                http_status=status.HTTP_400_BAD_REQUEST,
+            )
+
         save_dir = Path(__file__).parent.parent.parent / "static" / "avatars"
         save_dir.mkdir(parents=True, exist_ok=True)
 
-        dest = save_dir / f"{user.id}_{uuid4().hex}{ext}"
+        dest = save_dir / f"{user.id}_{uuid4().hex}.{image_ext}"
         dest.write_bytes(file_bytes)
 
         avatar_url = f"/static/avatars/{dest.name}"

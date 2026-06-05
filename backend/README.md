@@ -35,13 +35,13 @@ docker compose up -d postgres redis qdrant
 uv sync
 uv run alembic upgrade head
 uv run python scripts/seed_personas.py
-uv run uvicorn app.main:app --host 127.0.0.1 --port 18000 --reload
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 打开 Swagger：
 
 ```text
-http://127.0.0.1:18000/docs
+http://127.0.0.1:8000/docs
 ```
 
 如果端口冲突，可以换端口启动，并设置 `API_BASE_URL` 跑 E2E：

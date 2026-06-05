@@ -18,6 +18,9 @@ Soul 是一个包含微信小程序前端、FastAPI 后端、文档、静态报�
 └── frontend_backend_interface_gaps.md
 ```
 
+更完整的前后端分类、端口、接口边界和上传注意事项见
+[`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md)。
+
 ## 技术栈
 
 - 微信小程序：TypeScript、WXML、WXSS
@@ -31,7 +34,7 @@ Soul 是一个包含微信小程序前端、FastAPI 后端、文档、静态报�
 ```powershell
 cd backend\backend
 uv sync
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 18000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 也可以使用后端目录中的脚本：

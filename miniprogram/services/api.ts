@@ -1,6 +1,6 @@
 // API 适配层 — 所有页面只 import 本文件
 // Phase A: USE_MOCK=true，调 mocks/*
-// Phase B: USE_MOCK=false，调真后端 (http://127.0.0.1:18000)
+// Phase B: USE_MOCK=false，调真后端 (http://127.0.0.1:8000)
 //
 // 切换方式：把 USE_MOCK 改成 false，并在 DevTools 详情→本地设置勾选"不校验合法域名"
 

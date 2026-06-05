@@ -5,7 +5,7 @@ import { API_VERSION_PREFIX } from './endpoints';
 import type { ApiError } from '../types/api';
 
 /**
- * 本地调试：http://127.0.0.1:18000
+ * 本地调试：http://127.0.0.1:8000
  * DevTools → 详情 → 本地设置 → 勾选"不校验合法域名"
  * 上线时改成正式域名并在小程序后台白名单添加，例如 'https://api.cepinguan.com'
  */

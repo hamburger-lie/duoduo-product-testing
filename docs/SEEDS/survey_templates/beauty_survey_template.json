@@ -1,0 +1,436 @@
+{
+  "template_key": "beauty_survey_template_v0_1",
+  "name": "美妆护肤测评问卷模板",
+  "version": 1,
+  "category": "美妆",
+  "question_count": 30,
+  "dimensions": [
+    {
+      "key": "first_impression",
+      "name": "第一印象",
+      "target_question_count": 3
+    },
+    {
+      "key": "purchase_motivation",
+      "name": "购买动机",
+      "target_question_count": 3
+    },
+    {
+      "key": "price_sensitivity",
+      "name": "价格敏感度",
+      "target_question_count": 3
+    },
+    {
+      "key": "package_appearance",
+      "name": "包装与外观",
+      "target_question_count": 3
+    },
+    {
+      "key": "competitor_comparison",
+      "name": "竞品比较",
+      "target_question_count": 3
+    },
+    {
+      "key": "usage_scenario",
+      "name": "使用场景",
+      "target_question_count": 3
+    },
+    {
+      "key": "repurchase_intent",
+      "name": "复购意愿",
+      "target_question_count": 3
+    },
+    {
+      "key": "nps_recommendation",
+      "name": "推荐意愿",
+      "target_question_count": 3
+    },
+    {
+      "key": "channel_touchpoint",
+      "name": "信息触达渠道",
+      "target_question_count": 3
+    },
+    {
+      "key": "painpoint_improvement",
+      "name": "痛点与改进建议",
+      "target_question_count": 3
+    }
+  ],
+  "question_type_allowed": [
+    "single",
+    "multi",
+    "scale_1_5",
+    "open"
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "dim": "first_impression",
+      "type": "scale_1_5",
+      "question": "看到这款产品后，你的第一眼吸引力评分是多少？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "用于整体第一印象均分"
+    },
+    {
+      "id": "q02",
+      "dim": "first_impression",
+      "type": "single",
+      "question": "第一眼最吸引你的点是什么？",
+      "options": [
+        "功效卖点",
+        "包装颜值",
+        "价格",
+        "品牌感",
+        "成分",
+        "没有明显吸引点"
+      ],
+      "required": true,
+      "analysis_hint": "识别首屏卖点"
+    },
+    {
+      "id": "q03",
+      "dim": "first_impression",
+      "type": "open",
+      "question": "请用你自己的话说说，你第一眼觉得这款产品像是卖给谁的？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "校验目标人群感知"
+    },
+    {
+      "id": "q04",
+      "dim": "purchase_motivation",
+      "type": "multi",
+      "question": "哪些因素会促使你考虑购买它？",
+      "options": [
+        "成分有效",
+        "价格合适",
+        "包装好看",
+        "朋友/达人推荐",
+        "品牌可信",
+        "解决当前皮肤问题",
+        "赠品/套装划算",
+        "暂无"
+      ],
+      "required": true,
+      "analysis_hint": "统计购买触发因素"
+    },
+    {
+      "id": "q05",
+      "dim": "purchase_motivation",
+      "type": "scale_1_5",
+      "question": "你觉得这款产品解决你当前需求的匹配度是多少？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "用于需求匹配均分"
+    },
+    {
+      "id": "q06",
+      "dim": "purchase_motivation",
+      "type": "open",
+      "question": "如果你会买，最主要的理由是什么？如果不会买，最主要阻碍是什么？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "提炼正负向购买理由"
+    },
+    {
+      "id": "q07",
+      "dim": "price_sensitivity",
+      "type": "single",
+      "question": "以你的消费习惯，你能接受这类产品的单品价格区间是？",
+      "options": [
+        "0-50",
+        "50-100",
+        "100-200",
+        "200-400",
+        "400-800",
+        "800+"
+      ],
+      "required": true,
+      "analysis_hint": "生成价格敏感度分布"
+    },
+    {
+      "id": "q08",
+      "dim": "price_sensitivity",
+      "type": "scale_1_5",
+      "question": "如果它按当前标价销售，你觉得性价比如何？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "性价比评分"
+    },
+    {
+      "id": "q09",
+      "dim": "price_sensitivity",
+      "type": "open",
+      "question": "什么价格或优惠形式会让你更愿意下单？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "提炼定价和促销建议"
+    },
+    {
+      "id": "q10",
+      "dim": "package_appearance",
+      "type": "scale_1_5",
+      "question": "你对这款产品包装/外观的好感度是多少？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "包装评分"
+    },
+    {
+      "id": "q11",
+      "dim": "package_appearance",
+      "type": "single",
+      "question": "包装最可能给你的感觉是？",
+      "options": [
+        "专业高端",
+        "年轻好看",
+        "平价实用",
+        "普通无感",
+        "廉价",
+        "看不清定位"
+      ],
+      "required": true,
+      "analysis_hint": "定位感知"
+    },
+    {
+      "id": "q12",
+      "dim": "package_appearance",
+      "type": "open",
+      "question": "包装或视觉上你最想改进哪里？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "包装优化建议"
+    },
+    {
+      "id": "q13",
+      "dim": "competitor_comparison",
+      "type": "single",
+      "question": "和你熟悉的同类产品相比，它的竞争力看起来如何？",
+      "options": [
+        "明显更强",
+        "略强",
+        "差不多",
+        "略弱",
+        "明显更弱",
+        "不了解同类"
+      ],
+      "required": true,
+      "analysis_hint": "竞品感知"
+    },
+    {
+      "id": "q14",
+      "dim": "competitor_comparison",
+      "type": "open",
+      "question": "你会拿它和哪个品牌或产品比较？为什么？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "发现心智竞品"
+    },
+    {
+      "id": "q15",
+      "dim": "competitor_comparison",
+      "type": "multi",
+      "question": "它相对竞品最需要补强的地方是什么？",
+      "options": [
+        "品牌信任",
+        "功效证据",
+        "价格优势",
+        "包装质感",
+        "达人口碑",
+        "渠道便利",
+        "成分透明",
+        "暂不确定"
+      ],
+      "required": true,
+      "analysis_hint": "竞品短板"
+    },
+    {
+      "id": "q16",
+      "dim": "usage_scenario",
+      "type": "multi",
+      "question": "你觉得它适合在哪些场景使用？",
+      "options": [
+        "日常通勤",
+        "熬夜修护",
+        "换季敏感",
+        "约会/社交",
+        "旅行携带",
+        "送礼",
+        "家庭囤货",
+        "不适合我"
+      ],
+      "required": true,
+      "analysis_hint": "使用场景分布"
+    },
+    {
+      "id": "q17",
+      "dim": "usage_scenario",
+      "type": "scale_1_5",
+      "question": "你觉得它融入你日常使用习惯的容易程度是多少？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "使用门槛"
+    },
+    {
+      "id": "q18",
+      "dim": "usage_scenario",
+      "type": "open",
+      "question": "你会在什么情况下真正打开它并坚持使用？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "真实使用触发场景"
+    },
+    {
+      "id": "q19",
+      "dim": "repurchase_intent",
+      "type": "scale_1_5",
+      "question": "如果第一次使用体验不错，你的复购意愿是多少？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "复购意愿"
+    },
+    {
+      "id": "q20",
+      "dim": "repurchase_intent",
+      "type": "single",
+      "question": "什么最可能影响你是否复购？",
+      "options": [
+        "实际效果",
+        "价格活动",
+        "肤感",
+        "是否过敏/闷痘",
+        "品牌服务",
+        "朋友评价",
+        "包装容量",
+        "其他"
+      ],
+      "required": true,
+      "analysis_hint": "复购影响因素"
+    },
+    {
+      "id": "q21",
+      "dim": "repurchase_intent",
+      "type": "open",
+      "question": "要让你复购，这款产品必须满足什么条件？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "复购条件"
+    },
+    {
+      "id": "q22",
+      "dim": "nps_recommendation",
+      "type": "scale_1_5",
+      "question": "你愿意把它推荐给朋友/同事/家人的程度是多少？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "NPS 映射基础"
+    },
+    {
+      "id": "q23",
+      "dim": "nps_recommendation",
+      "type": "single",
+      "question": "你最可能推荐给哪类人？",
+      "options": [
+        "学生党",
+        "上班族",
+        "宝妈",
+        "敏感肌人群",
+        "成分党",
+        "男士用户",
+        "礼品需求人群",
+        "不会推荐"
+      ],
+      "required": true,
+      "analysis_hint": "推荐人群"
+    },
+    {
+      "id": "q24",
+      "dim": "nps_recommendation",
+      "type": "open",
+      "question": "如果你要推荐或吐槽它，你会怎么说？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "可转化为营销话术和风险话术"
+    },
+    {
+      "id": "q25",
+      "dim": "channel_touchpoint",
+      "type": "multi",
+      "question": "哪些渠道最可能让你注意到这款产品？",
+      "options": [
+        "小红书",
+        "抖音短视频",
+        "直播间",
+        "天猫/京东搜索",
+        "线下门店",
+        "朋友推荐",
+        "公众号/知乎",
+        "美妆集合店"
+      ],
+      "required": true,
+      "analysis_hint": "触达渠道"
+    },
+    {
+      "id": "q26",
+      "dim": "channel_touchpoint",
+      "type": "single",
+      "question": "哪个渠道的信息最能影响你下单？",
+      "options": [
+        "真实用户评价",
+        "达人测评",
+        "直播间讲解",
+        "官方详情页",
+        "门店试用",
+        "朋友推荐",
+        "专业成分分析"
+      ],
+      "required": true,
+      "analysis_hint": "转化渠道"
+    },
+    {
+      "id": "q27",
+      "dim": "channel_touchpoint",
+      "type": "open",
+      "question": "你希望在购买前看到哪些信息，才会更放心？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "详情页/内容素材建议"
+    },
+    {
+      "id": "q28",
+      "dim": "painpoint_improvement",
+      "type": "multi",
+      "question": "你对这款产品最大的顾虑是什么？",
+      "options": [
+        "功效不明显",
+        "价格偏高",
+        "成分刺激",
+        "包装普通",
+        "品牌不熟",
+        "不适合肤质",
+        "使用麻烦",
+        "没有顾虑"
+      ],
+      "required": true,
+      "analysis_hint": "痛点统计"
+    },
+    {
+      "id": "q29",
+      "dim": "painpoint_improvement",
+      "type": "open",
+      "question": "如果只能改一个点，你希望产品先改哪里？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "产品迭代优先级"
+    },
+    {
+      "id": "q30",
+      "dim": "painpoint_improvement",
+      "type": "scale_1_5",
+      "question": "综合看，你现在的购买意愿是多少？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "overall_intent 参考题"
+    }
+  ]
+}

@@ -1,0 +1,483 @@
+{
+  "template_key": "beauty_survey_template_v2_psychology",
+  "name": "美妆护肤测评问卷模板（心理学增强版）",
+  "version": 2,
+  "category": "美妆",
+  "question_count": 30,
+  "design_notes": "基于消费者心理学方法论设计：投射技法消除社会期望偏差、PSM四问获取真实价格敏感度、行为场景题替代态度量表、隐喻抽取挖掘无意识品牌感知、认知失调检测暴露矛盾心理、损失框架激活真实顾虑。对标尼尔森U&A/凯度BrandZ/益普索MaxDiff标准。",
+  "dimensions": [
+    {
+      "key": "category_entry",
+      "name": "品类入口与情感触发",
+      "target_question_count": 4,
+      "psychology_method": "情绪温度计(Affect Grid) + ZMET隐喻抽取简化版"
+    },
+    {
+      "key": "purchase_motivation",
+      "name": "购买驱动（去社会期望偏差）",
+      "target_question_count": 4,
+      "psychology_method": "投射技法(Projective Technique) + 注意力验证"
+    },
+    {
+      "key": "price_sensitivity",
+      "name": "价格心理（PSM模型）",
+      "target_question_count": 3,
+      "psychology_method": "Van Westendorp PSM四问简化版 + 锚定效应"
+    },
+    {
+      "key": "package_appearance",
+      "name": "包装与感官",
+      "target_question_count": 3,
+      "psychology_method": "标准量表+开放"
+    },
+    {
+      "key": "competitor_comparison",
+      "name": "竞品选择情境",
+      "target_question_count": 3,
+      "psychology_method": "离散选择实验(DCE) + 真实购物场景"
+    },
+    {
+      "key": "usage_scenario",
+      "name": "使用场景预测",
+      "target_question_count": 3,
+      "psychology_method": "行为频率预测替代态度量表"
+    },
+    {
+      "key": "repurchase_intent",
+      "name": "复购行为预测（非态度）",
+      "target_question_count": 3,
+      "psychology_method": "行为承诺量表(Behavioral Commitment Scale) + 认知失调探针"
+    },
+    {
+      "key": "nps_recommendation",
+      "name": "推荐意愿",
+      "target_question_count": 3,
+      "psychology_method": "标准推荐量表(非NPS，因量表仅1-5)"
+    },
+    {
+      "key": "channel_touchpoint",
+      "name": "信息触达与购买渠道",
+      "target_question_count": 2,
+      "psychology_method": "多选"
+    },
+    {
+      "key": "painpoint_improvement",
+      "name": "阻碍与改进（损失厌恶框架）",
+      "target_question_count": 2,
+      "psychology_method": "损失厌恶(Loss Aversion) + 前景理论框架"
+    }
+  ],
+  "question_type_allowed": [
+    "single",
+    "multi",
+    "scale_1_5",
+    "open"
+  ],
+  "variable_placeholders": {
+    "{{product_name}}": "从 product.name 注入",
+    "{{product_price}}": "从 product.price 注入",
+    "{{main_selling_points}}": "从 product.ai_summary.main_selling_points 注入",
+    "{{key_ingredients}}": "从 product.ai_summary.key_ingredients 注入",
+    "{{competitor_1_name}}": "从 product.ai_summary.competitive_position 提取第一竞品",
+    "{{competitor_1_price}}": "需要在 prompt 中指定或由 AI 补全",
+    "{{competitor_2_name}}": "第二竞品",
+    "{{competitor_2_price}}": "第二竞品价格"
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "dim": "category_entry",
+      "type": "single",
+      "question": "你目前有没有在用精华液类的护肤品？",
+      "options": [
+        "每天都在用，是护肤必备步骤",
+        "偶尔用，不是每天",
+        "以前用过，现在没用了",
+        "从来没用过精华液"
+      ],
+      "required": true,
+      "analysis_hint": "品类筛选题：区分品类重度/轻度/流失/空白用户四个群体，后续交叉分析时作为核心分层变量",
+      "psychology_note": "品类入口点(Category Entry Point)，凯度U&A标准开场"
+    },
+    {
+      "id": "q02",
+      "dim": "category_entry",
+      "type": "single",
+      "question": "看完这款{{product_name}}的产品信息后，你现在的感觉最接近哪一个？",
+      "options": [
+        "好奇——想试试看效果到底怎么样",
+        "心动——感觉找到了适合我的产品",
+        "犹豫——听起来不错但还有顾虑",
+        "无感——跟我没什么关系",
+        "怀疑——这些宣传我不太信"
+      ],
+      "required": true,
+      "analysis_hint": "情绪分布饼图：五种情绪的占比。好奇+心动=正向池，犹豫=可转化池，无感+怀疑=阻力池",
+      "psychology_note": "情绪温度计(Affect Grid)替代粗暴的1-5分，每个选项是具体情绪状态，逼角色识别自己的真实感受"
+    },
+    {
+      "id": "q03",
+      "dim": "category_entry",
+      "type": "open",
+      "question": "如果这款{{product_name}}是一个人，你觉得ta是什么样的？（比如ta的年龄、穿什么风格的衣服、住在哪种地方、平时是什么性格）",
+      "options": null,
+      "required": true,
+      "analysis_hint": "品牌人格画像：用NLP提取高频年龄/穿搭/居住/性格关键词，生成品牌拟人化画像云图。对厂家客户揭示品牌在消费者无意识中的真实定位",
+      "psychology_note": "ZMET隐喻抽取技术简化版。人的95%购买决策发生在无意识层面，直接问'你觉得这个品牌怎样'只触及5%。通过拟人化隐喻，角色会投射出对品牌的无意识感知（高端/平价/年轻/老气）"
+    },
+    {
+      "id": "q04",
+      "dim": "category_entry",
+      "type": "scale_1_5",
+      "question": "综合产品名称、宣传卖点、成分信息，你对{{product_name}}的第一印象整体打几分？1=非常差，5=非常好",
+      "options": null,
+      "required": true,
+      "analysis_hint": "第一印象均分 + 分布直方图，作为报告开头的总览指标",
+      "psychology_note": "放在情绪题和隐喻题之后，角色已经'热身'过，此时的量表评分比冷启动更真实"
+    },
+    {
+      "id": "q05",
+      "dim": "purchase_motivation",
+      "type": "multi",
+      "question": "你觉得你身边的闺蜜或同事，最可能因为什么原因买这款{{product_name}}？（选出她们的真实原因，不是她们嘴上说的原因，最多选3个）",
+      "options": [
+        "被小红书/抖音博主种草了",
+        "直播间里价格便宜冲动下单",
+        "成分表看起来靠谱",
+        "闺蜜用了说好用",
+        "包装好看放梳妆台有面子",
+        "品牌名气大，买了不容易出错",
+        "想解决自己的皮肤问题",
+        "凑满减顺便买的"
+      ],
+      "required": true,
+      "analysis_hint": "真实购买驱动排名（去社会期望偏差版）。选项频次降序排列后与q06对比，检验角色自报动机vs投射动机的差异",
+      "psychology_note": "投射技法(Projective Technique)：问'别人为什么买'时，人投射的是自己的真实想法，但社会压力消失了。'不是她们嘴上说的'这句是关键触发语，暗示角色可以说出'不体面'的理由"
+    },
+    {
+      "id": "q06",
+      "dim": "purchase_motivation",
+      "type": "single",
+      "question": "这款产品有这些卖点：{{main_selling_points}}。如果只能保留一个卖点，其他全部去掉，你会保留哪一个？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "核心卖点强制排序：每个卖点被选为'唯一保留'的频次就是其真实优先级。配合q05做交叉分析",
+      "psychology_note": "MaxDiff简化版（强制取舍）。'只能保留一个'消除了'什么都选'的噪声，逼出真实的第一优先级。options由prompt根据product.main_selling_points动态生成"
+    },
+    {
+      "id": "q07",
+      "dim": "purchase_motivation",
+      "type": "single",
+      "question": "以下哪一个是{{product_name}}的核心成分？",
+      "options": [
+        "玻尿酸",
+        "水杨酸",
+        "虾青素",
+        "果酸"
+      ],
+      "required": true,
+      "analysis_hint": "注意力验证题：正确答案从product.key_ingredients取第一个。答错的角色全部答案可信度降权50%（在报告生成时实现）",
+      "psychology_note": "注意力检测(Attention Check / Trap Question)。专业问卷必备，用于识别不认真作答的样本。在AI角色场景下，答错说明角色没有'读进去'产品信息，system prompt需要改进"
+    },
+    {
+      "id": "q08",
+      "dim": "purchase_motivation",
+      "type": "multi",
+      "question": "除了功效和价格，以下哪些'不那么理性'的原因可能让你想买这款{{product_name}}？（可多选，选你心里真实的）",
+      "options": [
+        "喜欢的博主用过同款",
+        "瓶子好看，放梳妆台有面子",
+        "闺蜜/同事安利过",
+        "刷到的次数多了就想试试",
+        "品牌有国货情怀加分",
+        "直播间气氛到了就想下单",
+        "以上都不是，我买东西挺理性的"
+      ],
+      "required": true,
+      "analysis_hint": "非理性购买驱动排名：频次降序。最后一个选项'我挺理性的'的占比反映角色自我认知（通常会被高估）",
+      "psychology_note": "把开放题转为选择题，但选项全是'不太体面'的理由，且末尾加了'我挺理性的'选项——选这个的人往往恰恰不太理性"
+    },
+    {
+      "id": "q09",
+      "dim": "price_sensitivity",
+      "type": "open",
+      "question": "如果一瓶主打抗氧化+抗糖化的精华液定价特别便宜，便宜到你会怀疑'成分是不是真的有效'，那个价格大概是多少钱？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "PSM底线价格(Point of Marginal Cheapness)：提取数字后取中位数，画PSM交叉图左端",
+      "psychology_note": "Van Westendorp PSM第1问——'便宜到怀疑质量'。这个问法反直觉但极其有效：它揭示消费者心中'可信价格'的下限，比直接问'你觉得多少钱合理'精准得多"
+    },
+    {
+      "id": "q10",
+      "dim": "price_sensitivity",
+      "type": "open",
+      "question": "这款{{product_name}}定价多少钱的时候，你会觉得'这个价格挺划算的，可以入手'？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "PSM甜蜜点价格(Indifference Price Point)：提取数字取中位数，是最佳定价参考",
+      "psychology_note": "Van Westendorp PSM第2问——'划算价格'。结合q09和q11三个价格点，可以画出完整的价格接受度曲线"
+    },
+    {
+      "id": "q11",
+      "dim": "price_sensitivity",
+      "type": "open",
+      "question": "这款{{product_name}}实际售价{{product_price}}元。超过多少钱你会说'算了太贵了，我去找别的替代品'？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "PSM天花板价格(Point of Marginal Expensiveness)：提取数字取中位数。同时注意：这道题里揭示了实际售价，观察角色的天花板是否高于实际价——如果是，说明定价有上调空间",
+      "psychology_note": "Van Westendorp PSM第3问——'太贵价格'。注意这道题同时完成了'实际价格揭示'，形成锚定效应：角色会以实际价为参照物回答天花板，比直接问'多少钱太贵'更真实"
+    },
+    {
+      "id": "q12",
+      "dim": "package_appearance",
+      "type": "scale_1_5",
+      "question": "假设你拿到这款产品实物，它的包装设计（瓶身材质、按压/滴管设计、色彩搭配）对你的购买体验能加多少分？1=完全无所谓，5=极大加分",
+      "options": null,
+      "required": true,
+      "analysis_hint": "包装加分指数均值，按人群分层看不同画像对包装的敏感度差异"
+    },
+    {
+      "id": "q13",
+      "dim": "package_appearance",
+      "type": "single",
+      "question": "你更喜欢精华液用哪种出液方式？",
+      "options": [
+        "按压泵头——用量好控制",
+        "滴管——感觉卫生精准",
+        "真空瓶——能用到最后一滴不浪费",
+        "无所谓，功效好就行"
+      ],
+      "required": true,
+      "analysis_hint": "包装偏好分布饼图，配合角色画像看'包装不在意型'占比"
+    },
+    {
+      "id": "q14",
+      "dim": "package_appearance",
+      "type": "single",
+      "question": "如果这款产品的包装只能改一个地方，你最希望改哪里？",
+      "options": [
+        "外观设计再高级一点",
+        "出液方式更方便",
+        "瓶子做小一点方便携带",
+        "加个密封设计防止氧化",
+        "完全不用改，挺好的"
+      ],
+      "required": true,
+      "analysis_hint": "包装改进优先级：频次最高的选项就是最值得投入的改进方向。'不用改'占比反映包装满意度"
+    },
+    {
+      "id": "q15",
+      "dim": "competitor_comparison",
+      "type": "single",
+      "question": "你在刷手机时看到三款抗氧化精华正在做活动，你只打算入手一款，会选哪个？\nA. {{product_name}} — {{product_price}}元，主打{{key_ingredients}}\nB. OLAY小白瓶 — 179元，主打烟酰胺美白\nC. 乐敦CC美容液 — 89元，主打维C抗氧\nD. 都不选，我不需要抗氧精华",
+      "options": [
+        "{{product_name}}",
+        "OLAY小白瓶",
+        "乐敦CC美容液",
+        "都不选"
+      ],
+      "required": true,
+      "analysis_hint": "竞品选择份额(Choice Share)：四个选项的选择频次直接就是模拟市场份额。'都不选'比例反映品类渗透率天花板",
+      "psychology_note": "离散选择实验(Discrete Choice Experiment)简化版。关键设计：①同价位带竞品（不是169vs1500的假比较）②真实购物场景（刷手机看到活动）③有'都不选'（避免强制选择偏差）④只能选一个（机会成本真实）"
+    },
+    {
+      "id": "q16",
+      "dim": "competitor_comparison",
+      "type": "open",
+      "question": "你选了上面那个答案的核心原因是什么？如果没选{{product_name}}，它输在哪里？",
+      "options": null,
+      "required": true,
+      "analysis_hint": "竞品选择理由：按选择分组后NLP提取理由主题，输出为'选择驱动因子分析'"
+    },
+    {
+      "id": "q17",
+      "dim": "competitor_comparison",
+      "type": "scale_1_5",
+      "question": "综合成分、价格、品牌知名度、卖点等所有因素，你觉得{{product_name}}比市面上同类抗氧化精华的整体竞争力如何？1=明显落后，5=明显领先",
+      "options": null,
+      "required": true,
+      "analysis_hint": "整体竞争力得分均值 + 分布，作为报告'竞争力评估'板块的核心指标"
+    },
+    {
+      "id": "q18",
+      "dim": "usage_scenario",
+      "type": "multi",
+      "question": "以下哪些场景你会想用这款抗氧抗糖精华？（可多选）",
+      "options": [
+        "每天早晚常规护肤",
+        "熬夜后第二天急救",
+        "重要场合前（约会/面试/拍照）",
+        "换季皮肤状态差的时候",
+        "户外活动/出差旅行时",
+        "没什么特别场景，偶尔想起来才用"
+      ],
+      "required": true,
+      "analysis_hint": "使用场景分布：按场景频次排序，识别产品的'主战场'和'机会场景'"
+    },
+    {
+      "id": "q19",
+      "dim": "usage_scenario",
+      "type": "single",
+      "question": "如果你买了这款产品，你觉得自己最可能的使用频率是？",
+      "options": [
+        "每天早晚都用，雷打不动",
+        "每天用一次（早或晚）",
+        "一周用3-4次",
+        "想起来才用，一周1-2次",
+        "大概率买了会闲置"
+      ],
+      "required": true,
+      "analysis_hint": "使用频率分布：'每天用'占比代表产品粘性预测；'闲置'占比是风险信号",
+      "psychology_note": "行为频率预测替代'你会不会用'的态度题。'大概率闲置'选项给了角色一个安全的出口说实话"
+    },
+    {
+      "id": "q20",
+      "dim": "usage_scenario",
+      "type": "multi",
+      "question": "以下哪些时候你最想开始用这款产品？（可多选）",
+      "options": [
+        "现在就想用，不挑时间",
+        "秋冬换季时皮肤最需要修复",
+        "夏天抗氧化需求最强",
+        "大促/打折的时候顺便囤",
+        "暂时不需要"
+      ],
+      "required": true,
+      "analysis_hint": "购买时机分布：指导上市节奏和促销策略。'等打折'占比反映价格阻力，'暂时不需要'反映品类渗透天花板"
+    },
+    {
+      "id": "q21",
+      "dim": "repurchase_intent",
+      "type": "single",
+      "question": "假设你用完了这瓶{{product_name}}，当天晚上打开淘宝，以下哪个最接近你的真实反应？",
+      "options": [
+        "直接搜索下单同款",
+        "先看看有没有升级版或新包装",
+        "搜搜其他品牌的抗氧精华比比看",
+        "先不买了，等下次大促或有优惠再说",
+        "不会再买了，换别的试试"
+      ],
+      "required": true,
+      "analysis_hint": "复购行为预测(Behavioral Commitment Scale)：选项A=强复购，B=品牌内探索，C=品类内流失，D=价格驱动型，E=流失。比1-5分量表精准10倍",
+      "psychology_note": "用具体行为场景替代'你有多大可能复购'的态度题。每个选项对应一个行为强度等级，但角色不会意识到自己在被量化。凯度称之为Behavioral Commitment Scale"
+    },
+    {
+      "id": "q22",
+      "dim": "repurchase_intent",
+      "type": "single",
+      "question": "用完这款产品一个月后，以下哪句话最像你的内心独白？",
+      "options": [
+        "真香，早该买了",
+        "还行吧，但也没惊艳到",
+        "用着还可以，但总觉得有更好的选择",
+        "有点后悔，这钱不如买别的",
+        "说不上来，不会主动回购但也不讨厌"
+      ],
+      "required": true,
+      "analysis_hint": "认知失调分布：选项C和E是'温吞态度'的典型表现，这类人群是竞品最容易撬动的。选项A+B占比=产品满意度的行为版指标",
+      "psychology_note": "认知失调探针(Cognitive Dissonance Probe)。真人消费后经常有矛盾心理，但传统问卷的'满意/不满意'二分法抹杀了中间地带。选项C('用着还可以但总觉得有更好的')是最有分析价值的——这些人不会给差评，但也不会复购"
+    },
+    {
+      "id": "q23",
+      "dim": "repurchase_intent",
+      "type": "open",
+      "question": "什么事情发生了，你会彻底放弃这款产品再也不买？请说一个最致命的原因。",
+      "options": null,
+      "required": true,
+      "analysis_hint": "致命流失因子提取：NLP提取后按频次排序，输出'复购杀手排行榜'",
+      "psychology_note": "'一个最致命的'强制聚焦，避免角色罗列一堆泛泛的理由"
+    },
+    {
+      "id": "q24",
+      "dim": "nps_recommendation",
+      "type": "scale_1_5",
+      "question": "你有多大可能性会把{{product_name}}推荐给需要抗初老的朋友？1=绝对不会，5=一定会推荐",
+      "options": null,
+      "required": true,
+      "analysis_hint": "推荐意愿得分(非NPS)：均值+分布。注意：因为是1-5而非0-10量表，不要计算NPS，直接用均值和中位数"
+    },
+    {
+      "id": "q25",
+      "dim": "nps_recommendation",
+      "type": "single",
+      "question": "你会把这款产品推荐给哪类朋友？",
+      "options": [
+        "25-30岁刚进入初老阶段的",
+        "经常熬夜皮肤暗沉的",
+        "预算有限但想用功效型精华的",
+        "对国货品牌持支持态度的",
+        "不太会推荐给别人"
+      ],
+      "required": true,
+      "analysis_hint": "推荐人群画像：频次最高的选项揭示产品的'自传播方向'。'不推荐'占比是风险指标"
+    },
+    {
+      "id": "q26",
+      "dim": "nps_recommendation",
+      "type": "open",
+      "question": "如果有朋友问你'这个精华值不值得买'，你会怎么回她微信？用你平时跟朋友聊天的语气说。",
+      "options": null,
+      "required": true,
+      "analysis_hint": "自然语言推荐话术提取：这些真实话术可以直接用于产品详情页/小红书种草文案参考",
+      "psychology_note": "'用你平时跟朋友聊天的语气'降低正式感，角色会给出更口语化、更真实的回答，而不是'该产品具有优秀的抗氧化功效'这种书面语"
+    },
+    {
+      "id": "q27",
+      "dim": "channel_touchpoint",
+      "type": "multi",
+      "question": "以下哪些渠道会影响你最终决定买不买这款产品？（可多选）",
+      "options": [
+        "小红书/抖音博主测评",
+        "淘宝/京东商品详情页和评价",
+        "品牌官方公众号或视频号",
+        "朋友当面推荐或发微信安利",
+        "直播间讲解和试用演示",
+        "线下专柜/屈臣氏体验"
+      ],
+      "required": true,
+      "analysis_hint": "信息触达渠道影响力排名：指导媒体投放和内容策略"
+    },
+    {
+      "id": "q28",
+      "dim": "channel_touchpoint",
+      "type": "multi",
+      "question": "你平时买精华液主要在哪里下单？（可多选）",
+      "options": [
+        "天猫/京东品牌旗舰店",
+        "抖音/快手直播间",
+        "拼多多/抖音小店等低价渠道",
+        "小红书商城",
+        "线下屈臣氏/丝芙兰/美妆集合店",
+        "品牌小程序或官网"
+      ],
+      "required": true,
+      "analysis_hint": "购买渠道分布：与q27对比看'种草渠道'和'拔草渠道'是否一致"
+    },
+    {
+      "id": "q29",
+      "dim": "painpoint_improvement",
+      "type": "single",
+      "question": "假设你已经把这款{{product_name}}放进了购物车，手指都点到'立即购买'了，以下哪件事会让你最终关掉页面不买了？",
+      "options": [
+        "突然看到一条差评说用了过敏",
+        "发现没有凑满减的机会",
+        "详情页里找不到完整成分表",
+        "想起来同事说这个牌子一般般",
+        "算了算这个月花超预算了"
+      ],
+      "required": true,
+      "analysis_hint": "购物车流失因子（损失厌恶框架）：选择频次最高的选项就是最需要在产品页上解决的问题",
+      "psychology_note": "损失厌恶(Loss Aversion)框架。'已经放进购物车又关掉'比'什么阻止你购买'激活的心理损失感强2倍（卡尼曼前景理论），角色会给出更尖锐、更真实的回答"
+    },
+    {
+      "id": "q30",
+      "dim": "painpoint_improvement",
+      "type": "open",
+      "question": "最后一题：如果这款{{product_name}}的产品经理就站在你面前，你最想跟ta说的一句话是什么？（可以是夸、可以是骂、可以是建议，说真话就行）",
+      "options": null,
+      "required": true,
+      "analysis_hint": "终极开放反馈：作为报告'消费者原声'板块的素材，按情感倾向(正/中/负)分类展示",
+      "psychology_note": "结尾用'产品经理站在你面前'的场景化表述，赋予角色'直接对话决策者'的权力感，降低客气和敷衍的概率。'可以骂'这句话主动赋予负面表达的许可"
+    }
+  ]
+}

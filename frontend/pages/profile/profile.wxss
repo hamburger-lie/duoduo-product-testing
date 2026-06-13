@@ -1,0 +1,324 @@
+.page {
+  min-height: 100vh;
+  background: #F5F5F5;
+  padding-bottom: 140rpx;
+}
+
+/* ── User card ── */
+.ucard {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 20rpx;
+  background: #FFFFFF;
+  padding: 24rpx 32rpx;
+  margin-bottom: 24rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Login card: relative so overlay button can fill it */
+.ucard-login { position: relative; }
+.ucard-login:active { background: #F9F9F9; }
+
+/* Invisible full-cover button — only purpose is getPhoneNumber tap */
+.ucard-phone-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  background: transparent;
+  padding: 0; margin: 0;
+}
+.ucard-phone-overlay::after { border: none; }
+
+.ucard-av { flex-shrink: 0; position: relative; }
+
+/* Avatar button (chooseAvatar) */
+.avatar-btn {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  border: none;
+}
+.avatar-btn::after { border: none; }
+
+/* Real avatar image */
+.avatar-img {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+}
+
+/* Avatar hint text — floats below avatar without affecting layout height */
+.avatar-hint {
+  position: absolute;
+  bottom: -28rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 18rpx;
+  color: #AAAAAA;
+}
+
+/* Person silhouette avatar */
+.avatar-circle {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #C4B5FD, #7C3AED);
+  position: relative;
+  overflow: hidden;
+}
+.av-head {
+  position: absolute;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.90);
+  top: 16rpx;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.av-body {
+  position: absolute;
+  width: 76rpx;
+  height: 50rpx;
+  border-radius: 38rpx 38rpx 0 0;
+  background: rgba(255,255,255,0.75);
+  bottom: -10rpx;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ucard-body { flex: 1; min-width: 0; }
+
+.ucard-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 12rpx;
+}
+.ucard-name {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+
+/* Nickname input (type="nickname" — native WeChat component) */
+.ucard-name-input {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+  min-height: 48rpx;
+  padding: 0;
+  width: 100%;
+}
+
+/* Role label and options */
+.ucard-role-label {
+  font-size: 24rpx;
+  color: #888888;
+  flex-shrink: 0;
+}
+.role-options {
+  display: flex;
+  gap: 16rpx;
+}
+.role-opt {
+  padding: 6rpx 24rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  color: #888888;
+  background: #F0F0F0;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.role-opt-on {
+  color: #FFFFFF;
+  background: #7B6FA8;
+}
+.ucard-edit-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23BBBBBB' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3E%3Cpath d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* Credits badge */
+.ucard-credits {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  height: 44rpx;
+  padding: 0 18rpx;
+  background: #1E1B2E;
+  border-radius: 22rpx;
+}
+.ucard-coin {
+  width: 26rpx;
+  height: 26rpx;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F5E6C0' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cline x1='12' y1='7' x2='12' y2='9'/%3E%3Cline x1='12' y1='15' x2='12' y2='17'/%3E%3Cpath d='M9.5 9H14a2 2 0 0 1 0 4H9.5'/%3E%3Cpath d='M9.5 13H14a2 2 0 0 1 0 4H9.5'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.ucard-credits-num {
+  font-size: 22rpx;
+  color: #F5E6C0;
+  font-weight: 500;
+}
+.ucard-phone {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: #888888;
+}
+
+/* Not-logged-in sub text and arrow */
+.ucard-sub {
+  font-size: 24rpx;
+  color: #999999;
+}
+.ucard-arrow {
+  font-size: 40rpx;
+  color: #CCCCCC;
+  font-weight: 300;
+  flex-shrink: 0;
+}
+
+/* ── Section title ── */
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333333;
+  padding: 0 32rpx 16rpx;
+}
+
+/* ── Menu list ── */
+.menu-list {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  margin: 0 32rpx 32rpx;
+  overflow: hidden;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 28rpx 24rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+.menu-item-last { border-bottom: none; }
+.menu-item:active { background: #F9F9F9; }
+
+.menu-icon-wrap {
+  width: 48rpx;
+  height: 48rpx;
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+.mi-persona {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237B6FA8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+}
+.mi-product {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23EC4899' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'/%3E%3Cline x1='3' y1='6' x2='21' y2='6'/%3E%3Cpath d='M16 10a4 4 0 0 1-8 0'/%3E%3C/svg%3E");
+}
+.mi-coin {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F5A623' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cline x1='12' y1='6' x2='12' y2='8.5'/%3E%3Cline x1='12' y1='15.5' x2='12' y2='18'/%3E%3Cpath d='M9.5 8.5H14a2 2 0 0 1 0 4H9.5'/%3E%3Cpath d='M9.5 12.5H14a2 2 0 0 1 0 4H9.5'/%3E%3C/svg%3E");
+}
+.mi-pdf {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23EF4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6'/%3E%3Cpath d='M7 14h2a1.5 1.5 0 0 0 0-3H7v6'/%3E%3Cpath d='M12 11h1.5a2 2 0 0 1 0 4H12z'/%3E%3Cpath d='M17 11h2'/%3E%3Cpath d='M17 14h1.5'/%3E%3Cpath d='M17 17v-6'/%3E%3C/svg%3E");
+}
+.mi-share {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234CAF50' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='18' cy='5' r='3'/%3E%3Ccircle cx='6' cy='12' r='3'/%3E%3Ccircle cx='18' cy='19' r='3'/%3E%3Cline x1='8.6' y1='13.5' x2='15.4' y2='17.5'/%3E%3Cline x1='15.4' y1='6.5' x2='8.6' y2='10.5'/%3E%3C/svg%3E");
+}
+.mi-chat {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232196F3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
+}
+.mi-settings {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='4' y1='6' x2='20' y2='6'/%3E%3Cline x1='4' y1='12' x2='20' y2='12'/%3E%3Cline x1='4' y1='18' x2='20' y2='18'/%3E%3Ccircle cx='8' cy='6' r='2.5' fill='%23888888'/%3E%3Ccircle cx='16' cy='12' r='2.5' fill='%23888888'/%3E%3Ccircle cx='10' cy='18' r='2.5' fill='%23888888'/%3E%3C/svg%3E");
+}
+
+.menu-label {
+  flex: 1;
+  font-size: 28rpx;
+  color: #1A1A1A;
+}
+.menu-arrow {
+  font-size: 40rpx;
+  color: #CCCCCC;
+  font-weight: 300;
+}
+
+/* Share item: transparent button overlay */
+.share-item { position: relative; }
+.share-overlay-btn {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  background: transparent;
+  padding: 0; margin: 0;
+}
+.share-overlay-btn::after { border: none; }
+
+.logout-wrap {
+  padding: 0 32rpx;
+  margin-top: 16rpx;
+}
+.logout-btn {
+  height: 96rpx;
+  border-radius: 20rpx;
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  color: #EF4444;
+  font-weight: 500;
+}
+.logout-btn:active { opacity: 0.75; }
+
+/* 编辑昵称面板 */
+.edit-panel {
+  margin-top: 16rpx;
+  background: #F5F5F5;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.edit-input {
+  height: 72rpx;
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  color: #1A1A1A;
+}
+.edit-actions {
+  display: flex;
+  gap: 16rpx;
+  justify-content: flex-end;
+}
+.edit-cancel {
+  padding: 12rpx 32rpx;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+  color: #999;
+  border: 1rpx solid #ddd;
+}
+.edit-save {
+  padding: 12rpx 32rpx;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+  color: #fff;
+  background: #6C63FF;
+}
+.edit-save.disabled { opacity: 0.5; }

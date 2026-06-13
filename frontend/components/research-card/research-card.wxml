@@ -1,0 +1,9 @@
+<view class="rc" bind:tap="onTap" wx:if="{{card}}">
+  <view class="rc-thumb">{{card.thumb_emoji}}</view>
+  <view class="rc-body">
+    <view class="rc-title ellipsis">{{card.title}}</view>
+    <view class="rc-meta">{{card.meta_text}}</view>
+    <progress-bar class="rc-progress" percent="{{card.progress}}" height="{{6}}"/>
+  </view>
+  <badge kind="{{card.status === 'done' ? 'done' : 'active'}}" text="{{card.status_label}}"/>
+</view>

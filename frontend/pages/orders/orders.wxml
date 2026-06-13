@@ -1,0 +1,39 @@
+<view class="page">
+
+  <view wx:if="{{loading}}" class="empty-hint loading-state">
+    <brand-loading size="large"></brand-loading>
+  </view>
+
+  <view wx:elif="{{empty}}" class="empty-wrap">
+    <view class="empty-icon"></view>
+    <text class="empty-hint">暂无订单记录</text>
+    <view class="empty-cta" bind:tap="onTapUpgrade">立即升级 Plus ›</view>
+  </view>
+
+  <view wx:else>
+    <view wx:for="{{orders}}" wx:key="id" class="order-card {{item.out_trade_no === highlightTradeNo ? 'order-card--highlight' : ''}}">
+      <view class="order-header">
+        <text class="order-product">Plus 会员（年费）</text>
+        <text class="order-status status-{{item.status}}">{{item.statusLabel}}</text>
+      </view>
+      <view class="order-divider"></view>
+      <view class="order-row">
+        <text class="order-label">订单金额</text>
+        <text class="order-amount">¥{{item.amount_yuan}}</text>
+      </view>
+      <view class="order-row">
+        <text class="order-label">下单时间</text>
+        <text class="order-value">{{item.created_at_fmt}}</text>
+      </view>
+      <view wx:if="{{item.paid_at_fmt}}" class="order-row">
+        <text class="order-label">支付时间</text>
+        <text class="order-value">{{item.paid_at_fmt}}</text>
+      </view>
+      <view class="order-row order-row-last">
+        <text class="order-label">订单号</text>
+        <text class="order-no">{{item.out_trade_no}}</text>
+      </view>
+    </view>
+  </view>
+
+</view>

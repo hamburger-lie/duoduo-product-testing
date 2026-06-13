@@ -1,0 +1,91 @@
+services:
+  postgres:
+    cpus: "0.60"
+    mem_limit: 640M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.60"
+          memory: 640M
+
+  redis:
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory 128mb --maxmemory-policy allkeys-lru
+    cpus: "0.10"
+    mem_limit: 160M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 160M
+
+  qdrant:
+    cpus: "0.10"
+    mem_limit: 256M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 256M
+
+  api:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    environment:
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-8}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-4}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-2}
+      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
+      CURRENT_USER_CACHE_TTL_SECONDS: ${CURRENT_USER_CACHE_TTL_SECONDS:-300}
+      ACTIVITY_LOG_ENABLED: ${ACTIVITY_LOG_ENABLED:-false}
+      ACTIVITY_LOG_SAMPLE_RATE: ${ACTIVITY_LOG_SAMPLE_RATE:-0}
+      ACTIVITY_LOG_ASYNC: ${ACTIVITY_LOG_ASYNC:-true}
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --access-log
+    cpus: "1.20"
+    mem_limit: 850M
+    deploy:
+      resources:
+        limits:
+          cpus: "1.20"
+          memory: 850M
+
+  worker:
+    environment:
+      DB_POOL_SIZE: ${WORKER_DB_POOL_SIZE:-4}
+      DB_MAX_OVERFLOW: ${WORKER_DB_MAX_OVERFLOW:-2}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-2}
+      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
+      CURRENT_USER_CACHE_TTL_SECONDS: ${CURRENT_USER_CACHE_TTL_SECONDS:-300}
+      ACTIVITY_LOG_ENABLED: ${ACTIVITY_LOG_ENABLED:-false}
+      ACTIVITY_LOG_SAMPLE_RATE: ${ACTIVITY_LOG_SAMPLE_RATE:-0}
+      ACTIVITY_LOG_ASYNC: ${ACTIVITY_LOG_ASYNC:-true}
+    command: uv run celery -A app.tasks.celery_app.celery_app worker -Q evaluations -l info -c 1
+    cpus: "0.30"
+    mem_limit: 256M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 256M
+
+  beat:
+    environment:
+      DB_POOL_SIZE: ${WORKER_DB_POOL_SIZE:-4}
+      DB_MAX_OVERFLOW: ${WORKER_DB_MAX_OVERFLOW:-2}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-2}
+      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
+      CURRENT_USER_CACHE_TTL_SECONDS: ${CURRENT_USER_CACHE_TTL_SECONDS:-300}
+      ACTIVITY_LOG_ENABLED: ${ACTIVITY_LOG_ENABLED:-false}
+      ACTIVITY_LOG_SAMPLE_RATE: ${ACTIVITY_LOG_SAMPLE_RATE:-0}
+      ACTIVITY_LOG_ASYNC: ${ACTIVITY_LOG_ASYNC:-true}
+    cpus: "0.10"
+    mem_limit: 128M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 128M

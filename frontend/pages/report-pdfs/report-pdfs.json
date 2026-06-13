@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "调研报告 PDF",
+  "navigationBarBackgroundColor": "#FFFFFF",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "brand-loading": "/components/brand-loading/brand-loading"
+  }
+}

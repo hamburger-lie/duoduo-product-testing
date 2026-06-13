@@ -1,0 +1,146 @@
+<view class="page">
+  <view class="bg-blob b1"></view>
+  <view class="bg-blob b2"></view>
+  <view class="bg-blob b3"></view>
+
+  <!-- Header -->
+  <view class="header">
+    <view class="brand">测品官</view>
+    <view class="tagline">
+      <text>测卖点、看犹豫、找机会</text>
+      <text>用 AI 先跑一轮市场反馈</text>
+    </view>
+  </view>
+
+  <!-- Scene -->
+  <view class="scene">
+
+    <!-- Hero image, large, background-blended -->
+    <image class="hero-img" src="/assets/hero.png" mode="aspectFit"/>
+
+    <!-- Draggable + floating bubble cards -->
+    <movable-area wx:if="{{bubblesVisible}}" class="bubble-field">
+
+      <movable-view
+        wx:for="{{bubbles}}"
+        wx:key="id"
+        direction="all"
+        x="{{item.x}}"
+        y="{{item.y}}"
+        inertia
+        out-of-bounds
+        class="mv"
+      >
+        <view class="bubble-emerge emerge-{{item.floatClass}}">
+          <view class="bub {{item.floatClass}}" data-id="{{item.id}}" bind:tap="onTapBubble">
+            <avatar personaKey="{{item.personaKey}}" personaId="{{item.id}}" avatarSlot="{{item.avatarSlot}}" size="{{68}}" />
+            <view class="binfo">
+              <view class="bname">{{item.group}}</view>
+              <view class="brole">{{item.label}}</view>
+            </view>
+          </view>
+        </view>
+      </movable-view>
+
+    </movable-area>
+  </view>
+
+  <!-- CTA: fixed color + flowing gradient border -->
+  <view class="cta-outer" bind:tap="onTapCreate">
+    <view class="cta-inner">
+      <text class="cta-text">开始调研</text>
+    </view>
+  </view>
+
+  <!-- Persona preview sheet (unauthenticated tap) -->
+  <view wx:if="{{showPersonaSheet && activePersona}}" class="auth-mask" bind:tap="onClosePersonaSheet">
+    <view class="auth-sheet persona-sheet" catchtap="noop">
+      <view class="auth-pill"></view>
+      <view class="persona-sheet-body">
+        <avatar
+          personaKey="{{activePersona.personaKey}}"
+          personaId="{{activePersona.id}}"
+          avatarSlot="{{activePersona.avatarSlot}}"
+          size="{{120}}"
+          ring="{{true}}"
+        />
+        <view class="persona-sheet-info">
+          <view class="persona-sheet-name">{{activePersona.group}}</view>
+          <view class="persona-sheet-tags">
+            <view wx:for="{{activePersona.labelTags}}" wx:key="index" class="persona-tag-chip">{{item}}</view>
+          </view>
+        </view>
+      </view>
+      <view class="persona-sheet-hint">登录后可查看完整测品官档案，并开始调研</view>
+      <button class="auth-primary" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber" loading="{{authLoading}}" disabled="{{authLoading}}">手机号快捷登录</button>
+      <view class="auth-exit" bind:tap="onClosePersonaSheet">暂不登录，继续浏览</view>
+    </view>
+  </view>
+
+  <!-- Profile setup sheet (first login) -->
+  <view wx:if="{{showProfileSheet}}" class="auth-mask">
+    <view class="auth-sheet">
+      <view class="auth-pill"></view>
+      <view class="auth-title">完善你的资料</view>
+
+      <button
+        class="profile-avatar-btn"
+        open-type="chooseAvatar"
+        bindchooseavatar="onProfileChooseAvatar"
+      >
+        <image wx:if="{{profileAvatarTemp}}" class="profile-avatar-img" src="{{profileAvatarTemp}}" mode="aspectFill"/>
+        <view wx:else class="profile-avatar-placeholder">
+          <text class="profile-avatar-icon">＋</text>
+        </view>
+      </button>
+
+      <input
+        class="profile-nickname-input"
+        type="nickname"
+        placeholder="请输入你的名字"
+        placeholder-class="profile-nickname-placeholder"
+        bindinput="onProfileNicknameInput"
+        maxlength="20"
+      />
+
+      <button
+        class="auth-primary"
+        disabled="{{!profileAvatarTemp || !profileNickname || profileSubmitting}}"
+        loading="{{profileSubmitting}}"
+        bindtap="onProfileSubmit"
+      >
+        完成
+      </button>
+    </view>
+  </view>
+
+  <view wx:if="{{showAuthModal}}" class="auth-mask">
+    <view class="auth-sheet">
+      <view class="auth-pill"></view>
+      <view class="auth-title">登录美博会测品官</view>
+      <view class="auth-desc">授权手机号后保存测评档案、同步积分和报告。</view>
+      <button
+        class="auth-primary"
+        open-type="getPhoneNumber"
+        bindgetphonenumber="onGetPhoneNumber"
+        loading="{{authLoading}}"
+        disabled="{{authLoading}}"
+      >
+        手机号快捷登录
+      </button>
+      <navigator class="auth-exit" target="miniProgram" open-type="exit">
+        暂不使用，退出小程序
+      </navigator>
+    </view>
+  </view>
+
+  <view wx:if="{{showDailyCreditModal}}" class="daily-credit-mask" bind:tap="onCloseDailyCreditModal">
+    <view class="daily-credit-dialog" catchtap="noop">
+      <view class="daily-credit-title">每日登录奖励</view>
+      <view class="daily-credit-amount">+{{dailyCreditAmount}} 积分</view>
+      <view class="daily-credit-desc">已直接到账，当前余额 {{dailyCreditBalance}} 积分</view>
+      <button class="daily-credit-btn" bindtap="onCloseDailyCreditModal">知道了</button>
+    </view>
+  </view>
+
+</view>

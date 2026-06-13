@@ -1,0 +1,4 @@
+<view class="bt">
+  <view class="bt-label">💭 内心独白</view>
+  <view class="bt-body">{{content}}</view>
+</view>

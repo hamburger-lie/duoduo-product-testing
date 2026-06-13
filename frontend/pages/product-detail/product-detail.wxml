@@ -1,0 +1,76 @@
+<view class="page">
+
+  <view wx:if="{{loading}}" class="state-center">
+    <brand-loading size="large"></brand-loading>
+  </view>
+
+  <block wx:elif="{{product}}">
+    <!-- Image carousel -->
+    <view class="img-wrap">
+      <swiper
+        wx:if="{{product.image_urls.length > 0}}"
+        class="img-swiper"
+        indicator-dots="{{product.image_urls.length > 1}}"
+        indicator-color="rgba(255,255,255,0.5)"
+        indicator-active-color="#FFFFFF"
+        bindchange="onImgSwipe"
+        autoplay
+        interval="3000"
+      >
+        <swiper-item wx:for="{{product.image_urls}}" wx:key="*this">
+          <image class="img-slide" src="{{item}}" mode="aspectFill" data-src="{{item}}" bind:tap="onPreviewImage"/>
+        </swiper-item>
+      </swiper>
+      <view wx:else class="img-placeholder"></view>
+    </view>
+
+    <!-- Info -->
+    <view class="info-card">
+      <view class="product-name">{{product.name}}</view>
+      <view wx:if="{{product.brand}}" class="product-brand">品牌：{{product.brand}}</view>
+      <view class="tag-row">
+        <view class="tag">{{product.category}}</view>
+        <view wx:if="{{product.sub_category}}" class="tag">{{product.sub_category}}</view>
+        <view wx:if="{{product.price}}" class="tag price-tag">¥{{product.price}}</view>
+        <view class="tag status-{{product.status}}">
+          {{product.status === 'ready' ? '就绪' : product.status === 'pending' ? '处理中' : '失败'}}
+        </view>
+      </view>
+      <view class="section-title">产品描述</view>
+      <view class="desc-text">{{product.description}}</view>
+    </view>
+
+    <!-- AI Summary -->
+    <view wx:if="{{product.ai_summary}}" class="info-card">
+      <view class="section-title">AI 分析</view>
+      <view class="ai-row">
+        <view class="ai-label">目标用户</view>
+        <view class="ai-val">{{product.ai_summary.target_audience}}</view>
+      </view>
+      <view wx:if="{{product.ai_summary.main_selling_points.length > 0}}" class="ai-row">
+        <view class="ai-label">核心卖点</view>
+        <view class="ai-chips">
+          <view wx:for="{{product.ai_summary.main_selling_points}}" wx:key="*this" class="chip">{{item}}</view>
+        </view>
+      </view>
+      <view wx:if="{{product.ai_summary.suitable_skin_types.length > 0}}" class="ai-row">
+        <view class="ai-label">适合肤质</view>
+        <view class="ai-chips">
+          <view wx:for="{{product.ai_summary.suitable_skin_types}}" wx:key="*this" class="chip">{{item}}</view>
+        </view>
+      </view>
+      <view class="ai-row">
+        <view class="ai-label">竞争定位</view>
+        <view class="ai-val">{{product.ai_summary.competitive_position}}</view>
+      </view>
+    </view>
+
+    <view class="bottom-bar">
+      <view class="reanalyze-btn {{reanalyzing ? 'disabled' : ''}}" bind:tap="onReanalyze">
+        {{reanalyzing ? '分析中…' : '重新 AI 分析'}}
+      </view>
+      <view class="eval-btn" bind:tap="onStartEval">发起调研</view>
+    </view>
+  </block>
+
+</view>

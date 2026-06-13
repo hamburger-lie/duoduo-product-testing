@@ -1,0 +1,11 @@
+.pb-track {
+  width: 100%;
+  border-radius: var(--r-pill);
+  background: rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.pb-fill {
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 100%);
+  transition: width 0.4s ease;
+}

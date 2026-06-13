@@ -1,0 +1,25 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/api/v1/products,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/products'),36,2026-06-08T03:41:59Z,2026-06-08T03:42:53Z
+POST,/api/v1/evaluations/7294526023284005/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294526023284005/run'),1,2026-06-08T03:42:39Z,2026-06-08T03:42:39Z
+GET,/api/v1/credits/balance,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/credits/balance'),47,2026-06-08T03:41:59Z,2026-06-08T03:42:51Z
+PUT,/api/v1/evaluations/7294526064256430/personas,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations/7294526064256430/personas'),1,2026-06-08T03:42:41Z,2026-06-08T03:42:41Z
+GET,/api/v1/reports/by-evaluation/7294525801242610,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/reports/by-evaluation/7294525801242610'),1,2026-06-08T03:42:51Z,2026-06-08T03:42:51Z
+POST,/api/v1/evaluations/7294526050653583/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294526050653583/run'),1,2026-06-08T03:42:45Z,2026-06-08T03:42:45Z
+GET,/api/v1/personas,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/personas'),55,2026-06-08T03:41:59Z,2026-06-08T03:42:51Z
+POST,/api/v1/surveys/generate,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/surveys/generate'),4,2026-06-08T03:42:15Z,2026-06-08T03:42:41Z
+POST,/api/v1/evaluations,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations'),6,2026-06-08T03:41:59Z,2026-06-08T03:42:38Z
+PUT,/api/v1/evaluations/7294525944357920/personas,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations/7294525944357920/personas'),1,2026-06-08T03:42:12Z,2026-06-08T03:42:12Z
+PUT,/api/v1/evaluations/7294526050653583/personas,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations/7294526050653583/personas'),1,2026-06-08T03:42:38Z,2026-06-08T03:42:38Z
+GET,/api/v1/reports/by-evaluation/7294525886894831,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/reports/by-evaluation/7294525886894831'),1,2026-06-08T03:42:05Z,2026-06-08T03:42:05Z
+PUT,/api/v1/evaluations/7294526048683377/personas,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations/7294526048683377/personas'),1,2026-06-08T03:42:35Z,2026-06-08T03:42:35Z
+POST,/api/v1/evaluations/7294525944357920/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294525944357920/run'),1,2026-06-08T03:42:19Z,2026-06-08T03:42:19Z
+POST,/api/v1/evaluations/7294525905400724/run,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations/7294525905400724/run'),1,2026-06-08T03:42:05Z,2026-06-08T03:42:05Z
+POST,/api/v1/evaluations/7294526048683377/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294526048683377/run'),1,2026-06-08T03:42:42Z,2026-06-08T03:42:42Z
+POST,/api/v1/evaluations/7294526064256430/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294526064256430/run'),1,2026-06-08T03:42:51Z,2026-06-08T03:42:51Z
+POST,/api/v1/evaluations/7294525996901568/run,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations/7294525996901568/run'),1,2026-06-08T03:42:35Z,2026-06-08T03:42:35Z
+POST,/api/v1/evaluations/7294526077466070/run,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations/7294526077466070/run'),1,2026-06-08T03:42:51Z,2026-06-08T03:42:51Z
+GET,/api/v1/reports/by-evaluation/7294525777973024,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/reports/by-evaluation/7294525777973024'),2,2026-06-08T03:42:06Z,2026-06-08T03:42:24Z
+PUT,/api/v1/evaluations/7294526023284005/personas,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations/7294526023284005/personas'),1,2026-06-08T03:42:31Z,2026-06-08T03:42:31Z
+GET,/api/v1/evaluations,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/evaluations'),24,2026-06-08T03:41:59Z,2026-06-08T03:42:52Z
+GET,/api/v1/history,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/history'),18,2026-06-08T03:41:59Z,2026-06-08T03:42:38Z
+POST,/api/v1/products,HTTPError('503 Server Error: Service Unavailable for url: /api/v1/products'),8,2026-06-08T03:42:00Z,2026-06-08T03:42:50Z

@@ -1,0 +1,133 @@
+.page {
+  min-height: 100vh;
+  background: #F5F5F7;
+  padding: 24rpx 24rpx 60rpx;
+  box-sizing: border-box;
+}
+
+.order-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  margin-bottom: 20rpx;
+}
+
+.order-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.order-product {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+
+.order-status {
+  font-size: 24rpx;
+  font-weight: 500;
+  padding: 6rpx 20rpx;
+  border-radius: 100rpx;
+}
+
+.status-paid {
+  background: #EEF2FF;
+  color: #7B6FA8;
+}
+
+.status-pending {
+  background: #FFF7ED;
+  color: #F59E0B;
+}
+
+.status-failed {
+  background: #FEF2F2;
+  color: #EF4444;
+}
+
+.order-divider {
+  height: 1rpx;
+  background: #F0F0F0;
+  margin-bottom: 8rpx;
+}
+
+.order-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid #F7F7F7;
+}
+
+.order-row-last {
+  border-bottom: none;
+}
+
+.order-label {
+  font-size: 26rpx;
+  color: #888888;
+  flex-shrink: 0;
+  margin-right: 24rpx;
+}
+
+.order-value {
+  font-size: 26rpx;
+  color: #1A1A1A;
+}
+
+.order-amount {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+
+.order-no {
+  font-size: 22rpx;
+  color: #AAAAAA;
+  word-break: break-all;
+  text-align: right;
+}
+
+.order-card--highlight {
+  border: 2rpx solid #7B6FA8;
+}
+
+/* Empty state */
+.empty-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 160rpx;
+}
+
+.empty-icon {
+  width: 100rpx;
+  height: 100rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23CCCCCC' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Cpath d='M3 9h18'/%3E%3Cpath d='M9 21V9'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  margin-bottom: 24rpx;
+}
+
+.empty-hint {
+  text-align: center;
+  color: #AAAAAA;
+  font-size: 28rpx;
+  margin-bottom: 40rpx;
+}
+.loading-state {
+  display: flex;
+  justify-content: center;
+}
+
+.empty-cta {
+  background: #1E1B2E;
+  color: #FFFFFF;
+  font-size: 30rpx;
+  font-weight: 600;
+  padding: 24rpx 64rpx;
+  border-radius: 100rpx;
+}

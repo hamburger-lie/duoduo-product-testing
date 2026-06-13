@@ -1,0 +1,3 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/api/v1/personas,"ConnectionResetError(104, 'Connection reset by peer')",1,2026-06-08T05:50:20Z,2026-06-08T05:50:20Z
+GET,/api/v1/credits/balance,"ConnectionResetError(104, 'Connection reset by peer')",1,2026-06-08T05:49:49Z,2026-06-08T05:49:49Z

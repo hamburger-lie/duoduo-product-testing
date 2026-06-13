@@ -1,0 +1,81 @@
+<view class="page">
+
+  <!-- 顶部栏 -->
+  <view class="top-bar">
+    <view class="top-bar-left">
+      <view class="page-title">调研报告 PDF</view>
+      <view class="page-sub" wx:if="{{selecting}}">已选 {{selectedCount}} 份</view>
+    </view>
+    <view class="top-bar-actions">
+      <view wx:if="{{!selecting && reports.length > 0}}" class="action-btn" bind:tap="onTapSelect">批量选择</view>
+      <view wx:if="{{selecting}}" class="action-btn action-btn--cancel" bind:tap="onTapCancelSelect">取消</view>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading && reports.length === 0}}" class="state-center">
+    <brand-loading size="large"></brand-loading>
+  </view>
+
+  <!-- 空态 -->
+  <view wx:elif="{{reports.length === 0}}" class="state-center">
+    <view class="empty-icon"></view>
+    <text class="empty-text">还没有导出的 PDF 报告</text>
+    <text class="empty-sub">在调研报告页点击「导出 PDF」后，会自动同步到这里</text>
+  </view>
+
+  <!-- 列表 -->
+  <view wx:else class="list">
+    <view
+      wx:for="{{reports}}"
+      wx:key="report_id"
+      class="pdf-card {{item.selected ? 'pdf-card--selected' : ''}}"
+      data-url="{{item.pdf_url}}"
+      data-name="{{item.displayTitle}}"
+      data-idx="{{index}}"
+      bind:tap="onTapOpen"
+    >
+      <!-- 批量选择圆圈 -->
+      <view
+        wx:if="{{selecting}}"
+        class="select-circle {{item.selected ? 'select-circle--on' : ''}}"
+        data-idx="{{index}}"
+        catch:tap="onTapCardSelect"
+      >
+        <view wx:if="{{item.selected}}" class="select-check"></view>
+      </view>
+
+      <view class="pdf-icon"></view>
+      <view class="pdf-body">
+        <view class="pdf-title">{{item.displayTitle}}</view>
+        <view class="pdf-meta">{{item.dateStr}}</view>
+      </view>
+
+      <!-- 单删按钮（非选择模式） -->
+      <view
+        wx:if="{{!selecting}}"
+        class="pdf-delete-btn"
+        data-idx="{{index}}"
+        catch:tap="onTapDeleteSingle"
+      ></view>
+
+      <!-- 打开按钮（非选择模式） -->
+      <view wx:if="{{!selecting}}" class="pdf-open">打开</view>
+    </view>
+  </view>
+
+  <!-- 批量操作底栏 -->
+  <view wx:if="{{selecting}}" class="batch-bar">
+    <view class="batch-all" bind:tap="onTapToggleAll">
+      <view class="select-circle {{allSelected ? 'select-circle--on' : ''}}">
+        <view wx:if="{{allSelected}}" class="select-check"></view>
+      </view>
+      <text class="batch-all-label">全选</text>
+    </view>
+    <view
+      class="batch-delete {{selectedCount === 0 ? 'batch-delete--disabled' : ''}}"
+      bind:tap="onTapDeleteSelected"
+    >删除{{selectedCount > 0 ? ' (' + selectedCount + ')' : ''}}</view>
+  </view>
+
+</view>

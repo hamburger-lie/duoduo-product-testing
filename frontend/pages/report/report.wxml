@@ -1,0 +1,365 @@
+<view class="rp-page">
+  <!-- ── Error ── -->
+  <view wx:if="{{phase === 'error'}}" class="rp-state rp-state--error">
+    <view class="rp-state-title">{{error || '加载失败'}}</view>
+    <button class="rp-btn rp-btn--ghost" bindtap="onTapRetry">重试</button>
+  </view>
+
+  <!-- ── Ready ── -->
+  <view wx:if="{{phase === 'ready'}}" class="rp-ready">
+
+    <!-- ══ 执行摘要区 ══ -->
+    <view class="rp-exec-zone">
+      <view class="rp-exec-card">
+        <!-- 产品名（小标题） -->
+        <view class="rp-exec-product">{{vm.productName}}</view>
+
+        <!-- 主结论（视觉中心） -->
+        <view class="rp-exec-verdict">{{vm.conclusion.text}}</view>
+
+        <!-- 建议标签 -->
+        <view class="rp-exec-advice">{{vm.heroAdviceText}}</view>
+
+        <!-- 评级 + Top-2 Box 核心证据卡 -->
+        <view class="rp-exec-score-row">
+          <view class="rp-exec-score-cell">
+            <view class="rp-exec-score-big">{{vm.compositeGrade}}</view>
+            <view class="rp-exec-score-label">综合评级</view>
+          </view>
+          <view class="rp-exec-score-divider"></view>
+          <view class="rp-exec-score-cell rp-exec-score-cell--top2">
+            <view class="rp-exec-score-big rp-exec-score-big--purple">{{vm.top2BoxPct}}%</view>
+            <view class="rp-exec-score-label">Top-2 Box</view>
+            <view class="rp-exec-bar-track">
+              <view class="rp-exec-bar-fill" style="width:{{vm.top2BoxPct}}%"></view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 三联指标 -->
+        <view class="rp-exec-metrics">
+          <view class="rp-exec-metric">
+            <view class="rp-exec-metric-icon rp-exec-metric-icon--score"></view>
+            <text class="rp-exec-metric-label">购买均值</text>
+            <text class="rp-exec-metric-value">{{vm.intent}}</text>
+          </view>
+          <view class="rp-exec-metric">
+            <view class="rp-exec-metric-icon rp-exec-metric-icon--confidence"></view>
+            <text class="rp-exec-metric-label">信心度</text>
+            <text class="rp-exec-metric-value">{{vm.confidence}}</text>
+          </view>
+          <view class="rp-exec-metric">
+            <view class="rp-exec-metric-icon rp-exec-metric-icon--sample"></view>
+            <text class="rp-exec-metric-label">样本</text>
+            <text class="rp-exec-metric-value">n={{vm.top2BoxTotal}}</text>
+          </view>
+        </view>
+
+        <!-- 拉力 / 阻力依据 -->
+        <view class="rp-exec-evidence">
+          <view class="rp-exec-evidence-row">
+            <view class="rp-exec-ev-dot rp-exec-ev-dot--pos"></view>
+            <text class="rp-exec-ev-label">最大拉力：</text>
+            <text class="rp-exec-ev-text rp-exec-ev-text--pos">{{vm.topOpportunityText}}</text>
+          </view>
+          <view class="rp-exec-evidence-row">
+            <view class="rp-exec-ev-dot rp-exec-ev-dot--neg"></view>
+            <text class="rp-exec-ev-label">主要阻力：</text>
+            <text class="rp-exec-ev-text rp-exec-ev-text--neg">{{vm.topRiskText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ══ 亮色区：模块卡片 ══ -->
+    <view class="rp-light-body">
+
+      <!-- 01 机会与阻力 -->
+      <view class="rp-di-section" wx:if="{{vm.prosRanked.length || vm.consRanked.length}}">
+        <!-- 标题行：左侧 01+标题，右侧 segmented control -->
+        <view class="rp-di-title-row">
+          <view class="rp-di-title-left">
+            <view class="rp-block-index">01</view>
+            <view class="rp-block-name">机会与阻力</view>
+          </view>
+          <view class="rp-op-tabs">
+            <view class="rp-op-tab{{diSwiperIdx === 0 ? ' is-active is-opportunity' : ''}}" data-idx="{{0}}" bindtap="onTapDiTab">机会</view>
+            <view class="rp-op-tab{{diSwiperIdx === 1 ? ' is-active is-risk' : ''}}" data-idx="{{1}}" bindtap="onTapDiTab">阻力</view>
+          </view>
+        </view>
+
+        <!-- swiper 主体 -->
+        <swiper
+          class="rp-di-swiper"
+          indicator-dots="{{false}}"
+          autoplay="{{false}}"
+          circular="{{false}}"
+          duration="250"
+          bindchange="onDiSwiperChange"
+          current="{{diSwiperIdx}}"
+        >
+          <swiper-item>
+            <view class="rp-di-card rp-di-card--pos rp-di-card--full">
+              <view class="rp-di-header">
+                <view class="rp-di-dot rp-di-dot--pos"></view>
+                <view class="rp-di-title">为什么值得推进</view>
+              </view>
+              <view class="rp-di-items">
+                <view class="rp-di-item" wx:for="{{vm.prosRanked}}" wx:for-index="idx" wx:key="title" wx:if="{{idx < 3}}">
+                  <view class="rp-di-item-row">
+                    <text class="rp-di-item-name">{{item.shortTitle || item.title}}</text>
+                    <view class="rp-di-pill rp-di-pill--pos">
+                      <text class="rp-di-pill-text rp-di-pill-text--pos">{{item.count}}人</text>
+                    </view>
+                  </view>
+                  <view class="rp-di-track">
+                    <view class="rp-di-bar rp-di-bar--pos{{diBarAnimating ? ' is-growing' : ''}}" style="width:{{item.width}}%"></view>
+                  </view>
+                </view>
+              </view>
+              <view class="rp-di-footer rp-di-footer--pos">
+                <view class="rp-di-footer-text rp-di-footer-text--pos">行动建议：{{vm.focusCards[0].text}}</view>
+              </view>
+            </view>
+          </swiper-item>
+
+          <swiper-item>
+            <view class="rp-di-card rp-di-card--neg rp-di-card--full">
+              <view class="rp-di-header">
+                <view class="rp-di-dot rp-di-dot--neg"></view>
+                <view class="rp-di-title">放量前先解决</view>
+              </view>
+              <view class="rp-di-items">
+                <view class="rp-di-item" wx:for="{{vm.consRanked}}" wx:for-index="idx" wx:key="title" wx:if="{{idx < 3}}">
+                  <view class="rp-di-item-row">
+                    <text class="rp-di-item-name">{{item.shortTitle || item.title}}</text>
+                    <view class="rp-di-pill rp-di-pill--neg">
+                      <text class="rp-di-pill-text rp-di-pill-text--neg">{{item.count}}人</text>
+                    </view>
+                  </view>
+                  <view class="rp-di-track">
+                    <view class="rp-di-bar rp-di-bar--neg{{diBarAnimating ? ' is-growing' : ''}}" style="width:{{item.width}}%"></view>
+                  </view>
+                </view>
+              </view>
+              <view class="rp-di-footer rp-di-footer--neg">
+                <view class="rp-di-footer-text rp-di-footer-text--neg">行动建议：{{vm.focusCards[1].text}}</view>
+              </view>
+            </view>
+          </swiper-item>
+        </swiper>
+      </view>
+
+      <!-- 角色洞察 -->
+      <view class="rp-block-title rp-block-title--persona">
+        <view class="rp-block-index">02</view>
+        <view class="rp-block-name">谁会买，谁会犹豫</view>
+        <view class="rp-avatar-hint">← 左右滑动查看 →</view>
+      </view>
+      <view class="rp-avatar-section">
+        <view class="rp-avatar-top" style="display:none"></view>
+        <scroll-view class="rp-avatar-scroll" scroll-x="true" enhanced="true" show-scrollbar="{{false}}">
+          <view class="rp-avatar-track">
+            <view class="rp-avatar-card rp-avatar-card--{{item.tone}}" wx:for="{{vm.personaVoices}}" wx:key="groupTitle" bindtap="onTapVoiceCard" data-idx="{{index}}">
+              <view class="rp-avatar-head">
+                <image class="rp-avatar-img" src="{{item.avatar}}" mode="aspectFill"></image>
+                <view class="rp-avatar-id">
+                  <view class="rp-avatar-name">{{item.groupTitle}}</view>
+                  <view class="rp-avatar-score">{{item.score}}</view>
+                </view>
+              </view>
+              <view class="rp-avatar-factor rp-avatar-factor--pos">
+                <view class="rp-avatar-factor-label">被吸引：</view>
+                <view class="rp-avatar-factor-text">{{item.attractedBy}}</view>
+              </view>
+              <view class="rp-avatar-factor rp-avatar-factor--neg">
+                <view class="rp-avatar-factor-label">在犹豫：</view>
+                <view class="rp-avatar-factor-text">{{item.hesitation}}</view>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 翻转弹窗（Overlay Modal） -->
+      <view class="rp-flip-overlay" wx:if="{{flippedVoiceIdx >= 0}}" bindtap="onTapVoiceCard" data-idx="{{-1}}">
+        <view class="rp-flip-card" catchtap="">
+          <view class="rp-flip-detail">
+            <view class="rp-flip-close" bindtap="onTapVoiceCard" data-idx="{{-1}}">x</view>
+            <view class="rp-flip-head">
+              <image class="rp-avatar-img rp-avatar-img--sm" src="{{vm.personaVoices[flippedVoiceIdx].avatar}}" mode="aspectFill"></image>
+              <view class="rp-flip-id">
+                <view class="rp-flip-name">{{vm.personaVoices[flippedVoiceIdx].groupTitle}}</view>
+                <view class="rp-flip-score">{{vm.personaVoices[flippedVoiceIdx].score}}</view>
+              </view>
+            </view>
+            <view class="rp-flip-section">
+              <view class="rp-flip-label rp-flip-label--neutral">角色判断</view>
+              <view class="rp-flip-text rp-flip-text--statement">{{vm.personaVoices[flippedVoiceIdx].statement}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 数据详情区 -->
+      <view class="rp-block-title">
+        <view class="rp-block-index">03</view>
+        <view class="rp-block-name">数据诊断</view>
+      </view>
+
+      <!-- ══ 1c. 六维表现雷达图 ══ -->
+      <view class="rp-section">
+        <view class="rp-section-title">六维表现雷达图</view>
+
+        <!-- 无任何维度数据 -->
+        <view wx:if="{{!vm.sixDimBreakdown.length}}" class="rp-radar-empty">
+          本次调研暂无六维诊断数据
+        </view>
+
+        <block wx:else>
+          <!-- 雷达图 + 数据点 hit-area + 气泡 -->
+          <!-- bindtap 空白区收起气泡 -->
+          <view class="radar-visual-wrap" bindtap="onTapRadarBlank">
+            <!-- canvas 直接在 wrap 里（无中间包装层），z-index 分明 -->
+            <canvas
+              wx:if="{{radarRealCount >= 3}}"
+              canvas-id="rp-radar"
+              id="rp-radar"
+              class="radar-canvas"
+            ></canvas>
+            <view wx:else class="rp-radar-empty rp-radar-empty--pad">
+              本次调研六维数据不足，暂不生成雷达图
+            </view>
+
+            <!-- 数据点 hit-area：catchtap 阻止冒泡到空白区 -->
+            <view
+              wx:for="{{vm.sixDimBreakdown}}"
+              wx:key="label"
+              wx:if="{{item.hasRealData}}"
+              class="radar-node-hit{{selectedRadarDimIndex === index ? ' is-active' : ''}}"
+              style="{{item.nodeStyle}}"
+              data-index="{{index}}"
+              catchtap="onTapRadarNode"
+            >
+              <view class="radar-node-dot"></view>
+            </view>
+
+            <!-- 气泡卡：catchtap noop 防止冒泡关闭自身 -->
+            <view
+              wx:if="{{radarBubbleVisible}}"
+              class="radar-bubble"
+              style="{{radarBubbleStyle}}"
+              catchtap="noop"
+            >
+              <view class="radar-bubble-head">
+                <text class="radar-bubble-title">{{vm.sixDimBreakdown[selectedRadarDimIndex].label}}</text>
+                <text class="radar-bubble-score">{{vm.sixDimBreakdown[selectedRadarDimIndex].score}}%</text>
+              </view>
+              <text class="radar-bubble-desc">{{vm.sixDimBreakdown[selectedRadarDimIndex].bubbleDesc}}</text>
+              <text class="radar-bubble-action">{{vm.sixDimBreakdown[selectedRadarDimIndex].bubbleAction}}</text>
+            </view>
+          </view>
+
+          <!-- 底部轻提示 -->
+          <view class="radar-tap-hint">
+            <text>点击红点查看维度说明</text>
+          </view>
+        </block>
+      </view>
+
+      <!-- ══ 04. 消费者群体分布 ══ -->
+      <view class="rp-block-title" wx:if="{{vm.heatmapRows.length}}">
+        <view class="rp-block-index">04</view>
+        <view class="rp-block-name">消费者群体分布</view>
+      </view>
+      <view class="rp-section" wx:if="{{vm.heatmapRows.length}}">
+        <view class="rp-hm-wrap">
+          <view class="rp-hm-header-row">
+            <view class="rp-hm-row-label rp-hm-row-label--header"></view>
+            <view class="rp-hm-col-header" wx:for="{{vm.heatmapDimHeaders}}" wx:key="*this">{{item}}</view>
+          </view>
+          <view class="rp-hm-row" wx:for="{{vm.heatmapRows}}" wx:key="segment">
+            <view class="rp-hm-row-label">{{item.segment}}</view>
+            <view
+              class="rp-hm-cell"
+              wx:for="{{item.cells}}"
+              wx:for-item="cell"
+              wx:key="label"
+              style="background:{{cell.bg}}"
+            >
+              <text class="rp-hm-cell-text">{{cell.score}}</text>
+            </view>
+          </view>
+          <view class="rp-hm-legend">
+            <text class="rp-hm-legend-label">1</text>
+            <view class="rp-hm-legend-bar"></view>
+            <text class="rp-hm-legend-label">5</text>
+            <text class="rp-hm-legend-unit">调研均值（1–5）</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ══ 05. 购买意愿分布 ══ -->
+      <view class="rp-block-title" wx:if="{{vm.stackedBar.length}}">
+        <view class="rp-block-index">05</view>
+        <view class="rp-block-name">购买意愿分布</view>
+      </view>
+      <view class="rp-section" wx:if="{{vm.stackedBar.length}}">
+        <view class="rp-stacked-meta">
+          <text class="rp-stacked-t2b">高意向购买率 {{vm.top2BoxPct}}%</text>
+          <text class="rp-stacked-hint">（评分4~5分占比）</text>
+        </view>
+        <view class="rp-score-bars">
+          <view class="rp-score-bar-row" wx:for="{{vm.stackedBar}}" wx:key="key">
+            <view class="rp-score-bar-label">
+              <view class="rp-score-bar-dot" style="background:{{item.color}}"></view>
+              <text class="rp-score-bar-name">{{item.key}}分·{{item.desc}}</text>
+              <text class="rp-score-bar-count">{{item.count}}人</text>
+            </view>
+            <view class="rp-score-bar-track">
+              <view class="rp-score-bar-fill" style="width:{{item.scoreWidth}}%;background:{{item.color}}">
+                <text class="rp-score-bar-val">{{item.key}}分</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+    <!-- ══ 深度研究报告（可折叠）══ -->
+    <view class="rp-deep-panel">
+      <view class="rp-deep-toggle" bindtap="onTapDeepToggle">
+        <view class="rp-deep-toggle-left">
+          <view class="rp-deep-toggle-title">深度研究报告</view>
+        </view>
+        <view class="rp-deep-chevron {{deepAnalysisExpanded ? 'rp-deep-chevron--open' : ''}}"></view>
+      </view>
+      <view wx:if="{{deepAnalysisExpanded}}" class="rp-deep-body">
+        <view wx:if="{{deepAnalysisLoading}}" class="rp-deep-loading">正在生成深度分析…</view>
+        <block wx:elif="{{deepAnalysis}}">
+          <view class="rp-deep-section" wx:for="{{deepAnalysis.sections}}" wx:key="title">
+            <view class="rp-deep-section-title">{{item.title}}</view>
+            <view class="rp-deep-section-content">
+              <view class="rp-deep-paragraph" wx:for="{{item.contentParagraphs}}" wx:for-item="paragraph" wx:key="index">{{paragraph}}</view>
+            </view>
+          </view>
+          <!-- 附录：计算口径 -->
+          <view class="rp-deep-appendix">
+            <view class="rp-deep-appendix-title">附录：计算口径</view>
+            <view class="rp-deep-appendix-item" wx:for="{{vm.formulaNotes}}" wx:key="index">{{item}}</view>
+            <view class="rp-deep-appendix-source">来源口径：NIST 算术均值、OECD/联合国统计比例与百分数、Qualtrics Top Box 箱体占比。</view>
+          </view>
+        </block>
+        <view wx:else class="rp-deep-loading">深度分析生成失败，请稍后重试</view>
+      </view>
+    </view>
+
+      <!-- ══ Actions ══ -->
+      <view class="rp-actions">
+        <button class="rp-btn rp-btn--primary" bindtap="onTapExport">导出详细报告PDF</button>
+        <button class="rp-btn rp-btn--ghost" bindtap="onTapFollowUp">继续追问产品</button>
+      </view>
+
+      <view class="rp-disclaimer">{{vm.disclaimer}}</view>
+    </view><!-- /rp-light-body -->
+  </view>
+</view>

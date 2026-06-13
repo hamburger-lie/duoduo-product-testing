@@ -1,0 +1,59 @@
+# ===== Secrets (NEVER commit) =====
+.env
+.env.*
+!.env.example
+!.env.production.example
+**/project.private.config.json
+*.pem
+*.key
+*.p12
+
+# ===== Python / backend =====
+.venv/
+**/.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+local_dev.db
+*.sqlite3
+
+# ===== Node / frontend =====
+node_modules/
+**/node_modules/
+
+# ===== WeChat miniprogram build =====
+miniprogram_npm/
+dist/
+
+# ===== Experiment / scratch artifacts =====
+think_*.json
+nothink_*.json
+fixed_v*.json
+qdiff*.txt
+*_result.txt
+doubao_*.txt
+understand_result.txt
+mimo_result.txt
+sample_*.txt
+pytest_out.txt
+probe.json
+*.log
+test_img*.jpg
+sample_questions.txt
+
+# ===== Archives / backups =====
+*.tar.gz
+*.zip
+
+# ===== OS / editor =====
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+.idea/
+.vscode/
+*.swp

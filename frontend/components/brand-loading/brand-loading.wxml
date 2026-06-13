@@ -1,0 +1,3 @@
+<view class="brand-loading brand-loading--{{size}}">
+  <image class="brand-loading__mark" src="/assets/cibe-mark.png" mode="aspectFit" />
+</view>

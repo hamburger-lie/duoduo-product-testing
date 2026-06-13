@@ -1,0 +1,31 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/api/v1/evaluations/7294515203217413/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294515203217413/run'),1,2026-06-08T02:58:30Z,2026-06-08T02:58:30Z
+PUT,/api/v1/evaluations/7294515095096679/personas,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations/7294515095096679/personas'),1,2026-06-08T02:58:01Z,2026-06-08T02:58:01Z
+GET,/api/v1/personas,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/personas'),36,2026-06-08T02:57:55Z,2026-06-08T02:58:39Z
+GET,/api/v1/reports/by-evaluation/7294514979995388,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294514979995388'),1,2026-06-08T02:58:32Z,2026-06-08T02:58:32Z
+POST,/api/v1/products,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/products'),8,2026-06-08T02:58:09Z,2026-06-08T02:58:39Z
+GET,/api/v1/reports/by-evaluation/7294515064818865,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294515064818865'),1,2026-06-08T02:57:59Z,2026-06-08T02:57:59Z
+GET,/api/v1/reports/by-evaluation/7294514963971692,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294514963971692'),1,2026-06-08T02:58:34Z,2026-06-08T02:58:34Z
+GET,/api/v1/products,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/products'),30,2026-06-08T02:57:55Z,2026-06-08T02:58:40Z
+GET,/api/v1/reports/by-evaluation/7294515163211509,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294515163211509'),1,2026-06-08T02:58:32Z,2026-06-08T02:58:32Z
+POST,/api/v1/evaluations/7294515078606133/run,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations/7294515078606133/run'),1,2026-06-08T02:58:04Z,2026-06-08T02:58:04Z
+POST,/api/v1/evaluations/7294515217487924/run,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations/7294515217487924/run'),1,2026-06-08T02:58:40Z,2026-06-08T02:58:40Z
+PUT,/api/v1/evaluations/7294515179292632/personas,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations/7294515179292632/personas'),1,2026-06-08T02:58:21Z,2026-06-08T02:58:21Z
+PUT,/api/v1/evaluations/7294515150376492/personas,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations/7294515150376492/personas'),1,2026-06-08T02:58:17Z,2026-06-08T02:58:17Z
+POST,/api/v1/surveys/generate,"ConnectionResetError(104, 'Connection reset by peer')",1,2026-06-08T02:58:21Z,2026-06-08T02:58:21Z
+GET,/api/v1/reports/by-evaluation/7294515041804534,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294515041804534'),1,2026-06-08T02:58:29Z,2026-06-08T02:58:29Z
+GET,/api/v1/reports/by-evaluation/7294514934831152,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294514934831152'),1,2026-06-08T02:58:08Z,2026-06-08T02:58:08Z
+GET,/api/v1/evaluations,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations'),13,2026-06-08T02:58:03Z,2026-06-08T02:58:39Z
+PUT,/api/v1/evaluations/7294515203217413/personas,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations/7294515203217413/personas'),1,2026-06-08T02:58:29Z,2026-06-08T02:58:29Z
+POST,/api/v1/evaluations,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations'),8,2026-06-08T02:57:53Z,2026-06-08T02:58:39Z
+POST,/api/v1/evaluations/7294515179292632/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294515179292632/run'),1,2026-06-08T02:58:21Z,2026-06-08T02:58:21Z
+GET,/api/v1/reports/by-evaluation/7294514770151291,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294514770151291'),1,2026-06-08T02:58:39Z,2026-06-08T02:58:39Z
+POST,/api/v1/evaluations/7294515095096679/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294515095096679/run'),1,2026-06-08T02:58:08Z,2026-06-08T02:58:08Z
+PUT,/api/v1/evaluations/7294515083906381/personas,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations/7294515083906381/personas'),1,2026-06-08T02:58:00Z,2026-06-08T02:58:00Z
+GET,/api/v1/credits/balance,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/credits/balance'),22,2026-06-08T02:57:57Z,2026-06-08T02:58:39Z
+GET,/api/v1/reports/by-evaluation/7294514845383237,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294514845383237'),1,2026-06-08T02:58:20Z,2026-06-08T02:58:20Z
+GET,/api/v1/reports/by-evaluation/7294514986872640,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/reports/by-evaluation/7294514986872640'),1,2026-06-08T02:58:20Z,2026-06-08T02:58:20Z
+POST,/api/v1/evaluations/7294515150376492/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294515150376492/run'),1,2026-06-08T02:58:18Z,2026-06-08T02:58:18Z
+GET,/api/v1/history,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/history'),21,2026-06-08T02:57:54Z,2026-06-08T02:58:36Z
+POST,/api/v1/evaluations/7294515076939056/run,HTTPError('500 Server Error: Internal Server Error for url: /api/v1/evaluations/7294515076939056/run'),1,2026-06-08T02:58:07Z,2026-06-08T02:58:07Z
+POST,/api/v1/evaluations/7294515083906381/run,HTTPError('400 Client Error: Bad Request for url: /api/v1/evaluations/7294515083906381/run'),1,2026-06-08T02:58:01Z,2026-06-08T02:58:01Z

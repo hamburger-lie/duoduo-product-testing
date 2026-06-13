@@ -1,0 +1,90 @@
+.page {
+  min-height: 100vh;
+  background: #F5F5F5;
+  padding: 32rpx 32rpx 160rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 40rpx 40rpx 36rpx;
+  margin-bottom: 24rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1A2E;
+  margin-bottom: 28rpx;
+}
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.rule-item {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.rule-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #7B6FA8;
+  flex-shrink: 0;
+  margin-top: 12rpx;
+}
+
+.rule-text {
+  font-size: 28rpx;
+  color: #444;
+  line-height: 1.7;
+  flex: 1;
+}
+
+.rule-em {
+  color: #1A1A2E;
+  font-weight: 500;
+}
+
+.rule-pts {
+  color: #7B6FA8;
+  font-weight: 600;
+}
+
+.btn-area {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24rpx 40rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background: #F5F5F5;
+}
+
+.share-btn {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: #1A1A2E;
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 48rpx;
+  border: none;
+  text-align: center;
+}
+
+.share-btn::after {
+  border: none;
+}
+
+.share-btn:active {
+  opacity: 0.85;
+}

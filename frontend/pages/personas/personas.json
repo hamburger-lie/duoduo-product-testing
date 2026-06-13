@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "我的测品官",
+  "navigationBarBackgroundColor": "#FFFFFF",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "avatar": "/components/avatar/avatar",
+    "brand-loading": "/components/brand-loading/brand-loading"
+  }
+}

@@ -1,0 +1,45 @@
+.rc {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  border-radius: var(--r-card);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.rc:active { background: var(--bg-card-hover); }
+
+.rc-thumb {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 20rpx;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  flex-shrink: 0;
+}
+
+.rc-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.rc-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6rpx;
+}
+
+.rc-meta {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-bottom: 12rpx;
+}
+
+.rc-progress {
+  margin-top: 4rpx;
+}

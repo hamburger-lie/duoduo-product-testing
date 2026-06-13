@@ -1,0 +1,15 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 36rpx;
+  padding: 0 16rpx;
+  border-radius: var(--r-pill);
+  font-size: 22rpx;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+.badge-active { background: var(--warning-soft); color: var(--warning); }
+.badge-done   { background: var(--success-soft); color: var(--success); }
+.badge-failed { background: rgba(209,74,74,0.10); color: var(--danger); }
+.badge-canceled { background: rgba(0,0,0,0.06); color: var(--text-sub); }

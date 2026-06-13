@@ -1,0 +1,46 @@
+<view class="page">
+
+  <!-- Reward info card -->
+  <view class="card">
+    <view class="card-title">邀请好友，双方得积分</view>
+    <view class="rule-list">
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <text class="rule-text">好友通过你的链接<text class="rule-em">首次注册</text>，你获得 <text class="rule-pts">+20 积分</text></text>
+      </view>
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <text class="rule-text">被邀请的新用户也获得 <text class="rule-pts">+20 积分</text></text>
+      </view>
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <text class="rule-text">每日登录直接到账 <text class="rule-pts">+10 积分</text></text>
+      </view>
+    </view>
+  </view>
+
+  <!-- How to use credits -->
+  <view class="card">
+    <view class="card-title">积分怎么用？</view>
+    <view class="rule-list">
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <text class="rule-text">选择测品官：<text class="rule-pts">1 位 = 1 积分</text></text>
+      </view>
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <text class="rule-text">导出详细报告 PDF 消耗 <text class="rule-pts">5 积分</text></text>
+      </view>
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <text class="rule-text">新用户注册即送 <text class="rule-pts">50 积分</text>，可先完整体验</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Share button -->
+  <view class="btn-area">
+    <button class="share-btn" open-type="share">转发给微信朋友</button>
+  </view>
+
+</view>

@@ -1,0 +1,58 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/create/create",
+    "pages/history/history",
+    "pages/profile/profile",
+    "pages/chat/chat",
+    "pages/settings/settings",
+    "pages/credits/credits",
+    "pages/report-pdfs/report-pdfs",
+    "pages/webview-bridge/webview-bridge",
+    "pages/report/report",
+    "pages/personas/personas",
+    "pages/persona-edit/persona-edit",
+    "pages/products/products",
+    "pages/product-detail/product-detail",
+    "pages/survey-review/survey-review",
+    "pages/webview/webview",
+    "pages/share-invite/share-invite",
+    "pages/customize/customize"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTitleText": "测品官",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FFFFFF"
+  },
+  "tabBar": {
+    "color": "#888888",
+    "selectedColor": "#7B6FA8",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "assets/tab-home.png",
+        "selectedIconPath": "assets/tab-home-act.png"
+      },
+      {
+        "pagePath": "pages/history/history",
+        "text": "档案",
+        "iconPath": "assets/tab-archive.png",
+        "selectedIconPath": "assets/tab-archive-act.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "assets/tab-profile.png",
+        "selectedIconPath": "assets/tab-profile-act.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

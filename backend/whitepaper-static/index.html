@@ -1,0 +1,3145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>美博会测品官报告</title>
+
+<!-- Polyfill: Array/String.prototype.at — 微信 WebView 旧引擎不内置此方法 -->
+<script>
+if (!Array.prototype.at) {
+  Array.prototype.at = function(n) {
+    n = Math.trunc(n) || 0;
+    if (n < 0) n += this.length;
+    return (n < 0 || n >= this.length) ? undefined : this[n];
+  };
+}
+if (!String.prototype.at) {
+  String.prototype.at = function(n) {
+    n = Math.trunc(n) || 0;
+    if (n < 0) n += this.length;
+    return (n < 0 || n >= this.length) ? undefined : this[n];
+  };
+}
+</script>
+
+<!-- 本地依赖（避免 CDN 在中国网络下加载失败）-->
+<script src="/whitepaper-static/marked.min.js"></script>
+<script src="/whitepaper-static/echarts.min.js"></script>
+<script src="/whitepaper-static/jspdf.umd.min.js"></script>
+<script src="/whitepaper-static/html2canvas.min.js"></script>
+
+<style>
+/* ============================================= */
+/* CSS 变量 & 全局                                */
+/* ============================================= */
+:root {
+  --cibe-pink: #E3004F;
+  --cibe-pink-light: #FF6B9D;
+  --cibe-pink-bg: #FFF0F5;
+  --cibe-dark: #1A1A2E;
+  --cibe-gray: #2D3748;
+  --bg: #F8F9FA;
+  --white: #FFFFFF;
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+  --radius: 12px;
+  --a4-width: 794px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--cibe-dark);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ============================================= */
+/* 顶部导航                                       */
+/* ============================================= */
+.navbar {
+  background: var(--white);
+  border-bottom: 3px solid var(--cibe-pink);
+  padding: 0 40px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-box {
+  width: 40px;
+  height: 40px;
+  background: var(--cibe-pink);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.navbar h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--cibe-dark);
+}
+
+.navbar h1 span {
+  color: var(--cibe-pink);
+}
+
+.navbar-status {
+  font-size: 13px;
+  color: #999;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ============================================= */
+/* 主内容区                                       */
+/* ============================================= */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+/* ============================================= */
+/* 上传区                                         */
+/* ============================================= */
+.upload-section {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.upload-tabs {
+  display: flex;
+  border-bottom: 1px solid #eee;
+}
+
+.upload-tab {
+  flex: 1;
+  padding: 14px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+
+.upload-tab.active {
+  color: var(--cibe-pink);
+  border-bottom-color: var(--cibe-pink);
+  background: var(--cibe-pink-bg);
+}
+
+.upload-tab:hover:not(.active) {
+  background: #f9f9f9;
+}
+
+.upload-panel {
+  padding: 32px;
+  display: none;
+}
+
+.upload-panel.active {
+  display: block;
+}
+
+/* 文件上传拖拽区 */
+.dropzone {
+  border: 2px dashed #ddd;
+  border-radius: var(--radius);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--cibe-pink);
+  background: var(--cibe-pink-bg);
+}
+
+.dropzone-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.dropzone-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.dropzone-hint {
+  font-size: 13px;
+  color: #999;
+}
+
+.file-list {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-list:empty {
+  display: none;
+}
+
+.file-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #f0fdf4;
+  border-radius: 8px;
+}
+
+.file-list-item .file-item-icon {
+  font-size: 18px;
+}
+
+.file-list-item .file-item-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-list-item .file-item-size {
+  font-size: 12px;
+  color: #999;
+}
+
+.file-list-item .file-item-remove {
+  cursor: pointer;
+  color: #999;
+  font-size: 18px;
+  transition: color 0.15s;
+}
+
+.file-list-item .file-item-remove:hover {
+  color: var(--cibe-pink);
+}
+
+/* 文字粘贴区 */
+.text-input {
+  width: 100%;
+  min-height: 200px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--cibe-pink);
+}
+
+/* ============================================= */
+/* 生成按钮 & 进度                                 */
+/* ============================================= */
+.action-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.btn {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--cibe-pink);
+  color: white;
+  flex: 1;
+  justify-content: center;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c70045;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(227,0,79,0.3);
+}
+
+.btn-secondary {
+  background: var(--cibe-gray);
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #1a202c;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--cibe-pink);
+  border: 2px solid var(--cibe-pink);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--cibe-pink-bg);
+}
+
+/* 进度条 */
+/* PDF 导出全屏覆盖层 */
+.pdf-export-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+.pdf-export-overlay.show {
+  display: flex;
+}
+.pdf-export-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 36px;
+  width: min(360px, 88vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+}
+.pdf-export-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+.pdf-export-track {
+  width: 100%;
+  height: 10px;
+  background: #f0eef6;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pdf-export-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--cibe-pink), var(--cibe-pink-light));
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+.pdf-export-pct {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--cibe-pink);
+  letter-spacing: 1px;
+}
+.pdf-export-hint {
+  font-size: 13px;
+  color: #888;
+}
+
+.progress-section {
+  display: none;
+  margin-bottom: 24px;
+}
+
+.progress-section.show {
+  display: block;
+}
+
+.progress-bar-wrapper {
+  background: #e9ecef;
+  border-radius: 20px;
+  overflow: hidden;
+  height: 8px;
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cibe-pink), var(--cibe-pink-light));
+  border-radius: 20px;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+.progress-text {
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+}
+
+/* ============================================= */
+/* 操作栏                                         */
+/* ============================================= */
+.toolbar {
+  display: none;
+  gap: 12px;
+  margin-bottom: 0;
+  justify-content: flex-end;
+}
+
+.toolbar.show {
+  display: flex;
+}
+
+.navbar .btn {
+  padding: 10px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ============================================= */
+/* 白皮书预览区                                    */
+/* ============================================= */
+.preview-section {
+  display: none;
+}
+
+.preview-section.show {
+  display: block;
+}
+
+/* 缩放容器 */
+.preview-scaler {
+  max-width: var(--a4-width);
+  width: 100%;
+  margin: 0 auto;
+}
+
+.preview-card {
+  background: var(--white);
+  width: 100%;
+  max-width: var(--a4-width);
+  margin: 0 auto;
+  box-shadow: var(--shadow-lg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+/* 封面页 */
+.cover-page {
+  padding: 80px 60px;
+  min-height: 500px;
+  background: linear-gradient(135deg, var(--cibe-pink) 0%, #a0003a 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.cover-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  margin-bottom: 32px;
+  backdrop-filter: blur(4px);
+  width: fit-content;
+}
+
+.cover-title {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: 24px;
+}
+
+.cover-subtitle {
+  font-size: 16px;
+  opacity: 0.85;
+  line-height: 1.8;
+}
+
+.cover-footer {
+  margin-top: 60px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+/* 正文区 */
+.content-body {
+  padding: 44px 46px;
+  font-family: "SimSun", "Songti SC", serif;
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--cibe-dark);
+}
+
+.content-body h2 {
+  font-size: 17px;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif;
+  font-weight: 700;
+  color: var(--cibe-dark);
+  margin: 0 0 18px;
+  padding: 6px 0 4px;
+  text-align: center;
+  border-top: none;
+  border-bottom: none;
+}
+
+.content-body h3 {
+  font-size: 12px;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  color: var(--cibe-dark);
+}
+
+.content-body p {
+  margin: 0 0 8px;
+  text-indent: 2em;
+  text-align: justify;
+}
+
+.content-body ul, .content-body ol {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.content-body li {
+  margin: 3px 0;
+}
+
+.whitepaper-toc {
+  margin: 0 0 18px;
+  padding: 4px 0 12px;
+}
+
+.whitepaper-toc-title {
+  font-family: "SimHei", "Microsoft YaHei", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--cibe-dark);
+  margin-bottom: 16px;
+}
+
+.whitepaper-toc-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: none;
+  padding: 7px 0 5px;
+  font-family: "SimSun", "Songti SC", serif;
+  color: var(--cibe-dark);
+}
+
+.whitepaper-toc-item--h3 {
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--cibe-gray);
+}
+
+.whitepaper-toc-page {
+  font-family: "SimHei", "Microsoft YaHei", sans-serif;
+  color: var(--cibe-gray);
+}
+
+.content-body strong {
+  color: var(--cibe-pink);
+}
+
+.pdf-capture-block {
+  position: absolute;
+  top: -9999px;
+  left: 0;
+  background: #fff;
+  box-sizing: border-box;
+  overflow: visible;
+  z-index: -1;
+}
+
+.pdf-capture-block h2 {
+  page-break-before: auto;
+  margin-top: 0;
+  padding-top: 10px;
+}
+
+.pdf-capture-block > :first-child {
+  margin-top: 0 !important;
+}
+
+.pdf-capture-block > :last-child {
+  margin-bottom: 0 !important;
+}
+
+.content-body blockquote {
+  border-left: none;
+  padding: 7px 12px;
+  margin: 9px 0;
+  background: var(--cibe-pink-bg);
+  border-radius: 0 4px 4px 0;
+}
+
+.content-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.content-body th {
+  background: var(--cibe-pink);
+  color: white;
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.content-body td {
+  padding: 5px 8px;
+  border-bottom: none;
+}
+
+.content-body tr:hover td {
+  background: #fafafa;
+}
+
+/* 图表容器 */
+.chart-container {
+  width: 100%;
+  height: 280px;
+  margin: 12px 0;
+  border: none;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* 配图容器 */
+.image-container {
+  width: 100%;
+  margin: 12px 0;
+  border-radius: 4px;
+  overflow: hidden;
+  text-align: center;
+  background: #fafafa;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-container img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.image-placeholder {
+  padding: 40px;
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+}
+
+.image-loading {
+  padding: 40px;
+  color: var(--cibe-pink);
+  font-size: 13px;
+}
+
+/* ============================================= */
+/* 编辑模式                                       */
+/* ============================================= */
+.edit-mode [contenteditable="true"] {
+  outline: 1px dashed rgba(227, 0, 79, 0.25);
+  outline-offset: 2px;
+  min-height: 1em;
+  border-radius: 3px;
+  transition: outline 0.15s, background 0.15s;
+}
+
+.edit-mode [contenteditable="true"]:hover {
+  outline-color: rgba(227, 0, 79, 0.45);
+}
+
+.edit-mode [contenteditable="true"]:focus {
+  outline: 2px solid var(--cibe-pink);
+  background: rgba(255, 240, 245, 0.3);
+}
+
+.edit-mode .cover-page [contenteditable="true"] {
+  outline-color: rgba(255, 255, 255, 0.3);
+}
+
+.edit-mode .cover-page [contenteditable="true"]:hover {
+  outline-color: rgba(255, 255, 255, 0.5);
+}
+
+.edit-mode .cover-page [contenteditable="true"]:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 编辑态 — 图表/配图操作浮层 */
+.edit-mode .chart-container,
+.edit-mode .image-container {
+  position: relative;
+}
+
+.edit-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  gap: 6px;
+}
+
+.edit-overlay-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  transition: transform 0.15s;
+  opacity: 0.85;
+}
+
+.edit-overlay-btn:hover {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+.edit-overlay-btn.delete {
+  background: #dc3545;
+  color: white;
+}
+
+.edit-overlay-btn.edit-chart {
+  background: var(--cibe-pink);
+  color: white;
+}
+
+/* 图表编辑弹窗 — 全功能可视化编辑器 */
+.chart-edit-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-edit-panel {
+  background: white;
+  border-radius: var(--radius);
+  width: 960px;
+  max-width: 96vw;
+  max-height: 92vh;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.ce-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #eee;
+}
+.ce-header h3 {
+  font-size: 17px;
+  color: var(--cibe-dark);
+  margin: 0;
+}
+.ce-header-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #888;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.ce-header-close:hover { background: #f0f0f0; color: #333; }
+
+.ce-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 左侧控制面板 */
+.ce-controls {
+  width: 400px;
+  min-width: 360px;
+  overflow-y: auto;
+  padding: 20px 24px;
+  border-right: 1px solid #eee;
+}
+
+.ce-section {
+  margin-bottom: 20px;
+}
+.ce-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cibe-pink);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ce-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+.ce-row label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  min-width: 56px;
+  flex-shrink: 0;
+}
+.ce-row input, .ce-row select {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.ce-row input:focus, .ce-row select:focus {
+  outline: none;
+  border-color: var(--cibe-pink);
+}
+.ce-row input[type="color"] {
+  width: 36px;
+  height: 32px;
+  padding: 2px;
+  cursor: pointer;
+  flex: none;
+}
+.ce-row input[type="number"] {
+  width: 72px;
+  flex: none;
+}
+.ce-row input[type="range"] {
+  flex: 1;
+}
+
+/* 数据表格 */
+.ce-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.ce-data-table th {
+  background: #f8f9fa;
+  padding: 6px 8px;
+  font-weight: 600;
+  color: #555;
+  border: 1px solid #e0e0e0;
+  font-size: 12px;
+}
+.ce-data-table td {
+  padding: 2px;
+  border: 1px solid #e0e0e0;
+}
+.ce-data-table input {
+  width: 100%;
+  border: none;
+  padding: 6px 8px;
+  font-size: 13px;
+  background: transparent;
+  text-align: center;
+}
+.ce-data-table input:focus {
+  outline: none;
+  background: #fff8f0;
+}
+.ce-data-table input.ce-label-input {
+  text-align: left;
+  font-weight: 500;
+}
+.ce-data-table .ce-series-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ce-data-table .ce-series-name input {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.ce-table-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.ce-mini-btn {
+  padding: 5px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  font-size: 12px;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.15s;
+}
+.ce-mini-btn:hover {
+  border-color: var(--cibe-pink);
+  color: var(--cibe-pink);
+  background: var(--cibe-pink-bg);
+}
+.ce-mini-btn.danger:hover {
+  border-color: #dc3545;
+  color: #dc3545;
+  background: #fff5f5;
+}
+
+/* 颜色列表 */
+.ce-color-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.ce-color-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* 右侧预览 */
+.ce-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  padding: 20px;
+  min-width: 300px;
+}
+.ce-preview-title {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.ce-preview-chart {
+  width: 100%;
+  height: 360px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+/* 底部操作栏 */
+.ce-footer {
+  display: flex;
+  gap: 12px;
+  padding: 14px 24px;
+  border-top: 1px solid #eee;
+  justify-content: flex-end;
+}
+
+.ce-error {
+  color: #dc3545;
+  font-size: 12px;
+  padding: 0 24px 8px;
+  min-height: 0;
+}
+
+/* 编辑模式按钮高亮态 */
+.btn-edit-active {
+  background: var(--cibe-pink) !important;
+  color: white !important;
+  border-color: var(--cibe-pink) !important;
+}
+
+/* 正文段落首行缩进 */
+#contentBody p {
+  text-indent: 2em;
+}
+
+/* 去掉 AI 生成的 --- 分割线 */
+.content-body hr,
+#contentBody hr {
+  display: none;
+}
+
+/* 一级标题（h2）分页与视觉分隔 */
+#contentBody h2 {
+  page-break-before: auto;
+  break-before: auto;
+  margin-top: 0;
+  padding-top: 6px;
+  border-top: none;
+  border-bottom: none;
+  text-align: center;
+}
+#contentBody h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* ============================================= */
+/* 响应式                                         */
+/* ============================================= */
+@media (max-width: 860px) {
+  .container { padding: 20px 12px 60px; }
+  .cover-page { padding: 40px 30px; }
+  .content-body { padding: 30px; }
+  .cover-title { font-size: 26px; }
+}
+
+/* ============================================= */
+/* 打印样式                                       */
+/* ============================================= */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 16mm;
+  }
+
+  html, body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .navbar,
+  .upload-section,
+  .action-bar,
+  .progress-section,
+  .toolbar,
+  .pdf-export-overlay,
+  .toast {
+    display: none !important;
+  }
+
+  .container {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .preview-card {
+    display: block !important;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .cover-page {
+    min-height: auto;
+    height: 269mm;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .whitepaper-toc {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  #contentBody h2 {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  #contentBody h2:first-of-type {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  #contentBody h3,
+  #contentBody p,
+  #contentBody li {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .content-body {
+    padding: 0;
+  }
+}
+
+/* ============================================= */
+/* 动画                                           */
+/* ============================================= */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ============================================= */
+/* Toast 通知                                     */
+/* ============================================= */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 14px 24px;
+  background: var(--cibe-dark);
+  color: white;
+  border-radius: 8px;
+  font-size: 14px;
+  box-shadow: var(--shadow-lg);
+  z-index: 9999;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s;
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.toast.error {
+  background: #dc3545;
+}
+
+.toast.success {
+  background: #28a745;
+}
+
+/* PDF 导出成功弹窗 */
+.pdf-success-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+.pdf-success-overlay.show {
+  display: flex;
+}
+.pdf-success-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 28px 24px;
+  max-width: 320px;
+  width: 88%;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.pdf-success-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.pdf-success-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+}
+.pdf-success-desc {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+.pdf-success-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pdf-success-btn-primary {
+  background: #E3004F;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 13px 0;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pdf-success-btn-secondary {
+  background: transparent;
+  color: #999;
+  border: none;
+  padding: 8px 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- ========== 顶部导航 ========== -->
+<nav class="navbar">
+  <div class="navbar-actions">
+    <div class="toolbar" id="toolbar">
+      <button class="btn btn-secondary" id="btnExport" onclick="exportPDF()">导出PDF</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== 主内容 ========== -->
+<div class="container">
+
+  <!-- 上传区 -->
+  <div class="upload-section">
+    <div class="upload-tabs">
+      <div class="upload-tab active" data-tab="file" onclick="switchTab('file')">
+        📁 上传文件
+      </div>
+      <div class="upload-tab" data-tab="text" onclick="switchTab('text')">
+        📝 粘贴文字
+      </div>
+    </div>
+
+    <!-- 文件上传面板 -->
+    <div class="upload-panel active" id="panel-file">
+      <div class="dropzone" id="dropzone"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('fileInput').click()">
+        <div class="dropzone-icon">📊</div>
+        <div class="dropzone-title">拖拽文件到此处，或点击选择文件</div>
+        <div class="dropzone-hint">支持 CSV / Excel / Word (.docx) / PDF 格式，可同时上传多个文件</div>
+      </div>
+      <input type="file" id="fileInput" hidden multiple
+             accept=".csv,.xlsx,.xls,.docx,.pdf"
+             onchange="handleFileSelect(event)">
+      <div class="file-list" id="fileList"></div>
+    </div>
+
+    <!-- 文字粘贴面板 -->
+    <div class="upload-panel" id="panel-text">
+      <textarea class="text-input" id="textInput"
+                placeholder="在此粘贴品牌数据或文字信息...&#10;&#10;例如：&#10;品牌名称：花西子&#10;2024年Q1-Q4营收分别为：3.2亿、4.1亿、5.8亿、7.2亿&#10;主力产品：散粉、眉笔、口红&#10;线上渠道占比：78%"></textarea>
+    </div>
+  </div>
+
+  <!-- 生成按钮 -->
+  <div class="action-bar">
+    <button class="btn btn-primary" id="btnGenerate" onclick="generateWhitepaper()">
+      ✨ 生成白皮书
+    </button>
+  </div>
+
+  <!-- 进度条 -->
+  <div class="progress-section" id="progressSection">
+    <div class="progress-bar-wrapper">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="progress-text" id="progressText">准备中...</div>
+  </div>
+
+  <!-- PDF 导出成功弹窗 -->
+  <div class="pdf-success-overlay" id="pdfSuccessOverlay">
+    <div class="pdf-success-box">
+      <div class="pdf-success-icon">✅</div>
+      <div class="pdf-success-title">PDF 导出成功</div>
+      <div class="pdf-success-desc">已同步到个人中心<br>可在「调研报告 PDF」中查看和下载</div>
+      <div class="pdf-success-btns">
+        <button class="pdf-success-btn-primary" onclick="goToReportPdfs()">前往个人中心查看</button>
+        <button class="pdf-success-btn-secondary" onclick="document.getElementById('pdfSuccessOverlay').classList.remove('show')">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF 导出进度覆盖层 -->
+  <div class="pdf-export-overlay" id="pdfExportOverlay">
+    <div class="pdf-export-box">
+      <div class="pdf-export-title">正在导出 PDF</div>
+      <div class="pdf-export-track">
+        <div class="pdf-export-fill" id="pdfExportFill"></div>
+      </div>
+      <div class="pdf-export-pct" id="pdfExportPct">0%</div>
+      <div class="pdf-export-hint" id="pdfExportHint">准备中…</div>
+    </div>
+  </div>
+
+  <!-- 白皮书预览 -->
+  <div class="preview-section" id="previewSection">
+    <div class="preview-scaler" id="previewScaler">
+    <div class="preview-card" id="previewCard">
+      <!-- 封面页 -->
+      <div class="cover-page" id="coverPage">
+        <div class="cover-badge">测品官 · AI 智能分析</div>
+        <div class="cover-title" id="coverTitle">美业数据洞察白皮书</div>
+        <div class="cover-subtitle" id="coverSubtitle">
+          基于品牌核心数据的深度分析报告<br>
+          洞悉行业趋势，赋能品牌增长
+        </div>
+        <div class="cover-footer" id="coverFooter"></div>
+      </div>
+      <!-- 正文 -->
+      <div class="content-body" id="contentBody"></div>
+    </div>
+    </div><!-- /preview-scaler -->
+  </div>
+
+</div>
+
+<!-- Toast 通知 -->
+<div class="toast" id="toast"></div>
+
+<!-- 图表编辑弹窗 — 全功能可视化编辑器 -->
+<div class="chart-edit-modal" id="chartEditModal" style="display:none" onclick="if(event.target===this)closeChartEditor()">
+  <div class="chart-edit-panel">
+    <!-- 顶栏 -->
+    <div class="ce-header">
+      <h3>📊 图表编辑器</h3>
+      <button class="ce-header-close" onclick="closeChartEditor()" title="关闭">&times;</button>
+    </div>
+
+    <div class="ce-body">
+      <!-- 左侧控制面板 -->
+      <div class="ce-controls">
+
+        <!-- 基础设置 -->
+        <div class="ce-section">
+          <div class="ce-section-title">⚙️ 基础设置</div>
+          <div class="ce-row">
+            <label>标题</label>
+            <input type="text" id="ceTitle" placeholder="图表标题" oninput="cePreview()">
+          </div>
+          <div class="ce-row">
+            <label>类型</label>
+            <select id="ceType" onchange="cePreview()">
+              <option value="bar">📊 柱状图</option>
+              <option value="line">📈 折线图</option>
+              <option value="pie">🥧 饼图</option>
+              <option value="area">📉 面积图</option>
+              <option value="scatter">⭕ 散点图</option>
+            </select>
+          </div>
+          <div class="ce-row">
+            <label>宽度</label>
+            <input type="number" id="ceWidth" value="100" min="50" max="100" step="5" oninput="cePreview()">
+            <span style="font-size:12px;color:#999">%</span>
+            <label style="margin-left:8px">高度</label>
+            <input type="number" id="ceHeight" value="380" min="200" max="600" step="20" oninput="cePreview()">
+            <span style="font-size:12px;color:#999">px</span>
+          </div>
+        </div>
+
+        <!-- 样式设置 -->
+        <div class="ce-section">
+          <div class="ce-section-title">🎨 样式设置</div>
+          <div class="ce-row">
+            <label>圆角</label>
+            <input type="range" id="ceBorderRadius" min="0" max="20" value="4" oninput="cePreview()">
+            <span id="ceBorderRadiusVal" style="font-size:12px;color:#999;min-width:30px">4px</span>
+          </div>
+          <div class="ce-row">
+            <label>柱宽</label>
+            <input type="range" id="ceBarWidth" min="10" max="80" value="50" oninput="cePreview()">
+            <span id="ceBarWidthVal" style="font-size:12px;color:#999;min-width:36px">50px</span>
+          </div>
+          <div class="ce-row">
+            <label>线宽</label>
+            <input type="range" id="ceLineWidth" min="1" max="8" value="2" oninput="cePreview()">
+            <span id="ceLineWidthVal" style="font-size:12px;color:#999;min-width:30px">2px</span>
+          </div>
+          <div class="ce-row">
+            <label>字号</label>
+            <input type="number" id="ceFontSize" value="14" min="10" max="24" step="1" oninput="cePreview()">
+            <span style="font-size:12px;color:#999">px</span>
+          </div>
+          <div class="ce-row" style="flex-wrap:wrap">
+            <label>配色</label>
+            <div class="ce-color-list" id="ceColorList"></div>
+          </div>
+        </div>
+
+        <!-- 数据编辑 -->
+        <div class="ce-section">
+          <div class="ce-section-title">📋 数据编辑</div>
+          <div style="overflow-x:auto">
+            <table class="ce-data-table" id="ceDataTable">
+              <thead id="ceDataThead"></thead>
+              <tbody id="ceDataTbody"></tbody>
+            </table>
+          </div>
+          <div class="ce-table-actions">
+            <button class="ce-mini-btn" onclick="ceAddRow()">➕ 添加行</button>
+            <button class="ce-mini-btn danger" onclick="ceRemoveRow()">🗑️ 删除末行</button>
+            <button class="ce-mini-btn" onclick="ceAddSeries()">➕ 添加系列</button>
+            <button class="ce-mini-btn danger" onclick="ceRemoveSeries()">🗑️ 删除末列</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 右侧实时预览 -->
+      <div class="ce-preview">
+        <div class="ce-preview-title">实时预览</div>
+        <div class="ce-preview-chart" id="cePreviewChart"></div>
+      </div>
+    </div>
+
+    <!-- 错误信息 -->
+    <div class="ce-error" id="ceError"></div>
+
+    <!-- 底部操作 -->
+    <div class="ce-footer">
+      <button class="btn btn-outline" onclick="closeChartEditor()">取消</button>
+      <button class="btn btn-primary" style="flex:none;padding:10px 28px" onclick="applyChartEdit()">✅ 应用修改</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================================
+// 全局状态
+// =============================================================
+let selectedFiles = [];
+let chartInstances = [];
+let isExporting = false;
+let isEditMode = false;
+let chartDataStore = {};   // chart element ID → { type, title, data }
+let editingChartId = null; // 当前正在编辑的图表 ID
+const MAX_FILES = 10;
+const API_BASE = window.location.origin;
+
+// =============================================================
+// 鉴权系统
+// Tab 切换
+// =============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.upload-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.upload-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`panel-${tab}`).classList.add('active');
+}
+
+// =============================================================
+// 文件处理
+// =============================================================
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.add('dragover');
+}
+
+function handleDragLeave(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('dragover');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('dragover');
+  Array.from(e.dataTransfer.files).forEach(f => addFile(f));
+}
+
+function handleFileSelect(e) {
+  Array.from(e.target.files).forEach(f => addFile(f));
+  e.target.value = '';  // 允许重复选择同名文件
+}
+
+function addFile(file) {
+  const validExts = ['csv', 'xlsx', 'xls', 'docx', 'pdf'];
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!validExts.includes(ext)) {
+    showToast(`不支持的格式: ${file.name}，请上传 CSV/Excel/Word/PDF`, 'error');
+    return;
+  }
+  if (selectedFiles.length >= MAX_FILES) {
+    showToast(`最多上传 ${MAX_FILES} 个文件`, 'error');
+    return;
+  }
+  // 查重
+  if (selectedFiles.some(f => f.name === file.name && f.size === file.size)) return;
+  selectedFiles.push(file);
+  renderFileList();
+}
+
+function removeFileAt(index) {
+  selectedFiles.splice(index, 1);
+  renderFileList();
+}
+
+function renderFileList() {
+  const container = document.getElementById('fileList');
+  if (selectedFiles.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = selectedFiles.map((f, i) => `
+    <div class="file-list-item">
+      <span class="file-item-icon">📎</span>
+      <span class="file-item-name">${escapeHtml(f.name)}</span>
+      <span class="file-item-size">${formatSize(f.size)}</span>
+      <span class="file-item-remove" onclick="removeFileAt(${i})">✕</span>
+    </div>
+  `).join('');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// =============================================================
+// 生成白皮书
+// =============================================================
+async function generateWhitepaper() {
+  const textInput = document.getElementById('textInput').value.trim();
+  const activeTab = document.querySelector('.upload-tab.active').dataset.tab;
+
+  if (activeTab === 'file' && selectedFiles.length === 0) {
+    showToast('请先上传至少一个数据文件', 'error');
+    return;
+  }
+  if (activeTab === 'text' && !textInput) {
+    showToast('请输入文字内容', 'error');
+    return;
+  }
+
+  // 准备表单数据（支持多文件）
+  const formData = new FormData();
+  if (activeTab === 'file') {
+    selectedFiles.forEach(f => formData.append('files', f));
+  } else {
+    formData.append('text', textInput);
+  }
+
+  // UI 状态
+  const btn = document.getElementById('btnGenerate');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ 生成中...';
+  showProgress(true);
+  updateProgress(10, '正在解析数据...');
+  const navStatus = document.getElementById('navStatus') || { textContent: '' };
+  if (navStatus) navStatus.textContent = '生成中...';
+
+  try {
+    updateProgress(25, '正在调用 AI 分析数据...');
+
+    const resp = await fetch(`${API_BASE}/api/generate`, {
+      method: 'POST',
+      body: formData,
+    });
+
+
+    updateProgress(60, '正在生成白皮书内容...');
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: '服务器错误' }));
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    if (data.status !== 'success' || !data.markdown) {
+      throw new Error('返回数据异常');
+    }
+
+    updateProgress(80, '正在渲染图表与配图...');
+
+    // 渲染白皮书
+    await renderWhitepaper(data.markdown);
+
+    updateProgress(100, '生成完成！');
+
+    // 显示工具栏和预览
+    document.getElementById('toolbar').classList.add('show');
+    document.getElementById('previewSection').classList.add('show');
+    if (navStatus) navStatus.textContent = '生成完成';
+    showToast('白皮书生成成功！', 'success');
+
+    // 滚动到预览区
+    setTimeout(() => {
+      resizeAllCharts();
+      document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+
+  } catch (err) {
+    showToast(err.message, 'error');
+    if (navStatus) navStatus.textContent = '生成失败';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ 生成白皮书';
+    setTimeout(() => showProgress(false), 1500);
+  }
+}
+
+// =============================================================
+// 白皮书渲染
+// =============================================================
+async function renderWhitepaper(markdown) {
+  // 销毁旧图表
+  chartInstances.forEach(c => c.dispose());
+  chartInstances = [];
+
+  // 设置封面日期
+  const now = new Date();
+  document.getElementById('coverFooter').textContent =
+    `${now.getFullYear()} 年 ${now.getMonth() + 1} 月  |  测品官 · AI 智能分析`;
+
+  // 从 markdown 提取标题作为封面标题，去掉"白皮书"相关词和年份前缀
+  const titleMatch = markdown.match(/^#\s+(.+)/m);
+  if (titleMatch) {
+    const cleanTitle = titleMatch[1]
+      .replace(/数据白皮书/g, '消费者洞察报告')
+      .replace(/白皮书/g, '洞察报告')
+      .replace(/^\d{4}年[\s：:]*/, '')
+      .trim();
+    document.getElementById('coverTitle').textContent = cleanTitle;
+  }
+
+  // 1. 提取 <chart> 和 <image> 标签，替换为占位符
+  let chartIdx = 0;
+  let imageIdx = 0;
+  const chartDataMap = {};
+  const imagePromptMap = {};
+
+  // 处理 chart 标签
+  markdown = markdown.replace(
+    /<chart\s+type=["']([^"']+)["']\s+title=["']([^"']+)["']\s+data='([^']+)'><\/chart>/g,
+    (match, type, title, dataStr) => {
+      const id = `chart-${chartIdx++}`;
+      try {
+        chartDataMap[id] = { type, title, data: JSON.parse(dataStr) };
+      } catch (e) {
+        chartDataMap[id] = { type, title, data: null };
+      }
+      return `<div class="chart-container" id="${id}"></div>`;
+    }
+  );
+
+  // 处理 image 标签
+  markdown = markdown.replace(
+    /<image\s+prompt=["']([^"']+)["']><\/image>/g,
+    (match, prompt) => {
+      const id = `genimg-${imageIdx++}`;
+      imagePromptMap[id] = prompt;
+      return `<div class="image-container" id="${id}"><div class="image-loading loading-pulse">🎨 正在生成配图...</div></div>`;
+    }
+  );
+
+  // 2. 渲染 Markdown
+  const contentBody = document.getElementById('contentBody');
+  contentBody.innerHTML = marked.parse(markdown);
+  // 封面已经展示白皮书标题，正文里重复的一级标题会造成 PDF 第二页大面积空白。
+  const firstTitle = contentBody.querySelector('h1');
+  if (firstTitle) firstTitle.remove();
+  // 去掉 AI 生成的"数据来源"声明段落
+  contentBody.querySelectorAll('p').forEach(p => {
+    if (/数据来源/.test(p.textContent)) p.remove();
+  });
+  removeTerminalReportEndMarker(contentBody);
+  numberWhitepaperHeadings(contentBody);
+  insertWhitepaperToc(contentBody);
+
+  // 3. 初始化 ECharts
+  await new Promise(r => setTimeout(r, 200));  // 等待 DOM 布局
+  for (const [id, cfg] of Object.entries(chartDataMap)) {
+    const el = document.getElementById(id);
+    if (el && cfg.data) {
+      const chart = echarts.init(el);
+      chart.setOption(buildChartOption(cfg.type, cfg.title, cfg.data));
+      chartInstances.push(chart);
+    }
+  }
+  // 延迟 resize 确保尺寸正确
+  await new Promise(r => setTimeout(r, 100));
+  chartInstances.forEach(c => c.resize());
+
+  // 4. 保存图表数据到全局（供编辑模式使用）
+  chartDataStore = { ...chartDataMap };
+
+  // 5. 异步生成配图（不阻塞主流程）
+  for (const [id, prompt] of Object.entries(imagePromptMap)) {
+    generateAndFillImage(id, prompt);
+  }
+
+  // 6. 重置编辑模式
+  if (isEditMode) toggleEditMode();
+}
+
+function removeTerminalReportEndMarker(contentBody) {
+  const paragraphs = Array.from(contentBody.querySelectorAll('p')).slice(-3);
+  paragraphs.forEach(p => {
+    const text = (p.textContent || '').trim();
+    if (text === '（报告结束）') p.remove();
+  });
+}
+
+function formatChineseSectionNumber(index) {
+  const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  if (index <= 10) return index === 10 ? '十' : digits[index];
+  if (index < 20) return `十${digits[index - 10]}`;
+  const tens = Math.floor(index / 10);
+  const ones = index % 10;
+  return `${digits[tens]}十${ones ? digits[ones] : ''}`;
+}
+
+function stripExistingHeadingNumber(text) {
+  return String(text || '')
+    .replace(/^\s*[一二三四五六七八九十]+[、.．]\s*/, '')
+    .replace(/^\s*\d+(?:\.\d+)*[、.．]?\s*/, '')
+    .trim();
+}
+
+function numberWhitepaperHeadings(contentBody) {
+  let h2Index = 0;
+  let h3Index = 0;
+  contentBody.querySelectorAll('h2, h3').forEach(heading => {
+    const raw = stripExistingHeadingNumber(heading.textContent);
+    if (heading.tagName === 'H2') {
+      h2Index += 1;
+      h3Index = 0;
+      heading.textContent = `${formatChineseSectionNumber(h2Index)}、${raw}`;
+      heading.dataset.tocLevel = 'h2';
+    } else {
+      h3Index += 1;
+      const h3 = heading;
+      h3.textContent = `${h2Index}.${h3Index} ${raw}`;
+      h3.dataset.tocLevel = 'h3';
+    }
+  });
+}
+
+function insertWhitepaperToc(contentBody) {
+  const headings = Array.from(contentBody.querySelectorAll('h2, h3'));
+  if (!headings.length) return;
+  contentBody.querySelector('.whitepaper-toc')?.remove();
+
+  const toc = document.createElement('div');
+  toc.className = "whitepaper-toc";
+  const title = document.createElement('div');
+  title.className = 'whitepaper-toc-title';
+  title.textContent = '目录';
+  toc.appendChild(title);
+
+  headings.forEach(heading => {
+    const item = document.createElement('div');
+    const level = heading.dataset.tocLevel || heading.tagName.toLowerCase();
+    item.className = `whitepaper-toc-item whitepaper-toc-item--${level}`;
+    const label = document.createElement('span');
+    label.textContent = heading.textContent.replace(/[（(][^）)]*[）)]/g, '').trim();
+    const page = document.createElement('span');
+    page.className = 'whitepaper-toc-page';
+    page.textContent = '';
+    item.appendChild(label);
+    item.appendChild(page);
+    toc.appendChild(item);
+  });
+
+  contentBody.prepend(toc);
+}
+
+// =============================================================
+// ECharts 配置构建 — CIBE 玫红主题
+// =============================================================
+const CIBE_COLORS = ['#E3004F', '#FF6B9D', '#2D3748', '#E9967A', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+
+function formatAxisLabel(label, maxCharsPerLine = 6, maxLines = 2) {
+  const text = String(label || '').trim();
+  if (text.length <= maxCharsPerLine) return text;
+
+  const parts = [];
+  for (let i = 0; i < text.length && parts.length < maxLines; i += maxCharsPerLine) {
+    parts.push(text.slice(i, i + maxCharsPerLine));
+  }
+  if (text.length > maxCharsPerLine * maxLines) {
+    parts[parts.length - 1] = parts[parts.length - 1].slice(0, Math.max(1, maxCharsPerLine - 1)) + '…';
+  }
+  return parts.join('\n');
+}
+
+function chartBottomSpace(labels) {
+  const maxLen = Math.max(...(labels || ['']).map(label => String(label || '').length));
+  return maxLen > 12 ? 86 : maxLen > 6 ? 68 : 50;
+}
+
+function buildChartOption(type, title, data) {
+  const base = {
+    title: {
+      text: title,
+      left: 'center',
+      top: 12,
+      textStyle: {
+        fontSize: 14,
+        fontWeight: 700,
+        color: '#1A1A2E',
+        width: 600,
+        overflow: 'break',
+      },
+    },
+    tooltip: {
+      trigger: type === 'pie' ? 'item' : 'axis',
+      confine: true,
+    },
+    color: CIBE_COLORS,
+    animation: true,
+  };
+
+  if (type === 'pie') {
+    return {
+      ...base,
+      legend: {
+        bottom: 10,
+        left: 'center',
+        textStyle: { fontSize: 11 },
+        type: 'scroll',
+      },
+      series: [{
+        type: 'pie',
+        radius: ['30%', '58%'],
+        center: ['50%', '48%'],
+        data: data.labels.map((label, i) => ({
+          name: label,
+          value: data.datasets[0].values[i],
+        })),
+        label: {
+          formatter: '{b}\n{d}%',
+          fontSize: 11,
+          lineHeight: 16,
+          position: 'outside',
+        },
+        labelLine: { length: 12, length2: 8 },
+        emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' } },
+      }],
+    };
+  }
+
+  if (type === 'scatter') {
+    return {
+      ...base,
+      grid: { left: 50, right: 30, top: 50, bottom: 40, containLabel: true },
+      xAxis: { type: 'value' },
+      yAxis: { type: 'value' },
+      series: data.datasets.map((ds, i) => ({
+        name: ds.name,
+        type: 'scatter',
+        data: ds.values.map((v, j) => [data.labels[j] || j, v]),
+        symbolSize: 14,
+      })),
+    };
+  }
+
+  // bar / line / area
+  const chartType = type === 'area' ? 'line' : type;
+  const bottomSpace = chartBottomSpace(data.labels);
+  return {
+    ...base,
+    grid: { left: 20, right: 30, top: 55, bottom: bottomSpace, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: data.labels,
+      axisLabel: {
+        fontSize: 10,
+        interval: 0,
+        rotate: 0,
+        lineHeight: 14,
+        hideOverlap: true,
+        formatter: value => formatAxisLabel(value),
+      },
+      axisTick: { alignWithLabel: true },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11 },
+      splitLine: { lineStyle: { type: 'dashed', color: '#eee' } },
+    },
+    legend: {
+      bottom: 2,
+      textStyle: { fontSize: 11 },
+      type: 'scroll',
+    },
+    series: data.datasets.map((ds, i) => ({
+      name: ds.name,
+      type: chartType,
+      data: ds.values,
+      smooth: true,
+      areaStyle: type === 'area' ? { opacity: 0.15 } : undefined,
+      barMaxWidth: 50,
+      barMinWidth: 15,
+      label: {
+        show: data.datasets.length === 1 && data.labels.length <= 8,
+        position: 'top',
+        fontSize: 11,
+        color: '#666',
+      },
+    })),
+  };
+}
+
+// =============================================================
+// 豆包星绘配图
+// =============================================================
+async function generateAndFillImage(containerId, prompt) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  try {
+    const formData = new FormData();
+    formData.append('prompt', prompt);
+    formData.append('width', '768');
+    formData.append('height', '512');
+
+    const resp = await fetch(`${API_BASE}/api/generate-image`, {
+      method: 'POST',
+      body: formData,
+    });
+
+
+    const result = await resp.json();
+
+    if (result.status === 'success' && result.image_base64) {
+      container.innerHTML = `<img src="data:image/png;base64,${result.image_base64}" alt="${prompt}">`;
+    } else if (result.status === 'unavailable') {
+      // 星绘未配置 → 显示优雅的占位图
+      container.innerHTML = `
+        <div class="image-placeholder">
+          <div style="font-size:36px;margin-bottom:8px">🖼️</div>
+          <div>配图位置（豆包星绘未配置）</div>
+          <div style="font-size:12px;margin-top:4px;color:#bbb">${escapeHtml(prompt)}</div>
+        </div>`;
+    } else {
+      container.innerHTML = `
+        <div class="image-placeholder">
+          <div style="font-size:36px;margin-bottom:8px">⚠️</div>
+          <div>配图生成失败</div>
+          <div style="font-size:12px;margin-top:4px;color:#bbb">${escapeHtml(result.message || '')}</div>
+        </div>`;
+    }
+  } catch (e) {
+    container.innerHTML = `
+      <div class="image-placeholder">
+        <div style="font-size:36px;margin-bottom:8px">⚠️</div>
+        <div>配图请求失败</div>
+      </div>`;
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// =============================================================
+// PDF 导出 — 智能分页，避免内容截断
+// =============================================================
+function _setPdfProgress(pct, hint) {
+  const fill = document.getElementById('pdfExportFill');
+  const pctEl = document.getElementById('pdfExportPct');
+  const hintEl = document.getElementById('pdfExportHint');
+  if (fill) fill.style.width = Math.round(pct) + '%';
+  if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+  if (hintEl) hintEl.textContent = hint;
+}
+
+function waitForImageReady(img) {
+  if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+  if (img.decode) {
+    return img.decode().catch(() => new Promise(resolve => {
+      img.onload = resolve;
+      img.onerror = resolve;
+    }));
+  }
+  return new Promise(resolve => {
+    img.onload = resolve;
+    img.onerror = resolve;
+  });
+}
+
+function waitForNextFrame() {
+  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+function buildPdfContentBlocks(contentBody) {
+  const blocks = [];
+  const children = [];
+  Array.from(contentBody.children)
+    .filter(child => child.tagName !== 'H1')
+    .forEach(child => splitPdfNode(child).forEach(node => children.push(node)));
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    const tag = child.tagName;
+    const block = [child.cloneNode(true)];
+    blocks.push({
+      nodes: block,
+      forceNewPage: false,
+      allowSplit: isSplittablePdfNode(child),
+    });
+  }
+  return blocks;
+}
+
+function isSplittablePdfNode(node) {
+  return false;
+}
+
+function splitTextIntoChunks(text, maxChars = 260) {
+  const parts = String(text || '').split(/(?<=[。！？；.!?;])/).filter(Boolean);
+  const chunks = [];
+  let current = '';
+  for (const part of parts.length ? parts : [text]) {
+    if ((current + part).length > maxChars && current) {
+      chunks.push(current);
+      current = part;
+    } else {
+      current += part;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.length ? chunks : [text];
+}
+
+function splitPdfNode(child) {
+  const tag = child.tagName;
+  if (tag === 'P' && child.textContent && child.textContent.length > 260 && child.children.length === 0) {
+    return splitTextIntoChunks(child.textContent, 260).map(text => {
+      const node = child.cloneNode(false);
+      node.textContent = text;
+      return node;
+    });
+  }
+  if ((tag === 'UL' || tag === 'OL') && child.children.length > 1) {
+    const items = Array.from(child.children);
+    const chunks = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const node = child.cloneNode(false);
+      if (tag === 'OL') {
+        node.setAttribute('start', String(i + 1));
+      }
+      items.slice(i, i + 1).forEach(item => node.appendChild(item.cloneNode(true)));
+      chunks.push(node);
+    }
+    return chunks;
+  }
+  if (tag === 'TABLE' && child.rows.length > 8) {
+    const rows = Array.from(child.rows);
+    const chunks = [];
+    const header = child.tHead ? Array.from(child.tHead.rows).map(row => row.cloneNode(true)) : [];
+    const bodyRows = child.tBodies.length ? Array.from(child.tBodies[0].rows) : rows.slice(header.length);
+    for (let i = 0; i < bodyRows.length; i += 4) {
+      const node = child.cloneNode(false);
+      if (header.length) {
+        const thead = document.createElement('thead');
+        header.forEach(row => thead.appendChild(row.cloneNode(true)));
+        node.appendChild(thead);
+      }
+      const tbody = document.createElement('tbody');
+      bodyRows.slice(i, i + 4).forEach(row => tbody.appendChild(row.cloneNode(true)));
+      node.appendChild(tbody);
+      chunks.push(node);
+    }
+    return chunks;
+  }
+  return [child];
+}
+
+async function capturePdfBlock(nodes, widthPx) {
+  const block = document.createElement('div');
+  block.className = 'content-body pdf-capture-block';
+  block.style.width = widthPx + 'px';
+  block.style.padding = '0';
+  nodes.forEach(node => block.appendChild(node));
+  document.body.appendChild(block);
+  await Promise.all(Array.from(block.querySelectorAll('img')).map(waitForImageReady));
+  await waitForNextFrame();
+  // 等待字体加载完成，避免 Windows 下中文字体分层渲染
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  // WeChat WebView canvas 高度上限约 4096px；超出时自动降低 scale 避免 PNG 截断
+  // 微信 WebView 里强制 scale=1 避免渲染过慢（PDF 阅读不需要 2x 精度）
+  const MAX_CANVAS_H = 4096;
+  const isWechatEnv = /MicroMessenger/i.test(navigator.userAgent);
+  const baseScale = isWechatEnv ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+  const blockH = block.scrollHeight || 1;
+  const scale = (blockH * baseScale > MAX_CANVAS_H)
+    ? Math.max(1, Math.floor(MAX_CANVAS_H / blockH))
+    : baseScale;
+  const canvas = await html2canvas(block, {
+    scale,
+    useCORS: false,
+    allowTaint: true,
+    backgroundColor: '#ffffff',
+    logging: false,
+    windowWidth: block.scrollWidth,
+  });
+  block.remove();
+  return canvas;
+}
+
+function addCanvasToPdfPages(pdf, canvas, pageState, allowSplit = false) {
+  if (!canvas || !canvas.width || !canvas.height || !isFinite(canvas.width) || !isFinite(canvas.height)) {
+    console.warn('[PDF] skipping invalid canvas', canvas && canvas.width, canvas && canvas.height);
+    return;
+  }
+  const {
+    pageW,
+    pageH,
+    margin,
+    contentW,
+    usableH,
+  } = pageState;
+  const gap = 1.8;
+  const fullHeightMm = (canvas.height / canvas.width) * contentW;
+  console.log('[PDF] addCanvasToPdfPages', {cw: canvas.width, ch: canvas.height, fullHeightMm, 'pageState.y': pageState.y, contentW});
+  if (!isFinite(fullHeightMm) || fullHeightMm <= 0) {
+    console.warn('[PDF] skipping invalid fullHeightMm', fullHeightMm);
+    return;
+  }
+  const minUsefulRemainderMm = 28;
+  const remainingHMm = pageH - margin - pageState.y;
+
+  if (fullHeightMm <= remainingHMm) {
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, pageState.y, contentW, fullHeightMm);
+    pageState.y += fullHeightMm + gap;
+    return;
+  }
+
+  if (!allowSplit || remainingHMm < minUsefulRemainderMm || fullHeightMm <= usableH) {
+    if (fullHeightMm <= usableH) {
+      pdf.addPage();
+      pageState.y = margin;
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, pageState.y, contentW, fullHeightMm);
+      pageState.y += fullHeightMm + gap;
+    } else {
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, pageState.y, contentW, fullHeightMm);
+      pageState.y = pageH - margin;
+    }
+    return;
+  }
+
+  let sy = 0;
+  let lastSliceHMm = 0;
+  while (sy < canvas.height) {
+    const remainingHMm = pageH - margin - pageState.y;
+    const sliceHMm = remainingHMm >= minUsefulRemainderMm ? remainingHMm : usableH;
+    if (sliceHMm === usableH && pageState.y > margin) {
+      pdf.addPage();
+      pageState.y = margin;
+    }
+    const sliceHeightPx = Math.floor(canvas.width * sliceHMm / contentW);
+    const h = Math.min(sliceHeightPx, canvas.height - sy);
+    const slice = document.createElement('canvas');
+    slice.width = canvas.width;
+    slice.height = h;
+    const ctx = slice.getContext('2d');
+    ctx.drawImage(canvas, 0, sy, canvas.width, h, 0, 0, canvas.width, h);
+    lastSliceHMm = (h / canvas.width) * contentW;
+    pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, pageState.y, contentW, lastSliceHMm);
+    sy += h;
+    if (sy < canvas.height) pdf.addPage();
+    pageState.y = margin;
+  }
+  pageState.y = margin + lastSliceHMm + gap;
+}
+
+function getLocalDateForFileName() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// 全局：由 setupAutoLoadFromMiniProgram 设置
+var _pdfMode = '';        // 'report' | 'whitepaper' | ''
+var _pdfProductName = ''; // 产品名（用于文件名）
+
+function buildReadablePdfFileName() {
+  const date = getLocalDateForFileName();
+  if (_pdfMode === 'report' && _pdfProductName) {
+    const safe = _pdfProductName
+      .replace(/[\\/:*?"<>|\r\n\t]+/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/^[._\s]+|[._\s]+$/g, '')
+      .slice(0, 40) || '调研报告';
+    return { title: `《${_pdfProductName}》调研报告`, fileName: `${safe}_调研报告_${date}.pdf` };
+  }
+  const titleEl = document.getElementById('coverTitle');
+  const rawTitle = (titleEl && titleEl.textContent ? titleEl.textContent : '').trim() || 'CIBE产品数据白皮书';
+  const safeTitle = rawTitle
+    .replace(/[\\/:*?"<>|\r\n\t]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/^[._\s]+|[._\s]+$/g, '')
+    .slice(0, 60) || 'CIBE产品数据白皮书';
+  // 白皮书模式：文件名带 _白皮书 后缀
+  const suffix = _pdfMode === 'whitepaper' ? '_白皮书' : '';
+  return {
+    title: rawTitle,
+    fileName: `${safeTitle}${suffix}_${date}.pdf`,
+  };
+}
+
+async function exportPDFLegacyImageMode() {
+  if (isExporting) return;
+  isExporting = true;
+
+  const btn = document.getElementById('btnExport');
+  btn.disabled = true;
+  btn.innerHTML = '导出中…';
+
+  const overlay = document.getElementById('pdfExportOverlay');
+  overlay.classList.add('show');
+  _setPdfProgress(0, '准备中…');
+
+  // 临时退出编辑模式（移除 UI 干扰元素）
+  const wasEditMode = isEditMode;
+  if (wasEditMode) toggleEditMode();
+
+  if (!window.jspdf || !window.jspdf.jsPDF || !window.html2canvas) {
+    showToast('导出库未就绪，请刷新页面后重试', 'error');
+    isExporting = false;
+    btn.disabled = false;
+    btn.innerHTML = '导出PDF';
+    overlay.classList.remove('show');
+    return;
+  }
+
+  let chartSnapshots = [];
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfNameInfo = buildReadablePdfFileName();
+    pdf.setProperties({
+      title: pdfNameInfo.title,
+      subject: 'CIBE 产品数据白皮书',
+      author: '测品官',
+      creator: '测品官 · AI 智能分析',
+    });
+    const PAGE_W = 210;   // mm
+    const PAGE_H = 297;   // mm
+    const MARGIN = 10;    // mm 上下页边距
+    const USABLE_H = PAGE_H - MARGIN * 2;
+
+    // ---- 1. ECharts → 静态图片（避免 html2canvas 捕获空 canvas）----
+    _setPdfProgress(3, '图表截图中…');
+    for (const chart of chartInstances) {
+      const el = chart.getDom();
+      chart.resize();
+      const dataUrl = chart.getDataURL({ type: 'png', pixelRatio: 3, backgroundColor: '#fff' });
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.style.cssText = 'width:100%;height:100%;display:block;';
+      chartSnapshots.push({ el, originalHTML: el.innerHTML, img });
+      el.innerHTML = '';
+      el.appendChild(img);
+      await waitForImageReady(img);
+    }
+    await waitForNextFrame();
+
+    // ---- 2. 封面页独占第一页 ----
+    _setPdfProgress(8, '生成封面…');
+    const coverEl = document.getElementById('coverPage');
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const coverCanvas = await html2canvas(coverEl, {
+      scale: Math.min(window.devicePixelRatio || 1, 2),
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#E3004F',
+      logging: false,
+    });
+    if (coverCanvas.width > 0 && coverCanvas.height > 0) {
+      const coverImgData = coverCanvas.toDataURL('image/jpeg', 0.95);
+      // 按页宽满铺，高度等比
+      const coverHmm = PAGE_W * (coverCanvas.height / coverCanvas.width);
+      const coverY = Math.max(0, (PAGE_H - coverHmm) / 2);
+      pdf.addImage(coverImgData, 'JPEG', 0, coverY, PAGE_W, coverHmm);
+    }
+
+    // ---- 3. 正文按标题/段落块截图 + PDF 分页 ----
+    // 原理：按 H2/H3 小节分块捕获，分页时先判断整块是否能放下；
+    // 避免固定像素硬切把章节标题切成两半，导致 PDF 页面断层。
+    _setPdfProgress(15, '正文渲染中…');
+    const contentBody = document.getElementById('contentBody');
+    const contentWidthMm = PAGE_W - MARGIN * 2;
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    await waitForNextFrame();
+
+    // 固定 A4 文本宽：794px 卡片 − 46px×2 padding = 702px
+    // 避免移动端视口 ~375px 导致文字极度折行、PDF 页数爆炸（283页→15-20页）
+    const contentInnerWidth = 702;
+    const blocks = buildPdfContentBlocks(contentBody);
+    const pageState = {
+      pageW: PAGE_W,
+      pageH: PAGE_H,
+      margin: MARGIN,
+      contentW: contentWidthMm,
+      usableH: USABLE_H,
+      y: MARGIN,
+      started: false,
+    };
+
+    for (let i = 0; i < blocks.length; i++) {
+      const pct = 18 + Math.round((i / Math.max(1, blocks.length)) * 65);
+      _setPdfProgress(pct, `正文渲染 ${pct}%…`);
+      const block = blocks[i];
+      const margin = pageState.margin;
+      if (!pageState.started) {
+        pdf.addPage();
+        pageState.y = margin;
+        pageState.started = true;
+      } else if (block.forceNewPage && pageState.y > margin) {
+        pdf.addPage();
+        pageState.y = margin;
+      }
+      const blockCanvas = await capturePdfBlock(block.nodes, contentInnerWidth);
+      addCanvasToPdfPages(pdf, blockCanvas, pageState, block.allowSplit);
+    }
+
+    // ---- 4. 生成 blob ----
+    _setPdfProgress(88, '生成文件…');
+    const fileName = pdfNameInfo.fileName;
+    const pdfBlob = pdf.output('blob');
+
+    // ---- 4b. 同步到后端 ----
+    const _qs = new URLSearchParams(window.location.search);
+    const _eid = _qs.get('evaluation_id') || _qs.get('eid');
+    const _token = _qs.get('token') || '';
+    const _api = (_qs.get('api_base') || _qs.get('api') || '').replace(/\/$/, '');
+    const isWechat = /MicroMessenger/i.test(navigator.userAgent);
+    let serverUploaded = false;
+
+    if (_eid && _api) {
+      _setPdfProgress(92, '同步到个人中心…');
+      if (isWechat) {
+        // 微信 WebView：用 fetch + FormData 直接上传（60s 超时）
+        try {
+          const uploadUrl = `${_api}/api/v1/reports/by-evaluation/${encodeURIComponent(_eid)}/pdf-upload`;
+          const formData = new FormData();
+          formData.append('file', pdfBlob, fileName);
+          const fetchHeaders = _token ? { 'Authorization': 'Bearer ' + _token } : {};
+          const ac = new AbortController();
+          const t = setTimeout(() => ac.abort(), 60000);
+          const resp = await fetch(uploadUrl, { method: 'POST', headers: fetchHeaders, body: formData, signal: ac.signal });
+          clearTimeout(t);
+          serverUploaded = resp.ok;
+          if (!serverUploaded) console.error('[PDF上传] status=' + resp.status);
+        } catch(fetchErr) {
+          console.error('[PDF上传] fetch error:', fetchErr && fetchErr.message);
+        }
+      } else {
+        // 非微信（PC预览）：直接 fetch 上传
+        try {
+          const uploadUrl = `${_api}/api/v1/reports/by-evaluation/${encodeURIComponent(_eid)}/pdf-upload`;
+          const formData = new FormData();
+          formData.append('file', pdfBlob, fileName);
+          const fetchHeaders = {};
+          if (_token) fetchHeaders['Authorization'] = 'Bearer ' + _token;
+          const resp = await fetch(uploadUrl, { method: 'POST', headers: fetchHeaders, body: formData });
+          serverUploaded = resp.ok;
+        } catch(e) { /* ignore */ }
+      }
+    }
+
+    // ---- 4c. 本地下载（PC/非微信浏览器）----
+    _setPdfProgress(97, '完成…');
+    if (!isWechat) {
+      try { pdf.save(fileName); } catch (_) { /* 浏览器不支持时忽略 */ }
+    }
+
+    // 显示成功弹窗（微信和非微信都显示）
+    document.getElementById('pdfSuccessOverlay').classList.add('show');
+
+    _setPdfProgress(100, '导出完成！');
+    await new Promise(r => setTimeout(r, 800));
+
+  } catch (err) {
+    console.error('PDF 导出失败:', err);
+    const errMsg = (err && err.message) ? err.message : String(err);
+    _setPdfProgress(0, '导出失败：' + errMsg);
+    showToast('PDF 导出失败: ' + errMsg, 'error');
+    await new Promise(r => setTimeout(r, 1200));
+  } finally {
+    overlay.classList.remove('show');
+    chartSnapshots.forEach(({ el, originalHTML }) => {
+      el.innerHTML = originalHTML;
+    });
+    chartInstances.forEach(chart => chart.resize());
+    isExporting = false;
+    btn.disabled = false;
+    btn.innerHTML = '导出PDF';
+    if (wasEditMode) toggleEditMode();
+  }
+}
+
+async function exportPDF() {
+  await exportPDFLegacyImageMode();
+}
+
+function goToReportPdfs() {
+  document.getElementById('pdfSuccessOverlay').classList.remove('show');
+  try {
+    wx.miniProgram.navigateTo({ url: '/pages/report-pdfs/report-pdfs' });
+  } catch (e) {
+    // 非微信环境忽略
+  }
+}
+
+// =============================================================
+// 进度条
+// =============================================================
+function showProgress(show) {
+  document.getElementById('progressSection').classList.toggle('show', show);
+  if (!show) {
+    document.getElementById('progressBar').style.width = '0%';
+  }
+}
+
+function updateProgress(pct, text) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressText').textContent = text;
+}
+
+// =============================================================
+// Toast 通知
+// =============================================================
+function showToast(msg, type = '') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast show ' + type;
+  setTimeout(() => { toast.className = 'toast'; }, 3500);
+}
+
+// =============================================================
+// 自适应：图表跟随容器 resize
+// =============================================================
+function resizeAllCharts() {
+  chartInstances.forEach(c => c.resize());
+}
+
+// =============================================================
+// 初始化
+// =============================================================
+window.addEventListener('resize', resizeAllCharts);
+
+// =============================================================
+// 编辑模式
+// =============================================================
+const EDITABLE_SELECTORS = 'h2, h3, p, li, blockquote, th, td';
+
+function toggleEditMode() {
+  isEditMode = !isEditMode;
+  const card = document.getElementById('previewCard');
+  const btn = document.getElementById('btnEditMode');
+
+  if (isEditMode) {
+    card.classList.add('edit-mode');
+    btn.classList.add('btn-edit-active');
+    btn.innerHTML = '✏️ 退出编辑';
+
+    // 封面可编辑
+    document.getElementById('coverTitle').setAttribute('contenteditable', 'true');
+    document.getElementById('coverSubtitle').setAttribute('contenteditable', 'true');
+
+    // 正文叶级元素可编辑
+    document.querySelectorAll(`#contentBody ${EDITABLE_SELECTORS}`).forEach(el => {
+      el.setAttribute('contenteditable', 'true');
+    });
+
+    // 注入操作浮层
+    injectEditOverlays();
+
+    // 粘贴净化
+    document.getElementById('contentBody').addEventListener('paste', pasteAsPlainText, true);
+    document.getElementById('coverPage').addEventListener('paste', pasteAsPlainText, true);
+
+  } else {
+    card.classList.remove('edit-mode');
+    btn.classList.remove('btn-edit-active');
+    btn.innerHTML = '✏️ 编辑模式';
+
+    // 移除 contenteditable
+    document.getElementById('coverTitle').removeAttribute('contenteditable');
+    document.getElementById('coverSubtitle').removeAttribute('contenteditable');
+    document.querySelectorAll(`#contentBody [contenteditable]`).forEach(el => {
+      el.removeAttribute('contenteditable');
+    });
+
+    // 移除浮层
+    removeEditOverlays();
+
+    // 移除粘贴监听
+    document.getElementById('contentBody').removeEventListener('paste', pasteAsPlainText, true);
+    document.getElementById('coverPage').removeEventListener('paste', pasteAsPlainText, true);
+  }
+}
+
+function pasteAsPlainText(e) {
+  e.preventDefault();
+  const text = e.clipboardData.getData('text/plain');
+  document.execCommand('insertText', false, text);
+}
+
+// --- 操作浮层 ---
+function injectEditOverlays() {
+  removeEditOverlays(); // 清理残留
+
+  // 图表浮层：编辑 + 删除
+  document.querySelectorAll('#contentBody .chart-container').forEach(el => {
+    const overlay = document.createElement('div');
+    overlay.className = 'edit-overlay';
+    overlay.innerHTML = `
+      <button class="edit-overlay-btn edit-chart" title="编辑图表" onclick="openChartEditor('${el.id}')">✏️</button>
+      <button class="edit-overlay-btn delete" title="删除图表" onclick="deleteElement('${el.id}')">🗑️</button>
+    `;
+    el.appendChild(overlay);
+  });
+
+  // 配图浮层：仅删除
+  document.querySelectorAll('#contentBody .image-container').forEach(el => {
+    const overlay = document.createElement('div');
+    overlay.className = 'edit-overlay';
+    overlay.innerHTML = `
+      <button class="edit-overlay-btn delete" title="删除配图" onclick="deleteElement('${el.id}')">🗑️</button>
+    `;
+    el.appendChild(overlay);
+  });
+}
+
+function removeEditOverlays() {
+  document.querySelectorAll('.edit-overlay').forEach(el => el.remove());
+}
+
+// --- 删除图表/配图 ---
+function deleteElement(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  // 如果是图表，销毁 ECharts 实例
+  if (id.startsWith('chart-')) {
+    const idx = chartInstances.findIndex(c => c.getDom() === el);
+    if (idx !== -1) {
+      chartInstances[idx].dispose();
+      chartInstances.splice(idx, 1);
+    }
+    delete chartDataStore[id];
+  }
+
+  el.remove();
+}
+
+// --- 图表可视化编辑器 ---
+let cePreviewInstance = null;  // 编辑器内的预览 ECharts 实例
+let ceColors = [];             // 当前编辑中的配色数组
+let ceChartSize = { width: 100, height: 380 }; // 图表尺寸
+
+function openChartEditor(chartId) {
+  editingChartId = chartId;
+  const cfg = chartDataStore[chartId];
+  if (!cfg) return;
+
+  // 填充基础设置
+  document.getElementById('ceTitle').value = cfg.title || '';
+  document.getElementById('ceType').value = cfg.type || 'bar';
+  document.getElementById('ceError').textContent = '';
+
+  // 读取已保存的样式或使用默认值
+  const style = cfg.style || {};
+  ceChartSize = { width: style.width || 100, height: style.height || 380 };
+  document.getElementById('ceWidth').value = ceChartSize.width;
+  document.getElementById('ceHeight').value = ceChartSize.height;
+  document.getElementById('ceBorderRadius').value = style.borderRadius ?? 4;
+  document.getElementById('ceBorderRadiusVal').textContent = (style.borderRadius ?? 4) + 'px';
+  document.getElementById('ceBarWidth').value = style.barWidth ?? 50;
+  document.getElementById('ceBarWidthVal').textContent = (style.barWidth ?? 50) + 'px';
+  document.getElementById('ceLineWidth').value = style.lineWidth ?? 2;
+  document.getElementById('ceLineWidthVal').textContent = (style.lineWidth ?? 2) + 'px';
+  document.getElementById('ceFontSize').value = style.fontSize ?? 14;
+
+  // 配色
+  ceColors = style.colors ? [...style.colors] : [...CIBE_COLORS];
+  ceBuildColorPickers();
+
+  // 构建数据表格
+  ceBuildDataTable(cfg.data);
+
+  // 显示弹窗
+  document.getElementById('chartEditModal').style.display = 'flex';
+
+  // 初始化预览（延迟一帧让DOM渲染完）
+  requestAnimationFrame(() => {
+    const previewEl = document.getElementById('cePreviewChart');
+    if (cePreviewInstance) { cePreviewInstance.dispose(); }
+    cePreviewInstance = echarts.init(previewEl);
+    cePreview();
+  });
+}
+
+function closeChartEditor() {
+  document.getElementById('chartEditModal').style.display = 'none';
+  if (cePreviewInstance) { cePreviewInstance.dispose(); cePreviewInstance = null; }
+  editingChartId = null;
+}
+
+// --- 配色管理 ---
+function ceBuildColorPickers() {
+  const container = document.getElementById('ceColorList');
+  // 保证至少有 8 个颜色槽
+  while (ceColors.length < 8) ceColors.push(CIBE_COLORS[ceColors.length % CIBE_COLORS.length]);
+  container.innerHTML = ceColors.slice(0, 8).map((c, i) =>
+    `<div class="ce-color-item">
+       <input type="color" value="${c}" onchange="ceColors[${i}]=this.value;cePreview()" title="系列${i+1}">
+       <span>${i+1}</span>
+     </div>`
+  ).join('');
+}
+
+// --- 数据表格构建 ---
+function ceBuildDataTable(data) {
+  const thead = document.getElementById('ceDataThead');
+  const tbody = document.getElementById('ceDataTbody');
+  const labels = data.labels || [];
+  const datasets = data.datasets || [];
+
+  // 表头：标签 | 系列1 | 系列2 | ...
+  thead.innerHTML = '<tr><th style="min-width:90px">标签</th>' +
+    datasets.map((ds, i) =>
+      `<th style="min-width:80px">
+        <div class="ce-series-name">
+          <input type="text" value="${ds.name || '系列'+(i+1)}" data-series="${i}" class="ce-sname" oninput="cePreview()">
+        </div>
+      </th>`
+    ).join('') + '</tr>';
+
+  // 数据行
+  tbody.innerHTML = labels.map((label, r) =>
+    '<tr><td><input class="ce-label-input" value="' + label + '" data-row="' + r + '" oninput="cePreview()"></td>' +
+    datasets.map((ds, c) =>
+      '<td><input type="number" value="' + (ds.values[r] ?? 0) + '" data-row="' + r + '" data-col="' + c + '" oninput="cePreview()"></td>'
+    ).join('') + '</tr>'
+  ).join('');
+}
+
+// --- 从表格读取数据 ---
+function ceReadTableData() {
+  const labels = [];
+  const seriesNames = [];
+  const seriesValues = [];
+
+  // 读取系列名
+  document.querySelectorAll('#ceDataThead .ce-sname').forEach(inp => {
+    seriesNames.push(inp.value.trim() || '系列');
+  });
+
+  // 初始化 values 数组
+  seriesNames.forEach(() => seriesValues.push([]));
+
+  // 读取每行
+  document.querySelectorAll('#ceDataTbody tr').forEach(tr => {
+    const cells = tr.querySelectorAll('input');
+    labels.push(cells[0].value.trim() || '');
+    for (let c = 1; c < cells.length; c++) {
+      seriesValues[c - 1].push(parseFloat(cells[c].value) || 0);
+    }
+  });
+
+  return {
+    labels,
+    datasets: seriesNames.map((name, i) => ({ name, values: seriesValues[i] }))
+  };
+}
+
+// --- 添加/删除行列 ---
+function ceAddRow() {
+  const data = ceReadTableData();
+  data.labels.push('新标签');
+  data.datasets.forEach(ds => ds.values.push(0));
+  ceBuildDataTable(data);
+  cePreview();
+}
+
+function ceRemoveRow() {
+  const data = ceReadTableData();
+  if (data.labels.length <= 1) return;
+  data.labels.pop();
+  data.datasets.forEach(ds => ds.values.pop());
+  ceBuildDataTable(data);
+  cePreview();
+}
+
+function ceAddSeries() {
+  const data = ceReadTableData();
+  if (data.datasets.length >= 5) return; // 最多5个系列
+  data.datasets.push({ name: '系列' + (data.datasets.length + 1), values: data.labels.map(() => 0) });
+  ceBuildDataTable(data);
+  cePreview();
+}
+
+function ceRemoveSeries() {
+  const data = ceReadTableData();
+  if (data.datasets.length <= 1) return;
+  data.datasets.pop();
+  ceBuildDataTable(data);
+  cePreview();
+}
+
+// --- 实时预览 ---
+function cePreview() {
+  if (!cePreviewInstance) return;
+  // 更新 slider 标签
+  document.getElementById('ceBorderRadiusVal').textContent = document.getElementById('ceBorderRadius').value + 'px';
+  document.getElementById('ceBarWidthVal').textContent = document.getElementById('ceBarWidth').value + 'px';
+  document.getElementById('ceLineWidthVal').textContent = document.getElementById('ceLineWidth').value + 'px';
+
+  const type = document.getElementById('ceType').value;
+  const title = document.getElementById('ceTitle').value.trim();
+  const data = ceReadTableData();
+  const borderRadius = parseInt(document.getElementById('ceBorderRadius').value) || 0;
+  const barWidth = parseInt(document.getElementById('ceBarWidth').value) || 50;
+  const lineWidth = parseInt(document.getElementById('ceLineWidth').value) || 2;
+  const fontSize = parseInt(document.getElementById('ceFontSize').value) || 14;
+
+  // 构建自定义 option
+  const option = buildChartOptionAdvanced(type, title, data, {
+    colors: ceColors.slice(0, 8),
+    borderRadius,
+    barWidth,
+    lineWidth,
+    fontSize,
+  });
+
+  cePreviewInstance.setOption(option, true);
+  cePreviewInstance.resize();
+}
+
+// --- 高级 buildChartOption（带样式参数）---
+function buildChartOptionAdvanced(type, title, data, style) {
+  const colors = style.colors || CIBE_COLORS;
+  const borderRadius = style.borderRadius ?? 4;
+  const barWidth = style.barWidth ?? 50;
+  const lineWidth = style.lineWidth ?? 2;
+  const fontSize = style.fontSize ?? 14;
+
+  const base = {
+    title: {
+      text: title,
+      left: 'center',
+      top: 12,
+      textStyle: {
+        fontSize: fontSize,
+        fontWeight: 700,
+        color: '#1A1A2E',
+        width: 600,
+        overflow: 'break',
+      },
+    },
+    tooltip: {
+      trigger: type === 'pie' ? 'item' : 'axis',
+      confine: true,
+    },
+    color: colors,
+    animation: true,
+  };
+
+  if (type === 'pie') {
+    return {
+      ...base,
+      legend: { bottom: 10, left: 'center', textStyle: { fontSize: 11 }, type: 'scroll' },
+      series: [{
+        type: 'pie',
+        radius: ['30%', '58%'],
+        center: ['50%', '48%'],
+        data: data.labels.map((label, i) => ({ name: label, value: data.datasets[0]?.values[i] ?? 0 })),
+        label: { formatter: '{b}\n{d}%', fontSize: 11, lineHeight: 16, position: 'outside' },
+        labelLine: { length: 12, length2: 8 },
+        emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' } },
+        itemStyle: { borderRadius: borderRadius },
+      }],
+    };
+  }
+
+  if (type === 'scatter') {
+    return {
+      ...base,
+      grid: { left: 50, right: 30, top: 50, bottom: 40, containLabel: true },
+      xAxis: { type: 'value' },
+      yAxis: { type: 'value' },
+      series: data.datasets.map((ds, i) => ({
+        name: ds.name, type: 'scatter',
+        data: ds.values.map((v, j) => [data.labels[j] || j, v]),
+        symbolSize: 14,
+      })),
+    };
+  }
+
+  // bar / line / area
+  const chartType = type === 'area' ? 'line' : type;
+  const bottomSpace = chartBottomSpace(data.labels);
+  return {
+    ...base,
+    grid: { left: 20, right: 30, top: 55, bottom: bottomSpace, containLabel: true },
+    xAxis: {
+      type: 'category', data: data.labels,
+      axisLabel: {
+        fontSize: 10,
+        interval: 0,
+        rotate: 0,
+        lineHeight: 14,
+        hideOverlap: true,
+        formatter: value => formatAxisLabel(value),
+      },
+      axisTick: { alignWithLabel: true },
+    },
+    yAxis: {
+      type: 'value', axisLabel: { fontSize: 11 },
+      splitLine: { lineStyle: { type: 'dashed', color: '#eee' } },
+    },
+    legend: { bottom: 2, textStyle: { fontSize: 11 }, type: 'scroll' },
+    series: data.datasets.map((ds, i) => ({
+      name: ds.name,
+      type: chartType,
+      data: ds.values,
+      smooth: true,
+      lineStyle: { width: lineWidth },
+      areaStyle: type === 'area' ? { opacity: 0.15 } : undefined,
+      barMaxWidth: barWidth,
+      barMinWidth: Math.min(15, barWidth),
+      itemStyle: { borderRadius: type === 'bar' ? [borderRadius, borderRadius, 0, 0] : 0 },
+      label: {
+        show: data.datasets.length === 1 && data.labels.length <= 8,
+        position: 'top', fontSize: 11, color: '#666',
+      },
+    })),
+  };
+}
+
+// --- 应用修改到正文图表 ---
+function applyChartEdit() {
+  const chartId = editingChartId;
+  if (!chartId) return;
+
+  const newTitle = document.getElementById('ceTitle').value.trim();
+  const newType = document.getElementById('ceType').value;
+  const newData = ceReadTableData();
+
+  // 验证
+  if (!newData.labels.length || !newData.datasets.length) {
+    document.getElementById('ceError').textContent = '数据不能为空';
+    return;
+  }
+
+  const newStyle = {
+    width: parseInt(document.getElementById('ceWidth').value) || 100,
+    height: parseInt(document.getElementById('ceHeight').value) || 380,
+    borderRadius: parseInt(document.getElementById('ceBorderRadius').value) || 0,
+    barWidth: parseInt(document.getElementById('ceBarWidth').value) || 50,
+    lineWidth: parseInt(document.getElementById('ceLineWidth').value) || 2,
+    fontSize: parseInt(document.getElementById('ceFontSize').value) || 14,
+    colors: [...ceColors.slice(0, 8)],
+  };
+
+  // 更新全局存储（包含样式）
+  chartDataStore[chartId] = { type: newType, title: newTitle, data: newData, style: newStyle };
+
+  // 找到对应 ECharts 实例并重新渲染
+  const el = document.getElementById(chartId);
+  if (el) {
+    // 调整图表容器高度
+    el.style.height = newStyle.height + 'px';
+    const instance = chartInstances.find(c => c.getDom() === el);
+    if (instance) {
+      instance.resize();
+      instance.setOption(buildChartOptionAdvanced(newType, newTitle, newData, newStyle), true);
+    }
+  }
+
+  closeChartEditor();
+}
+
+// =============================================================
+// 初始化
+// =============================================================
+
+
+// =============================================================
+// 自动加载模式 — 由小程序 WebView 携带 evaluation_id + token 进入
+// URL: /index.html?eid=123&token=xxx&api=http://host:port&mode=report|whitepaper
+// =============================================================
+(function setupAutoLoadFromMiniProgram() {
+  const qs = new URLSearchParams(window.location.search);
+  const eid = qs.get('evaluation_id') || qs.get('eid');
+  if (!eid) return;
+  const token = qs.get('token') || '';
+  const apiBase = (qs.get('api_base') || qs.get('api') || '').replace(/\/$/, '');
+  const mode = qs.get('mode') || 'whitepaper';
+  _pdfMode = mode;
+  _pdfProductName = decodeURIComponent(qs.get('product_name') || '');
+
+  // 更新导航栏标题
+  const navbarTitle = document.getElementById('navbarTitle');
+  if (navbarTitle) {
+    navbarTitle.innerHTML = '美博会测品官报告';
+  }
+
+  if (!apiBase) {
+    const navStatus = document.getElementById('navStatus');
+    if (navStatus) navStatus.textContent = '缺少 api_base 参数';
+    return;
+  }
+
+  const uploadSection = document.querySelector('.upload-section');
+  const actionBar = document.querySelector('.action-bar');
+  if (uploadSection) uploadSection.style.display = 'none';
+  if (actionBar) actionBar.style.display = 'none';
+
+  const toolbar = document.getElementById('toolbar');
+  const previewSection = document.getElementById('previewSection');
+  const navStatus = document.getElementById('navStatus') || { textContent: '' };
+  const headers = token ? { Authorization: 'Bearer ' + token } : {};
+
+  showProgress(true);
+  navStatus.textContent = '加载中...';
+
+  if (mode === 'report') {
+    // ── 调研报告模式 ──────────────────────────────────────────
+    updateProgress(20, '读取调研报告...');
+    const reportUrl = `${apiBase}/api/v1/reports/by-evaluation/${encodeURIComponent(eid)}/business`;
+    fetch(reportUrl, { headers })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        updateProgress(70, '渲染报告内容...');
+        renderBusinessReport(data, _pdfProductName);
+        updateProgress(100, '加载完成');
+        toolbar.classList.add('show');
+        previewSection.classList.add('show');
+        navStatus.textContent = '调研报告';
+        setTimeout(() => showProgress(false), 500);
+      })
+      .catch(err => {
+        navStatus.textContent = '加载失败';
+        showToast('调研报告加载失败：' + err.message, 'error');
+      });
+    return;
+  }
+
+  // ── 白皮书模式（原有逻辑）────────────────────────────────────
+  updateProgress(15, '读取白皮书...');
+  const targetUrl = `${apiBase}/api/v1/whitepapers/by-evaluation/${encodeURIComponent(eid)}`;
+  let pollCount = 0;
+  const maxPolls = 60;
+
+  async function poll() {
+    pollCount += 1;
+    try {
+      const resp = await fetch(targetUrl, { headers });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data.status === 'ready' && data.markdown) {
+        updateProgress(80, '渲染图表与配图...');
+        await renderWhitepaper(data.markdown);
+        updateProgress(100, '加载完成');
+        toolbar.classList.add('show');
+        previewSection.classList.add('show');
+        navStatus.textContent = '加载完成';
+        setTimeout(() => { resizeAllCharts(); showProgress(false); }, 500);
+        return;
+      }
+      if (data.status === 'failed') {
+        navStatus.textContent = '生成失败';
+        updateProgress(100, data.error_message || '白皮书生成失败');
+        showToast(data.error_message || '白皮书生成失败', 'error');
+        return;
+      }
+      const pct = Math.min(70, 20 + pollCount * 3);
+      updateProgress(pct, '白皮书生成中（约 1-3 分钟）...');
+      if (pollCount < maxPolls) {
+        setTimeout(poll, 5000);
+      } else {
+        navStatus.textContent = '超时';
+        showToast('生成超时，请稍后重试', 'error');
+      }
+    } catch (err) {
+      navStatus.textContent = '加载失败';
+      showToast('加载失败：' + err.message, 'error');
+    }
+  }
+
+  poll();
+})();
+
+// =============================================================
+// 调研报告渲染（mode=report）
+// =============================================================
+function renderBusinessReport(data, productName) {
+  const title = productName ? `《${productName}》调研报告` : '产品调研报告';
+  const date = new Date();
+  const dateStr = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日`;
+
+  // 封面
+  const coverTitle = document.getElementById('coverTitle');
+  const coverSubtitle = document.getElementById('coverSubtitle');
+  const coverFooter = document.getElementById('coverFooter');
+  if (coverTitle) coverTitle.textContent = title;
+  if (coverSubtitle) coverSubtitle.innerHTML = '基于 AI 测品官的消费者深度调研报告<br>洞察真实反馈，赋能产品决策';
+  if (coverFooter) coverFooter.textContent = `${dateStr}  |  测品官 · AI 智能分析`;
+
+  // 正文
+  const body = document.getElementById('contentBody');
+  if (!body) return;
+
+  const sections = [];
+
+  // 1. 执行摘要
+  if (data.executive_summary && data.executive_summary.length) {
+    sections.push(`<h2>执行摘要</h2><ul>${data.executive_summary.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`);
+  }
+
+  // 2. 决策建议
+  if (data.decision_suggestion) {
+    const ds = data.decision_suggestion;
+    const verdictMap = { go: '✅ 建议推进', iterate: '🔄 建议迭代优化', pause: '⏸ 建议暂缓' };
+    const verdictLabel = verdictMap[ds.verdict] || ds.verdict;
+    sections.push(`<h2>决策建议</h2>
+      <p><strong>${verdictLabel}</strong></p>
+      <p>${escapeHtml(ds.reason)}</p>`);
+  }
+
+  // 3. 核心指标
+  if (data.metrics) {
+    const m = data.metrics;
+    const intentAvg = m.overall_intent_avg != null ? Number(m.overall_intent_avg).toFixed(1) : '—';
+    const nps = m.nps != null ? Number(m.nps).toFixed(0) : '—';
+    let metricsHtml = `<h2>核心指标</h2>
+      <table style="width:100%;border-collapse:collapse;margin:12px 0">
+        <tr style="background:#f5f5f5"><th style="padding:8px;text-align:left;border:1px solid #e0e0e0">指标</th><th style="padding:8px;text-align:left;border:1px solid #e0e0e0">数值</th></tr>
+        <tr><td style="padding:8px;border:1px solid #e0e0e0">平均购买意向</td><td style="padding:8px;border:1px solid #e0e0e0">${intentAvg} / 10</td></tr>
+        <tr><td style="padding:8px;border:1px solid #e0e0e0">NPS 净推荐值</td><td style="padding:8px;border:1px solid #e0e0e0">${nps}</td></tr>
+      </table>`;
+    if (m.dimension_scores && m.dimension_scores.length) {
+      metricsHtml += `<h3>维度评分</h3><table style="width:100%;border-collapse:collapse;margin:12px 0">
+        <tr style="background:#f5f5f5"><th style="padding:8px;text-align:left;border:1px solid #e0e0e0">维度</th><th style="padding:8px;text-align:left;border:1px solid #e0e0e0">评分</th></tr>
+        ${m.dimension_scores.map(d => `<tr><td style="padding:8px;border:1px solid #e0e0e0">${escapeHtml(d.dim)}</td><td style="padding:8px;border:1px solid #e0e0e0">${Number(d.score).toFixed(2)}</td></tr>`).join('')}
+      </table>`;
+    }
+    sections.push(metricsHtml);
+  }
+
+  // 4. 核心优势
+  if (data.top_pros && data.top_pros.length) {
+    let html = '<h2>核心优势</h2>';
+    data.top_pros.forEach((p, i) => {
+      html += `<h3>${i + 1}. ${escapeHtml(p.title)}</h3>`;
+      if (p.business_implication) html += `<p>${escapeHtml(p.business_implication)}</p>`;
+      if (p.evidence_quotes && p.evidence_quotes.length) {
+        html += `<blockquote>${p.evidence_quotes.slice(0, 2).map(q => `<p>「${escapeHtml(q.quote)}」<em> — ${escapeHtml(q.persona_name)}</em></p>`).join('')}</blockquote>`;
+      }
+    });
+    sections.push(html);
+  }
+
+  // 5. 核心不足
+  if (data.top_cons && data.top_cons.length) {
+    let html = '<h2>核心不足</h2>';
+    data.top_cons.forEach((c, i) => {
+      html += `<h3>${i + 1}. ${escapeHtml(c.title)}</h3>`;
+      if (c.improvement_suggestion) html += `<p>${escapeHtml(c.improvement_suggestion)}</p>`;
+      if (c.evidence_quotes && c.evidence_quotes.length) {
+        html += `<blockquote>${c.evidence_quotes.slice(0, 2).map(q => `<p>「${escapeHtml(q.quote)}」<em> — ${escapeHtml(q.persona_name)}</em></p>`).join('')}</blockquote>`;
+      }
+    });
+    sections.push(html);
+  }
+
+  // 6. 目标人群
+  if (data.target_audience) {
+    const ta = data.target_audience;
+    let html = '<h2>目标人群</h2>';
+    if (ta.most_likely_to_buy && ta.most_likely_to_buy.length) {
+      html += `<h3>最可能购买</h3><ul>${ta.most_likely_to_buy.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`;
+    }
+    if (ta.least_likely_to_buy && ta.least_likely_to_buy.length) {
+      html += `<h3>最不可能购买</h3><ul>${ta.least_likely_to_buy.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`;
+    }
+    if (ta.channel_recommendation && ta.channel_recommendation.length) {
+      html += `<h3>渠道建议</h3><ul>${ta.channel_recommendation.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`;
+    }
+    sections.push(html);
+  }
+
+  // 7. 营销角度
+  if (data.marketing_copy_angles && data.marketing_copy_angles.length) {
+    let html = '<h2>营销切入角度</h2>';
+    data.marketing_copy_angles.forEach(a => {
+      html += `<h3>${escapeHtml(a.angle)}</h3>`;
+      if (a.suitable_segment) html += `<p><strong>适合人群：</strong>${escapeHtml(a.suitable_segment)}</p>`;
+      if (a.risk_note) html += `<p><strong>注意事项：</strong>${escapeHtml(a.risk_note)}</p>`;
+    });
+    sections.push(html);
+  }
+
+  // 8. 下一步建议
+  if (data.next_test_recommendations && data.next_test_recommendations.length) {
+    sections.push(`<h2>下一步建议</h2><ul>${data.next_test_recommendations.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`);
+  }
+
+  body.innerHTML = sections.join('<hr style="margin:32px 0;border:none;border-top:1px solid #eee">');
+}
+
+
+</script>
+
+</body>
+</html>

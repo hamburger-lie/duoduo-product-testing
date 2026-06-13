@@ -1,0 +1,50 @@
+<view class="page">
+  <scroll-view scroll-y class="privacy-scroll">
+    <view class="privacy-card">
+      <view class="privacy-title">隐私政策</view>
+      <view class="privacy-updated">更新日期：2026年6月5日</view>
+
+      <view class="privacy-section">
+        <view class="privacy-heading">信息收集与使用</view>
+        <view class="privacy-text">
+          为提供登录、产品测评、报告生成、积分和个人中心等功能，我们会在获得授权后收集并使用你的微信账号标识、手机号、头像、昵称、产品图片、产品描述、测评记录、对话内容、报告记录和积分记录。
+        </view>
+      </view>
+
+      <view class="privacy-section">
+        <view class="privacy-heading">图片与测评内容</view>
+        <view class="privacy-text">
+          你上传的产品图片和填写的产品信息会用于识别产品特征、生成问卷、模拟测评反馈和生成调研报告。请不要上传与测评无关的个人敏感信息。
+        </view>
+      </view>
+
+      <view class="privacy-section">
+        <view class="privacy-heading">信息存储与保护</view>
+        <view class="privacy-text">
+          我们会采取合理的安全措施保护你的数据，并仅在实现产品功能、问题排查、服务维护和合规要求所需范围内保存与使用相关信息。
+        </view>
+      </view>
+
+      <view class="privacy-section">
+        <view class="privacy-heading">第三方服务</view>
+        <view class="privacy-text">
+          小程序可能使用微信登录、文件存储、AI 模型服务和基础云服务来完成登录授权、图片处理、内容生成和数据存储。我们会要求相关服务仅在必要范围内处理数据。
+        </view>
+      </view>
+
+      <view class="privacy-section">
+        <view class="privacy-heading">你的权利</view>
+        <view class="privacy-text">
+          你可以在个人中心查看或修改头像、昵称等资料，也可以通过退出登录清理当前设备的登录状态。如需咨询数据访问、更正或删除事项，请通过个人中心的“联系我们”入口反馈。
+        </view>
+      </view>
+
+      <view class="privacy-section privacy-section-last">
+        <view class="privacy-heading">政策更新</view>
+        <view class="privacy-text">
+          我们可能根据功能调整或合规要求更新本政策。更新后会在小程序内展示新的内容，并以页面展示的更新日期为准。
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

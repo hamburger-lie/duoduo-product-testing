@@ -1,0 +1,106 @@
+<view class="page">
+
+  <!-- Section header -->
+  <view class="section-head">
+    <text class="section-title">产品图片</text>
+  </view>
+
+  <!-- Empty upload zone -->
+  <view wx:if="{{productImages.length === 0}}" class="upload-zone" bind:tap="onChooseImages">
+    <view class="upload-icon">+</view>
+    <view class="upload-text">上传产品图</view>
+    <view class="upload-sub">包装图 / 成分表 / 宣传图都可以识别</view>
+  </view>
+
+  <!-- Thumbnail grid -->
+  <view wx:else class="thumb-grid">
+    <block wx:for="{{productImages}}" wx:key="*this">
+      <view class="thumb">
+        <image class="thumb-img" src="{{item}}" mode="aspectFill" data-idx="{{index}}" bind:tap="onPreviewImage"/>
+        <view class="thumb-remove" data-idx="{{index}}" catch:tap="onRemoveImage">×</view>
+      </view>
+    </block>
+    <view wx:if="{{productImages.length < 5}}" class="thumb thumb-add" bind:tap="onChooseImages">
+      <text class="thumb-plus">+</text>
+    </view>
+  </view>
+
+  <!-- AI Extract button card -->
+  <view wx:if="{{!extractDone}}" class="extract-card" bind:tap="onTapExtractCard">
+    <view wx:if="{{extracting}}" class="extract-card-inner disabled">
+      <view class="extract-progress-msg">{{extractMsg}}</view>
+      <view class="extract-progress-track">
+        <view class="extract-progress-fill" style="width:{{extractProgress}}%"></view>
+      </view>
+      <view class="extract-progress-pct">{{extractProgress}}%</view>
+    </view>
+    <view wx:else class="extract-card-inner">
+      <text class="extract-card-kicker">点击</text>
+      <text class="extract-card-title">自动解析图片并填充信息</text>
+    </view>
+    <view wx:if="{{extractError}}" class="extract-error">{{extractError}}</view>
+  </view>
+
+  <!-- Extract result notice (after successful extract) -->
+  <view wx:if="{{extractDone}}" class="extract-notice">
+    <view class="extract-notice-row">
+      <text class="extract-notice-icon">✅</text>
+      <text class="extract-notice-text">已识别出产品信息，请确认后再创建</text>
+    </view>
+    <!-- raw_text collapsible -->
+    <view wx:if="{{extractRawText}}" class="raw-text-section">
+      <view class="raw-text-toggle" bind:tap="onToggleRawText">
+        <text class="raw-text-label">原始识别文字</text>
+        <text class="raw-text-arrow">{{rawTextExpanded ? '收起' : '展开'}}</text>
+      </view>
+      <view wx:if="{{rawTextExpanded}}" class="raw-text-content">{{extractRawText}}</view>
+    </view>
+  </view>
+
+  <!-- Product name field -->
+  <view class="field-card">
+    <view class="field-label-row">
+      <text class="field-label">产品名 <text class="required">*</text></text>
+      <text wx:if="{{filledByAI.productName}}" class="field-ai-badge">已同步解析内容</text>
+    </view>
+    <input
+      class="field-input"
+      value="{{productName}}"
+      bindinput="onProductNameInput"
+      placeholder="例如：焕颜修护面霜"
+      placeholder-class="field-placeholder"
+    />
+  </view>
+
+  <!-- Product description field -->
+  <view class="field-card">
+    <view class="field-label-row">
+      <text class="field-label">产品描述 <text class="required">*</text></text>
+      <text wx:if="{{filledByAI.researchDesc}}" class="field-ai-badge">已同步解析内容</text>
+    </view>
+    <textarea
+      class="field-textarea"
+      value="{{researchDesc}}"
+      bindinput="onDescInput"
+      placeholder="例如：添加 5% 烟酰胺和神经酰胺，主打温和修护和提亮，价格 199 元，适合敏感肌日常使用。"
+      placeholder-class="field-placeholder"
+      maxlength="500"
+      auto-height
+    />
+    <view class="field-footer">
+      <view class="field-count">{{researchDesc.length}}/500</view>
+    </view>
+  </view>
+
+  <!-- Submit area -->
+  <view class="submit-wrap">
+    <view wx:if="{{submitting}}" class="progress-card">
+      <view class="progress-msg">{{createMsg}}</view>
+      <view class="progress-track">
+        <view class="progress-fill" style="width:{{createProgress}}%"></view>
+      </view>
+      <view class="progress-pct">{{createProgress}}%</view>
+    </view>
+    <view wx:else class="btn-primary" bind:tap="onSubmit">创建产品并生成问卷</view>
+  </view>
+</view>

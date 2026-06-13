@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "历史档案",
+  "usingComponents": {
+    "avatar": "/components/avatar/avatar",
+    "badge": "/components/badge/badge",
+    "brand-loading": "/components/brand-loading/brand-loading"
+  }
+}

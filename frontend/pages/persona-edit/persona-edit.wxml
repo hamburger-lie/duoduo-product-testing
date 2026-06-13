@@ -1,0 +1,57 @@
+<view class="page">
+
+  <view wx:if="{{loading}}" class="state-center">
+    <brand-loading size="large"></brand-loading>
+  </view>
+
+  <view wx:else class="form">
+
+    <view class="section-card">
+      <view class="field">
+        <view class="field-label">所属群类标签</view>
+        <input class="field-input" value="{{form.persona_tag}}" data-field="persona_tag" bindinput="onInput" placeholder="例：Z世代精致女生" maxlength="20"/>
+      </view>
+    </view>
+
+    <view class="section-card">
+      <view class="field">
+        <view class="field-label">年龄</view>
+        <input class="field-input" type="number" value="{{form.age}}" bindinput="onAgeInput" placeholder="25"/>
+      </view>
+      <view class="field">
+        <view class="field-label">性别</view>
+        <picker mode="selector" range="{{genderLabels}}" value="{{genderIndex}}" bindchange="onGenderChange">
+          <view class="picker-val">{{genderLabels[genderIndex]}} ›</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="field-label">城市</view>
+        <input class="field-input" value="{{form.city}}" data-field="city" bindinput="onInput" placeholder="例：上海" maxlength="20"/>
+      </view>
+      <view class="field">
+        <view class="field-label">职业</view>
+        <input class="field-input" value="{{form.occupation}}" data-field="occupation" bindinput="onInput" placeholder="例：互联网运营" maxlength="30"/>
+      </view>
+      <view class="field">
+        <view class="field-label">月收入（元）</view>
+        <input class="field-input" type="number" value="{{form.income_monthly}}" bindinput="onIncomeInput" placeholder="8000"/>
+      </view>
+    </view>
+
+    <view class="section-card">
+      <view class="field field-col">
+        <view class="field-label">简介</view>
+        <textarea
+          class="field-textarea"
+          value="{{form.bio}}"
+          data-field="bio"
+          bindinput="onInput"
+          placeholder="描述这位测品官的消费习惯、性格特点、购买触发点、常见顾虑和真实表达方式…"
+          maxlength="1200"
+          auto-height
+        />
+      </view>
+    </view>
+
+  </view>
+</view>

@@ -1,0 +1,63 @@
+<view class="page">
+
+  <!-- Header -->
+  <view class="header">
+    <view class="header-title">产品定制服务</view>
+    <view class="header-sub">专业团队为您量身定制品测方案</view>
+  </view>
+
+  <!-- Contact card -->
+  <view class="section-title">直接联系我们</view>
+  <view class="contact-card">
+    <view class="contact-row" bind:tap="onTapPhone" data-phone="13006879820">
+      <view class="contact-icon contact-icon--phone"></view>
+      <text class="contact-number">130 0687 9820</text>
+    </view>
+    <view class="contact-divider"></view>
+    <view class="contact-row" bind:tap="onTapPhone" data-phone="19878712406">
+      <view class="contact-icon contact-icon--phone"></view>
+      <text class="contact-number">198 7871 2406</text>
+    </view>
+  </view>
+
+  <!-- Form -->
+  <view class="section-title">留下需求，我们来联系你</view>
+
+  <view wx:if="{{!submitted}}" class="form-card">
+    <view class="field">
+      <text class="field-label">姓名 <text class="required">*</text></text>
+      <input class="field-input" placeholder="请输入您的姓名" value="{{name}}" bindinput="onInputName" />
+    </view>
+    <view class="field">
+      <text class="field-label">联系方式 <text class="required">*</text></text>
+      <input class="field-input" placeholder="手机号或微信号，方便我们与您联系" value="{{phone}}" bindinput="onInputPhone" />
+    </view>
+    <view class="field">
+      <text class="field-label">公司 / 品牌 <text class="required">*</text></text>
+      <input class="field-input" placeholder="请输入公司或品牌名称" value="{{company}}" bindinput="onInputCompany" />
+    </view>
+    <view class="field field--textarea">
+      <text class="field-label">需求描述 <text class="required">*</text></text>
+      <textarea
+        class="field-textarea"
+        placeholder="请描述您的产品定制需求，如品类、测试目标、预算等"
+        value="{{requirement}}"
+        bindinput="onInputRequirement"
+        maxlength="500"
+        auto-height
+      />
+    </view>
+    <button class="submit-btn {{submitting ? 'submit-btn--loading' : ''}}" bind:tap="onTapSubmit">
+      {{submitting ? '提交中…' : '提交需求'}}
+    </button>
+  </view>
+
+  <!-- Success state -->
+  <view wx:else class="success-card">
+    <view class="success-icon"></view>
+    <text class="success-title">需求已收到</text>
+    <text class="success-sub">我们将在 1 个工作日内与您联系</text>
+    <view class="success-btn" bind:tap="onTapReset">再提交一条</view>
+  </view>
+
+</view>

@@ -1,0 +1,380 @@
+.bs {
+  display: flex;
+  gap: 16rpx;
+  align-items: flex-start;
+  margin: 16rpx 32rpx;
+}
+.bs-self { justify-content: flex-end; }
+
+.bs-col {
+  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+}
+.bs-name {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-bottom: 8rpx;
+}
+
+/* ── 普通气泡（追问 SSE 模式） ────────────────────────── */
+.bs-bubble {
+  font-size: 28rpx;
+  line-height: 1.6;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  color: var(--text-primary);
+  padding: 20rpx 24rpx;
+  border-radius: 24rpx;
+  border-top-left-radius: 6rpx;
+}
+.bs-self .bs-bubble {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+  border-radius: 24rpx;
+  border-top-right-radius: 6rpx;
+}
+
+/* ── 结构化 Q&A 卡片 ─────────────────────────────────── */
+.bs-qa-card {
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  border-radius: 24rpx;
+  border-top-left-radius: 6rpx;
+  overflow: hidden;
+}
+
+/* 通用区块标题行 */
+.bs-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 14rpx;
+}
+.bs-section-label {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* ── TA 的内心想法 ─────────────────────────── */
+.bs-thoughts-section {
+  padding: 24rpx 24rpx 20rpx;
+  border-bottom: 1rpx solid var(--border);
+}
+.bs-icon-thought {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.bs-thought-text {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.65;
+}
+
+/* ── 逐题回答 ──────────────────────────────── */
+.bs-answers-section {
+  padding: 20rpx 24rpx 4rpx;
+}
+.bs-section-title-answers {
+  margin-bottom: 18rpx;
+}
+.bs-icon-list {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='8' y1='6' x2='21' y2='6'/%3E%3Cline x1='8' y1='12' x2='21' y2='12'/%3E%3Cline x1='8' y1='18' x2='21' y2='18'/%3E%3Cpolyline points='3 6 4 7 6 5'/%3E%3Cpolyline points='3 12 4 13 6 11'/%3E%3Cpolyline points='3 18 4 19 6 17'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* 每题容器 */
+.bs-qa-item {
+  padding-bottom: 20rpx;
+}
+.bs-qa-item-sep {
+  border-top: 1rpx solid var(--border);
+  margin-top: 4rpx;
+  padding-top: 20rpx;
+}
+
+/* 题目标题行 */
+.bs-q-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 10rpx;
+}
+.bs-q-num {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+.bs-q-text {
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* 思考/理由（可折叠） */
+.bs-reason-wrap {
+  margin: 12rpx 0 4rpx;
+  padding: 10rpx 14rpx;
+  border-radius: 10rpx;
+  background: rgba(0, 0, 0, 0.025);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0;
+  min-width: 0;
+}
+.bs-reason-label {
+  font-size: 22rpx;
+  color: var(--accent);
+  font-weight: 600;
+  line-height: 1.55;
+}
+.bs-reason-body {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.bs-reason-text {
+  display: block;
+  min-width: 0;
+  font-size: 24rpx;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.bs-reason-preview {
+  max-width: calc(100% - 34rpx);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+  font-size: 24rpx;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.bs-reason-arrow,
+.bs-answer-preview-arrow {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: var(--accent);
+  font-weight: 700;
+  margin-left: 6rpx;
+  width: 28rpx;
+  height: 28rpx;
+  line-height: 28rpx;
+  text-align: center;
+}
+.bs-reason-toggle {
+  display: block;
+  grid-column: 2;
+  width: 28rpx;
+  height: 28rpx;
+  line-height: 28rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--accent);
+  font-weight: 800;
+  margin-top: 4rpx;
+}
+
+.bs-arrow-down {
+  display: inline-block;
+  transform: rotate(90deg);
+  transform-origin: center;
+}
+
+.bs-answer-toggle-bottom,
+.bs-content-toggle {
+  margin-left: auto;
+  font-size: 22rpx;
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.bs-answer-toggle-bottom {
+  display: block;
+  width: 34rpx;
+  height: 34rpx;
+  margin: 8rpx 0 16rpx auto;
+  padding: 8rpx;
+  border-radius: 999rpx;
+  background: rgba(123, 111, 168, 0.1);
+  line-height: 34rpx;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 800;
+}
+
+.bs-answer-preview {
+  background: var(--bg-page);
+  border-radius: 12rpx;
+  padding: 14rpx 18rpx;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.bs-answer-preview-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bs-answer-preview-dots {
+  flex-shrink: 0;
+  font-size: 26rpx;
+  color: var(--text-muted);
+}
+
+/* 回答卡片 */
+.bs-scale-row,
+.bs-ans-bubble {
+  margin-top: 8rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 12rpx;
+  background: #fff;
+  border: 1rpx solid rgba(123, 111, 168, 0.18);
+}
+.bs-ans-bubble {
+  display: block;
+}
+.bs-scale-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
+}
+.bs-scale-title {
+  font-size: 23rpx;
+  color: var(--accent);
+  font-weight: 700;
+}
+.bs-ans-title {
+  display: block;
+  font-size: 23rpx;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+.bs-ans-text {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+.bs-scale-value {
+  font-size: 24rpx;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.bs-scale-dots {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+.bs-scale-dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--border);
+  background: transparent;
+}
+.bs-scale-dot-filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.bs-scale-label {
+  font-size: 22rpx;
+  color: var(--text-sub);
+  margin-left: 4rpx;
+}
+
+/* 答案气泡 */
+.bs-ans-bubble {
+  background: var(--bg-page);
+  border-radius: 12rpx;
+  padding: 14rpx 18rpx;
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin-top: 4rpx;
+}
+
+/* ── 普通模式思考区 ───────────────────────── */
+.bs-think-wrap { margin-bottom: 2rpx; }
+.bs-think-header {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 8rpx 0 6rpx;
+}
+.bs-think-dot-row {
+  display: flex;
+  gap: 5rpx;
+  align-items: center;
+  flex-shrink: 0;
+}
+.bs-think-dot {
+  width: 7rpx;
+  height: 7rpx;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.45;
+}
+.bs-think-label {
+  font-size: 21rpx;
+  color: var(--text-muted);
+  flex: 1;
+}
+.bs-think-toggle {
+  font-size: 22rpx;
+  color: var(--accent);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.bs-think-text {
+  display: block;
+  font-size: 21rpx;
+  color: var(--text-muted);
+  line-height: 1.55;
+  font-style: italic;
+  padding-bottom: 6rpx;
+}
+.bs-one-line-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bs-divider {
+  height: 1rpx;
+  background: var(--border);
+  margin: 10rpx 0 12rpx;
+}
+.bs-content {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+.bs-content-toggle {
+  display: block;
+  width: fit-content;
+  margin: 8rpx 0 0 auto;
+  text-align: right;
+}

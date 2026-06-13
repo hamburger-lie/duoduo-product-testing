@@ -1,0 +1,159 @@
+<view class="loading-page" wx:if="{{loading}}">
+  <view class="loading-dot-row">
+    <view class="dot1"></view><view class="dot2"></view><view class="dot3"></view>
+  </view>
+  <text class="loading-text">正在连接测品官…</text>
+</view>
+
+<view class="page" wx:if="{{!loading}}">
+
+  <!-- 顶部：产品名 -->
+  <view class="chat-header">
+    <view class="ch-title-row">
+      <text class="ch-product">{{displayTitle || '产品调研'}}</text>
+      <view wx:if="{{conversationId && autoPlayDone}}" class="ch-delete-btn" bind:tap="onDeleteConversation">
+        <view class="ch-delete-icon"></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 消息流：流式输出时按内容真实高度递增 scroll-top -->
+  <scroll-view
+    class="messages"
+    scroll-y="{{true}}"
+    scroll-top="{{scrollTop}}"
+    scroll-with-animation="{{false}}"
+    enhanced="{{true}}"
+    lower-threshold="100"
+    bindscroll="onScroll"
+    bindtouchstart="onScrollTouchStart"
+    bindtouchmove="onScrollTouchMove"
+    bindscrolltolower="onScrollToLower"
+  >
+    <view id="messages-inner" class="messages-inner">
+      <block wx:for="{{turns}}" wx:key="id">
+        <view id="turn-{{item.id}}">
+
+          <!-- 评测状态气泡（进行中） -->
+          <view wx:if="{{item.kind === 'status'}}" class="eval-status-bubble">
+            <view class="eval-sb-top">
+              <view wx:if="{{item.evalStatus !== 'done' && item.evalStatus !== 'failed'}}" class="eval-sb-dots">
+                <view class="esb-dot ed1"></view>
+                <view class="esb-dot ed2"></view>
+                <view class="esb-dot ed3"></view>
+              </view>
+              <text class="eval-sb-msg">{{item.content}}</text>
+            </view>
+            <view class="eval-sb-track">
+              <view class="eval-sb-fill" style="width:{{item.evalProgress}}%"></view>
+            </view>
+            <text class="eval-sb-pct">{{item.evalProgress || 0}}% / 100%</text>
+          </view>
+
+          <!-- 分隔线 -->
+          <view wx:elif="{{item.kind === 'topic_switch'}}" class="ts-bar">
+            <view class="ts-line"></view>
+            <text class="ts-text">{{item.topic_from}} → {{item.topic_to}}</text>
+            <view class="ts-line"></view>
+          </view>
+
+          <!-- AI 气泡：固定头像 + 单气泡（思考 + 表达）；点击头像可单独追问 -->
+          <bubble-speak
+            wx:elif="{{item.kind === 'speak'}}"
+            personaKey="{{item.persona_key || personaKey}}"
+            personaName="{{item.persona_name}}"
+            personaId="{{item.persona_id || ''}}"
+            avatarSlot="{{item.avatarSlot || 0}}"
+            summaryComment="{{item.summaryComment || ''}}"
+            qaItems="{{item.qaItems || []}}"
+            defaultQaAnswersCollapsed="{{item.qaAnswersCollapsed || false}}"
+            thinkContent="{{item.thinkContent || ''}}"
+            content="{{item.content}}"
+            bind:avatarTap="onAvatarTap"
+          />
+
+          <!-- 用户消息（右侧） -->
+          <bubble-speak
+            wx:elif="{{item.kind === 'user'}}"
+            self="{{true}}"
+            content="{{item.content}}"
+          />
+
+        </view>
+      </block>
+      <view class="bottom-spacer"></view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{autoPlay && !autoPlayDone && !pausedFollow}}" class="scroll-guide">
+    <view class="scroll-guide-btn" bind:tap="onScrollGuideUp">
+      <view class="scroll-guide-arrow up"></view>
+    </view>
+    <view class="scroll-guide-line"></view>
+    <view class="scroll-guide-btn" bind:tap="onScrollGuideDown">
+      <view class="scroll-guide-arrow down"></view>
+    </view>
+  </view>
+
+  <!-- 暂停跟随提示：用户上划时出现，点击跳回最新 -->
+  <view wx:if="{{pausedFollow}}" class="back-to-bottom" bind:tap="onBackToBottom">
+    <view class="btb-icon"></view>
+    <text class="btb-label">跳到最新</text>
+  </view>
+
+  <!-- 追问提示 tip（点击头像追问） -->
+  <view wx:if="{{showFollowUpTip && autoPlayDone}}" class="follow-tip">
+    <view class="follow-tip-icon"></view>
+    <text class="follow-tip-text">点击角色头像可直接发起一对一追问</text>
+  </view>
+
+  <!-- 调研完成弹窗 -->
+  <view wx:if="{{showFollowUpModal}}" class="follow-modal-mask" bind:tap="onCloseFollowUpModal">
+    <view class="follow-modal" catch:tap="noop">
+      <text class="follow-modal-title">调研已完成</text>
+      <text class="follow-modal-sub">可以选择一个角色继续追问，也可以直接生成完整报告</text>
+      <view class="follow-persona-row">
+        <view
+          wx:for="{{followUpPersonas}}"
+          wx:key="id"
+          class="follow-persona-chip"
+          data-id="{{item.id}}"
+          bind:tap="onTapFollowUpPersona"
+        >
+          <image class="follow-persona-avatar" src="{{item.avatarSrc}}" mode="aspectFill" />
+          <text class="follow-persona-name">{{item.tag}}</text>
+        </view>
+      </view>
+      <view class="follow-modal-actions">
+        <view class="follow-modal-cancel" bind:tap="onCloseFollowUpModal">稍后再选</view>
+        <view class="follow-modal-report" bind:tap="onTapReport">直接生成报告</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 报告入口 -->
+  <view wx:if="{{showReportBtn}}"
+    class="report-cta report-cta-ready"
+    bind:tap="onTapReport">
+    <view class="report-cta-icon"></view>
+    <view class="report-cta-body">
+      <text class="report-cta-title">查看完整调研报告</text>
+      <text class="report-cta-sub">AI 分析报告已就绪</text>
+    </view>
+    <text class="report-cta-arrow">›</text>
+  </view>
+
+  <!-- 输入栏 -->
+  <view class="input-bar {{autoPlay && !autoPlayDone ? 'input-bar-wait' : ''}}">
+    <input
+      class="input"
+      placeholder="{{autoPlay && !autoPlayDone ? '等待测品官填写问卷…' : '继续追问…'}}"
+      value="{{inputValue}}"
+      bindinput="onInputChange"
+      confirm-type="send"
+      bindconfirm="onSend"
+      disabled="{{sending || (autoPlay && !autoPlayDone)}}"
+    />
+    <view class="send-btn {{(sending || (autoPlay && !autoPlayDone)) ? 'disabled' : ''}}" bind:tap="onSend">→</view>
+  </view>
+</view>

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "确认调研方案",
+  "usingComponents": {
+    "brand-loading": "/components/brand-loading/brand-loading"
+  }
+}

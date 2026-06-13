@@ -1,0 +1,27 @@
+# Prometheus configuration for duoduo-product-testing
+# Mount this file to /etc/prometheus/prometheus.yml in the Prometheus container
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  - job_name: "duoduo-api"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          service: "duoduo-api"
+
+  # If using Redis exporter (optional)
+  # - job_name: "redis"
+  #   static_configs:
+  #     - targets: ["redis-exporter:9121"]
+
+  # If using PostgreSQL exporter (optional)
+  # - job_name: "postgres"
+  #   static_configs:
+  #     - targets: ["postgres-exporter:9187"]

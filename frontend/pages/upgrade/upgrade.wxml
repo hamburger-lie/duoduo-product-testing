@@ -1,0 +1,70 @@
+<scroll-view class="page" scroll-y>
+
+  <!-- Header + Price panel -->
+  <view class="header-panel">
+    <text class="header-title">Plus 会员</text>
+    <view class="price-main">
+      <text class="price-currency">¥</text>
+      <text class="price-amount">199</text>
+      <text class="price-unit">/ 年</text>
+    </view>
+  </view>
+
+  <!-- Benefits + persona comparison -->
+  <view class="section-card">
+    <view class="section-title">Plus 会员权益</view>
+    <view class="benefit-item">
+      <view class="benefit-icon bi-unlock"></view>
+      <view class="benefit-body">
+        <text class="benefit-name">解锁全部 32 位测品官</text>
+        <text class="benefit-desc">覆盖多元消费群体</text>
+      </view>
+    </view>
+    <view class="benefit-item">
+      <view class="benefit-icon bi-chart"></view>
+      <view class="benefit-body">
+        <text class="benefit-name">更精准的消费画像覆盖</text>
+        <text class="benefit-desc">从 5 种人群扩展到 32 种，测评结果更全面、更有说服力</text>
+      </view>
+    </view>
+    <view class="compare-divider-h"></view>
+    <view class="section-title" style="margin-bottom:20rpx;">覆盖人群对比</view>
+    <view class="compare-row">
+      <view class="compare-col">
+        <text class="compare-label">普通用户</text>
+        <text class="compare-count">5 种</text>
+      </view>
+      <view class="compare-mid-divider"></view>
+      <view class="compare-col">
+        <text class="compare-label">Plus 会员</text>
+        <text class="compare-count plus-count">32 种</text>
+      </view>
+    </view>
+
+    <!-- Free personas -->
+    <text class="tier-label">免费可用</text>
+    <view wx:for="{{freePersonas}}" wx:key="id" class="persona-row">
+      <avatar personaKey="{{item.avatar}}" personaId="{{item.id}}" avatarSlot="{{item.avatarSlot}}" size="{{64}}" />
+      <text class="p-tag">{{item.personaTag}}</text>
+    </view>
+
+    <!-- Plus personas -->
+    <text class="tier-label plus-tier-label">Plus 解锁</text>
+    <view wx:for="{{plusPersonas}}" wx:key="id" class="persona-row persona-row-locked">
+      <avatar personaKey="{{item.avatar}}" personaId="{{item.id}}" avatarSlot="{{item.avatarSlot}}" size="{{64}}" />
+      <text class="p-tag p-tag-locked">{{item.personaTag}}</text>
+      <view class="p-lock-icon"></view>
+    </view>
+  </view>
+
+  <view style="height: 180rpx;"></view>
+</scroll-view>
+
+<!-- Fixed bottom CTA -->
+<view class="bottom-bar">
+  <view class="cta-btn {{isPlus ? 'cta-disabled' : ''}}" bind:tap="onTapUpgrade">
+    <text wx:if="{{isPlus}}">您已是 Plus 会员</text>
+    <text wx:else>立即升级</text>
+  </view>
+  <view class="bottom-safe"></view>
+</view>

@@ -1,0 +1,55 @@
+.page {
+  min-height: 100vh;
+  background: #F5F5F5;
+  box-sizing: border-box;
+}
+
+.privacy-scroll {
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 32rpx 80rpx;
+}
+
+.privacy-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 36rpx 32rpx;
+  box-sizing: border-box;
+}
+
+.privacy-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+  line-height: 1.4;
+}
+
+.privacy-updated {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #999999;
+  line-height: 1.5;
+}
+
+.privacy-section {
+  padding: 32rpx 0;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+.privacy-section-last {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.privacy-heading {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+  line-height: 1.4;
+}
+
+.privacy-text {
+  margin-top: 14rpx;
+  font-size: 28rpx;
+  color: #4A4A4A;
+  line-height: 1.75;
+}

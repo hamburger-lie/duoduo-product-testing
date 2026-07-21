@@ -479,6 +479,19 @@ async def _run_evaluation_locked(
             )
             await _create_followup_webhook_event(evaluation_id=evaluation_id)
 
+            # 评测完成 -> 聚合分数写入品类常模池（失败不阻断主流程）
+            if evaluation.status == "done":
+                try:
+                    await _record_category_norm(session=session, evaluation=evaluation)
+                except Exception:
+                    logger.exception(
+                        "category_norm_record_failed",
+                        extra={
+                            "event": "category_norm_record_failed",
+                            "evaluation_id": evaluation_id,
+                        },
+                    )
+
             # Trigger async report pre-generation when evaluation succeeds
             if evaluation.status == "done":
                 try:
@@ -711,6 +724,30 @@ def _finalize_evaluation(
     evaluation.error_message = (
         "All persona answers failed" if evaluation.status == "failed" else None
     )
+
+
+async def _record_category_norm(*, session: object, evaluation: object) -> None:
+    """把完成评测的聚合分数写入品类常模池（幂等，调用方负责异常兜底）。"""
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.db.models.evaluation import Evaluation
+    from app.db.models.product import Product
+    from app.db.repositories.answer import AnswerRepository
+    from app.services.norm_service import NormService
+
+    assert isinstance(session, AsyncSession)
+    assert isinstance(evaluation, Evaluation)
+    answers = await AnswerRepository(session).list_by_evaluation_id(
+        evaluation_id=evaluation.id,
+    )
+    product = await session.get(Product, evaluation.product_id)
+    await NormService(session).record_evaluation(
+        evaluation=evaluation,
+        product=product,
+        answers=answers,
+    )
+    await session.commit()
 
 
 async def _create_followup_webhook_event(*, evaluation_id: int) -> None:

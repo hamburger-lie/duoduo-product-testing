@@ -425,6 +425,29 @@ class EvaluationService:
                 "to_status": evaluation.status,
             },
         )
+
+        # 评测完成 -> 聚合分数写入品类常模池（失败不阻断主流程）
+        if evaluation.status == "done":
+            try:
+                from app.services.norm_service import NormService
+
+                all_answers = await self.answers.list_by_evaluation_id(
+                    evaluation_id=evaluation.id,
+                )
+                await NormService(self.session).record_evaluation(
+                    evaluation=evaluation,
+                    product=product,
+                    answers=all_answers,
+                )
+            except Exception:
+                logger.exception(
+                    "category_norm_record_failed",
+                    extra={
+                        "event": "category_norm_record_failed",
+                        "evaluation_id": evaluation.id,
+                    },
+                )
+
         await self.session.commit()
 
         # Fire-and-forget: pre-generate per-dimension analysis so the report radar

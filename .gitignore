@@ -57,3 +57,6 @@ $RECYCLE.BIN/
 .idea/
 .vscode/
 *.swp
+
+# 运行时诊断输出
+backend/tmp/

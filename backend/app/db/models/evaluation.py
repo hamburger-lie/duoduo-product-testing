@@ -34,6 +34,12 @@ class Evaluation(Base, BaseModelMixin):
         nullable=False,
         default=list,
     )
+    # 预留：基准品对照评测（同一批角色同时测基准品，报告输出差值）。当前流程未使用。
+    benchmark_product_ids: Mapped[JsonList] = mapped_column(
+        JSONB_TYPE,
+        nullable=False,
+        default=list,
+    )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     progress: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     credit_cost: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -110,6 +110,24 @@ class SegmentDimensionItem(BaseModel):
     dims: dict[str, float | None]
 
 
+class CategoryNormMetrics(BaseModel):
+    """本品 vs 同品类常模池的位置（norm-referenced scoring）。
+
+    购买意向的绝对分跨品类不可比（牛奶天然高分、精华天然被挑剔），
+    因此报告同时输出「同品类百分位」。status="insufficient" 表示该品类
+    历史评测还不够，percentile 为 null，前端应展示样本积累提示而非分数。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: str
+    status: str  # "ok" | "insufficient"
+    norm_sample_size: int
+    norm_avg: float | None = None
+    percentile: float | None = None
+    delta_vs_norm: float | None = None
+
+
 class ReportMetrics(BaseModel):
     """All report metrics."""
 
@@ -122,6 +140,8 @@ class ReportMetrics(BaseModel):
     # Backward compatible: stored reports without these fields still validate.
     segment_dimensions: list[SegmentDimensionItem] = []
     sample_size: int = 0
+    # 每次读取报告时实时计算（常模池在增长，百分位随之更新），不落库。
+    category_norm: CategoryNormMetrics | None = None
 
 
 class QuoteItem(BaseModel):

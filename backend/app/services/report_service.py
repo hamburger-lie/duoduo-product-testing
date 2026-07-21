@@ -33,6 +33,7 @@ from app.schemas.report import (
     BusinessReportMetrics,
     BusinessReportResponse,
     BusinessTargetAudience,
+    CategoryNormMetrics,
     DeepAnalysisResponse,
     DeepAnalysisSectionItem,
     DeepInsightArticle,
@@ -246,6 +247,10 @@ class ReportService:
                 answer_rows, personas, qid_to_dim
             ),
             sample_size=len(answer_rows),
+        )
+        await self._attach_category_norm(
+            evaluation_id=evaluation.id,
+            metrics=metrics,
         )
 
         if existing_for_dims is not None:
@@ -1444,7 +1449,46 @@ class ReportService:
             persona_segments = PersonaSegments(
                 most_positive=[], most_negative=[], highest_value=[],
             )
+        # 常模池随评测增长，百分位每次读取时实时计算，覆盖落库快照
+        await self._attach_category_norm(
+            evaluation_id=report.evaluation_id,
+            metrics=metrics,
+        )
         return self._build_response(report, metrics, top_pros, top_cons, persona_segments)
+
+    async def _attach_category_norm(
+        self,
+        *,
+        evaluation_id: int,
+        metrics: ReportMetrics,
+    ) -> None:
+        """计算本品在同品类常模池中的百分位并写入 metrics（失败时静默降级）。
+
+        解决「牛奶/水果天然高分、复杂产品天然被挑剔」的跨品类不可比问题：
+        绝对分之外，报告同时给出 norm-referenced 的相对位置。
+        """
+
+        try:
+            from app.services.norm_service import NormService
+
+            evaluation = await self.session.get(Evaluation, evaluation_id)
+            if evaluation is None:
+                return
+            product = await self.session.get(Product, evaluation.product_id)
+            norm = await NormService(self.session).category_percentile(
+                category=product.category if product else None,
+                product_id=evaluation.product_id,
+                intent_avg=float(metrics.overall_intent.average),
+            )
+            metrics.category_norm = CategoryNormMetrics.model_validate(norm)
+        except Exception:
+            logger.exception(
+                "category_norm_attach_failed",
+                extra={
+                    "event": "category_norm_attach_failed",
+                    "evaluation_id": evaluation_id,
+                },
+            )
 
     def _build_response(
         self,

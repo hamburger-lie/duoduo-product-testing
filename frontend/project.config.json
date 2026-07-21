@@ -60,7 +60,7 @@
     "disableSWC": true
   },
   "compileType": "miniprogram",
-  "libVersion": "3.4.0",
+  "libVersion": "3.16.0",
   "appid": "wx81beb2cf47c0ebfb",
   "projectname": "cepinguan-miniprogram",
   "condition": {},

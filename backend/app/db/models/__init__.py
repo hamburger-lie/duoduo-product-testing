@@ -2,6 +2,7 @@
 
 from app.ai.memory import PersonaMemory
 from app.db.models.answer import Answer
+from app.db.models.category_norm import CategoryNorm
 from app.db.models.conversation import Conversation, ConversationMessage
 from app.db.models.credit import CreditTransaction
 from app.db.models.customize_request import CustomizeRequest
@@ -37,4 +38,5 @@ def load_all_models() -> tuple[type[object], ...]:
         PlusOrder,
         CustomizeRequest,
         UserActivityEvent,
+        CategoryNorm,
     )
